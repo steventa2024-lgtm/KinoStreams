@@ -115,7 +115,7 @@ export function VideoPlayer({
     globalProxyMode === 'always' || Boolean(referrer || activeSource?.referrer)
   );
   const [adShield, setAdShield] = useState<boolean>(true);
-  const [strictSandbox, setStrictSandbox] = useState<boolean>(true);
+  const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
   const [clickGuardActive, setClickGuardActive] = useState<boolean>(false);
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(true);
@@ -599,7 +599,7 @@ export function VideoPlayer({
               title={title}
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-              referrerPolicy={strictSandbox || adShield ? 'no-referrer' : 'strict-origin-when-cross-origin'}
+              referrerPolicy="no-referrer"
               sandbox={
                 strictSandbox
                   ? 'allow-scripts allow-same-origin allow-forms allow-presentation'
@@ -1102,7 +1102,7 @@ export function VideoPlayer({
                       <button
                         type="button"
                         onClick={() => setStrictSandbox((s) => !s)}
-                        title="Force strict iframe sandbox (some embed players block sandboxed frames)"
+                        title="Toggle strict iframe sandbox (many embed players block sandboxed frames)"
                         className={cn(
                           'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
                           strictSandbox
@@ -1110,7 +1110,7 @@ export function VideoPlayer({
                             : 'border-white/[0.08] text-[#71717A] hover:text-[#FAFAFA]'
                         )}
                       >
-                        {strictSandbox ? 'Sandbox: ON' : 'Sandbox: OFF'}
+                        {strictSandbox ? 'Strict Sandbox: On' : 'Strict Sandbox: Off'}
                       </button>
                     </>
                   )}
