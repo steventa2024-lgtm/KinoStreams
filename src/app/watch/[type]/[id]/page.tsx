@@ -164,6 +164,7 @@ function WatchViewContent() {
   const [loadingEpisodes, setLoadingEpisodes] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [pastedSources, setPastedSources] = useState<StreamSource[]>([]);
+  const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
 
   // Restore saved season/episode/timestamp & anime SUB/DUB preference
   useEffect(() => {
@@ -274,6 +275,66 @@ function WatchViewContent() {
     };
   }, [isChannelType, mediaId, mediaType]);
 
+  // Probe server-side direct HLS/MP4 resolver in background (never blocks embed playback)
+  useEffect(() => {
+    if (isChannelType || !mediaId) {
+      setResolvedDirectSources([]);
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+
+    const tmdbType = mediaType === 'series' ? 'tv' : 'movie';
+    const params = new URLSearchParams({
+      id: mediaId,
+      type: tmdbType,
+      season: String(selectedSeason),
+      episode: String(selectedEpisode),
+    });
+    if (mediaDetails?.tmdbId) {
+      params.set('tmdbId', String(mediaDetails.tmdbId));
+    }
+    if (mediaDetails?.streamUrl) {
+      params.set('url', mediaDetails.streamUrl);
+    }
+
+    fetch(`/api/stream/resolve?${params.toString()}`, {
+      signal: controller.signal,
+      cache: 'no-store',
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { resolved?: boolean; streams?: StreamSource[] } | null) => {
+        if (!active) return;
+        if (data?.resolved && Array.isArray(data.streams) && data.streams.length > 0) {
+          setResolvedDirectSources(data.streams);
+        } else {
+          setResolvedDirectSources([]);
+        }
+      })
+      .catch(() => {
+        if (active) setResolvedDirectSources([]);
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+      });
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [
+    isChannelType,
+    mediaId,
+    mediaType,
+    selectedSeason,
+    selectedEpisode,
+    mediaDetails?.tmdbId,
+    mediaDetails?.streamUrl,
+  ]);
+
   // Fetch season episodes for series
   useEffect(() => {
     if (mediaType !== 'series' || !mediaId) return;
@@ -381,13 +442,19 @@ function WatchViewContent() {
     const combined: StreamSource[] = [...pastedSources];
 
     if (activeChannel) {
+      const chUrl = activeChannel.url;
+      const chFormat = chUrl.toLowerCase().includes('.mp4')
+        ? 'mp4'
+        : /\/embed\/|\.html($|\?)/i.test(chUrl) && !chUrl.toLowerCase().includes('.m3u8')
+        ? 'embed'
+        : 'hls';
       combined.push({
         id: activeChannel.id,
         name: activeChannel.name,
         label: activeChannel.quality || 'LIVE HLS',
         quality: activeChannel.quality || 'Live',
-        format: activeChannel.url.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
-        url: activeChannel.url,
+        format: chFormat,
+        url: chUrl,
         referrer: activeChannel.referrer,
         isDefault: combined.length === 0,
       });
@@ -399,13 +466,19 @@ function WatchViewContent() {
         const isPicked = selectedMatchedFeedId
           ? feed.channel.id === selectedMatchedFeedId
           : idx === 0;
+        const feedUrl = feed.channel.url;
+        const feedFormat = feedUrl.toLowerCase().includes('.mp4')
+          ? 'mp4'
+          : /\/embed\/|\.html($|\?)/i.test(feedUrl) && !feedUrl.toLowerCase().includes('.m3u8')
+          ? 'embed'
+          : 'hls';
         combined.push({
           id: `match-ch-${feed.channel.id}`,
           name: feed.channel.name,
           label: feed.channel.quality || 'LIVE',
           quality: feed.channel.quality || 'Live',
-          format: feed.channel.url.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
-          url: feed.channel.url,
+          format: feedFormat,
+          url: feedUrl,
           referrer: feed.channel.referrer,
           isDefault: combined.length === 0 && isPicked,
         });
@@ -433,6 +506,7 @@ function WatchViewContent() {
         season: selectedSeason,
         episode: selectedEpisode,
         directUrl: mediaDetails.streamUrl,
+        resolvedDirectSources,
         preferredResolverId: getPreferredVodResolver(),
         isAnime: isAnimeSeries,
       });
@@ -442,6 +516,7 @@ function WatchViewContent() {
     return combined;
   }, [
     pastedSources,
+    resolvedDirectSources,
     activeChannel,
     sportsMatch,
     matchedMatchFeeds,
@@ -823,10 +898,11 @@ function WatchViewContent() {
                 {showTrailer && mediaDetails?.trailerKey && (
                   <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
                     <iframe
-                      src={`https://www.youtube.com/embed/${mediaDetails.trailerKey}?autoplay=1`}
+                      src={`https://www.youtube.com/embed/${mediaDetails.trailerKey}?autoplay=1&playsinline=1`}
                       title={`${displayTitle} Trailer`}
                       allowFullScreen
-                      allow="autoplay; encrypted-media"
+                      referrerPolicy="no-referrer"
+                      allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
                       className="h-full w-full border-0"
                     />
                   </div>

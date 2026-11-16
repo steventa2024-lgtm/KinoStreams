@@ -200,7 +200,7 @@ export function setProxyMode(mode: ProxyMode): void {
 
 // Preferred VOD Resolver
 export function getPreferredVodResolver(): string {
-  return readJson<string>(BASE_KEYS.VOD_RESOLVER, 'vidsrc-to');
+  return readJson<string>(BASE_KEYS.VOD_RESOLVER, 'vidlink-pro');
 }
 
 export function setPreferredVodResolver(resolverId: string): void {

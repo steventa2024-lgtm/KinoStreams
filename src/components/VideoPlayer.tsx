@@ -9,13 +9,16 @@ import {
   ChevronDown,
   Link2,
   Loader2,
+  Lock,
   Maximize,
   Minimize,
+  MousePointerClick,
   Pause,
   PictureInPicture2,
   Play,
   Radio,
   RefreshCw,
+  Server,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -26,7 +29,12 @@ import {
 } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
 import { updateWatchHistory } from '@/lib/storage';
-import { buildStreamProxyUrl, cn, formatDuration } from '@/lib/utils';
+import {
+  buildStreamProxyUrl,
+  cn,
+  formatDuration,
+  withEmbedAutoplayParams,
+} from '@/lib/utils';
 import type {
   MatchupSummary,
   MediaCategory,
@@ -116,13 +124,19 @@ export function VideoPlayer({
   );
   const [adShield, setAdShield] = useState<boolean>(true);
   const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
-  const [clickGuardActive, setClickGuardActive] = useState<boolean>(false);
+  const [clickGuardActive, setClickGuardActive] = useState<boolean>(true);
+  const [embedMutedAutoplay, setEmbedMutedAutoplay] = useState<boolean>(false);
+  const [embedNonce, setEmbedNonce] = useState<number>(0);
+  const [autoplayMutedBanner, setAutoplayMutedBanner] = useState<boolean>(false);
+  const [shieldNotice, setShieldNotice] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(true);
   const [sourceReady, setSourceReady] = useState(false);
   const [triedSourceIds, setTriedSourceIds] = useState<string[]>([]);
   const [failoverToast, setFailoverToast] = useState<string | null>(null);
   const [muted, setMuted] = useState(false);
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(initialTime || 0);
   const [duration, setDuration] = useState(0);
@@ -149,11 +163,31 @@ export function VideoPlayer({
     setTriedSourceIds([]);
     setSourceReady(false);
     setErrorMsg(null);
+    setAutoplayMutedBanner(false);
+    setShieldNotice(null);
     setAutoNextSeconds(null);
     setAutoNextDismissed(false);
     appliedInitialSeekRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType, season, episode, sourcesSignature]);
+
+  // Detect iOS / Mobile Safari on client mount so cross-origin embeds initiate muted autoplay gracefully
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const isIos =
+      /iPad|iPhone|iPod/i.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIos) {
+      setEmbedMutedAutoplay(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!shieldNotice) return;
+    const t = setTimeout(() => setShieldNotice(null), 2600);
+    return () => clearTimeout(t);
+  }, [shieldNotice]);
 
   useEffect(() => {
     setUseProxy(
@@ -259,6 +293,22 @@ export function VideoPlayer({
     );
   }, []);
 
+  const attemptAutoplay = useCallback(async (videoEl: HTMLVideoElement) => {
+    try {
+      videoEl.muted = mutedRef.current;
+      await videoEl.play();
+      if (!videoEl.muted) {
+        setAutoplayMutedBanner(false);
+      }
+    } catch {
+      // Mobile Safari / browser autoplay policy blocked unmuted playback -> auto-start muted
+      videoEl.muted = true;
+      setMuted(true);
+      setAutoplayMutedBanner(true);
+      videoEl.play().catch(() => undefined);
+    }
+  }, []);
+
   // Initialize HLS / MP4 playback
   useEffect(() => {
     const video = videoRef.current;
@@ -271,6 +321,7 @@ export function VideoPlayer({
     setErrorMsg(null);
     setBuffering(true);
     setSourceReady(false);
+    setAutoplayMutedBanner(false);
     setQualities([]);
     setActiveQuality(-1);
 
@@ -300,7 +351,7 @@ export function VideoPlayer({
 
     if (isMp4) {
       video.src = playbackUrl;
-      video.play().catch(() => undefined);
+      void attemptAutoplay(video);
       return () => {
         cancelled = true;
       };
@@ -325,7 +376,7 @@ export function VideoPlayer({
         setQualities(levels);
         setSourceReady(true);
         setBuffering(false);
-        video.play().catch(() => undefined);
+        void attemptAutoplay(video);
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -348,7 +399,7 @@ export function VideoPlayer({
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = playbackUrl;
-      video.play().catch(() => undefined);
+      void attemptAutoplay(video);
     } else {
       if (!failoverToNextSource()) {
         setErrorMsg('HLS playback is not supported in this browser.');
@@ -371,6 +422,7 @@ export function VideoPlayer({
     userAgent,
     globalProxyMode,
     failoverToNextSource,
+    attemptAutoplay,
   ]);
 
   // Persist Continue Watching progress (including exact season, episode, timestamp & matchup)
@@ -594,8 +646,10 @@ export function VideoPlayer({
         ) : activeSource?.format === 'embed' ? (
           <div className="relative h-full w-full">
             <iframe
-              key={`${activeSource.id}-${activeSource.url}-${adShield ? 'shield' : 'std'}-${strictSandbox ? 'sbx' : 'nosbx'}-${animeAudio}`}
-              src={activeSource.url}
+              key={`${activeSource.id}-${activeSource.url}-${embedMutedAutoplay ? 'muted' : 'audio'}-${embedNonce}-${adShield ? 'shield' : 'std'}-${strictSandbox ? 'sbx' : 'nosbx'}-${animeAudio}`}
+              src={withEmbedAutoplayParams(activeSource.url, {
+                muted: embedMutedAutoplay,
+              })}
               title={title}
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
@@ -618,25 +672,141 @@ export function VideoPlayer({
               className="h-full w-full border-0"
             />
 
-            {/* Optional Invisible Transparent Click-Shield Intercept */}
-            {adShield && clickGuardActive && (
+            {/* Mobile Safari / Muted Autoplay Unmute Pill */}
+            {embedMutedAutoplay && (
               <button
                 type="button"
-                aria-label="Click-Shield active — tap to dismiss shield"
-                onClick={() => setClickGuardActive(false)}
-                className="absolute inset-0 z-20 flex items-end justify-center bg-transparent pb-6 focus:outline-none"
+                onClick={() => {
+                  setEmbedMutedAutoplay(false);
+                  setEmbedNonce((n) => n + 1);
+                }}
+                className="absolute top-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/60 bg-[#09090B]/90 px-4 text-xs font-semibold text-[#E2C275] shadow-xl backdrop-blur-xl transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
               >
-                <span className="rounded-full border border-[#D4AF37]/40 bg-[#09090B]/85 px-4 py-2 text-[11px] font-medium text-[#E2C275] backdrop-blur-md">
-                  Click-Shield Active · Tap to interact with player
-                </span>
+                <VolumeX className="h-4 w-4" />
+                Tap to Unmute
               </button>
+            )}
+
+            {/* Anti-Redirect / Popup Shield Overlay + KinoStream Native HUD Controls */}
+            {adShield && clickGuardActive ? (
+              <>
+                <div
+                  role="presentation"
+                  onClick={() =>
+                    setShieldNotice(
+                      'Redirect Shield Active · Use HUD controls or tap Interact'
+                    )
+                  }
+                  className="absolute inset-0 z-20 cursor-default bg-transparent"
+                />
+
+                {shieldNotice && (
+                  <div className="pointer-events-none absolute bottom-16 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#D4AF37]/40 bg-[#09090B]/90 px-3.5 py-1.5 text-[11px] font-medium text-[#E2C275] shadow-lg backdrop-blur-md">
+                    {shieldNotice}
+                  </div>
+                )}
+
+                <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 bg-gradient-to-t from-[#09090B]/95 via-[#09090B]/60 to-transparent px-3 pt-6 pb-2.5 sm:px-4">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEmbedNonce((n) => n + 1)}
+                      aria-label="Replay / Autoplay embed stream"
+                      title="Restart Autoplay"
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
+                    >
+                      <Play className="ml-0.5 h-4 w-4 fill-current" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmbedMutedAutoplay((m) => !m);
+                        setEmbedNonce((n) => n + 1);
+                      }}
+                      aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
+                      title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#121215]/90 px-3 text-xs font-medium text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/50"
+                    >
+                      {embedMutedAutoplay ? (
+                        <VolumeX className="h-4 w-4 text-[#D4AF37]" />
+                      ) : (
+                        <Volume2 className="h-4 w-4" />
+                      )}
+                      <span className="hidden sm:inline">
+                        {embedMutedAutoplay ? 'Unmute' : 'Audio'}
+                      </span>
+                    </button>
+
+                    {sources.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const curIdx = sources.findIndex(
+                            (s) => s.id === activeSource.id
+                          );
+                          const nextSrc = sources[(curIdx + 1) % sources.length];
+                          if (nextSrc) {
+                            setSelectedSourceId(nextSrc.id);
+                            setSourceReady(false);
+                            setBuffering(true);
+                          }
+                        }}
+                        title="Switch to next server"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#121215]/90 px-3 text-xs font-medium text-[#A1A1AA] backdrop-blur-md transition hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]"
+                      >
+                        <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <span className="hidden sm:inline">Switch Server</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setClickGuardActive(false)}
+                      title="Temporarily allow direct clicks inside the third-party embed player"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#09090B]/90 px-3 text-xs font-medium text-[#E2C275] backdrop-blur-md transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                    >
+                      <MousePointerClick className="h-3.5 w-3.5" />
+                      Interact
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={toggleFullscreen}
+                      aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#121215]/90 text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/50"
+                    >
+                      {isFullscreen ? (
+                        <Minimize className="h-4 w-4" />
+                      ) : (
+                        <Maximize className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              adShield && (
+                <button
+                  type="button"
+                  onClick={() => setClickGuardActive(true)}
+                  className="absolute bottom-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-emerald-500/40 bg-[#09090B]/85 px-3.5 text-[11px] font-semibold text-emerald-300 shadow-lg backdrop-blur-md transition hover:border-[#D4AF37]/60 hover:text-[#E2C275]"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  Lock Shield
+                </button>
+              )
             )}
           </div>
         ) : (
           <>
             <video
               ref={videoRef}
+              autoPlay
               playsInline
+              muted={muted}
               poster={backdrop || poster}
               x-webkit-airplay="allow"
               onClick={togglePlay}
@@ -690,6 +860,9 @@ export function VideoPlayer({
                 }
                 setBuffering(false);
                 setSourceReady(true);
+                if (e.currentTarget.paused) {
+                  void attemptAutoplay(e.currentTarget);
+                }
               }}
               onError={() => {
                 if (!useProxy && globalProxyMode !== 'direct') {
@@ -707,6 +880,30 @@ export function VideoPlayer({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
                 <Loader2 className="h-10 w-10 animate-spin text-[#D4AF37]" />
               </div>
+            )}
+
+            {/* Mobile Safari / Browser Policy Muted Autoplay Unmute Pill */}
+            {(autoplayMutedBanner || muted) && !errorMsg && (
+              <button
+                type="button"
+                onClick={() => {
+                  const v = videoRef.current;
+                  if (v) {
+                    v.muted = false;
+                    if (v.volume === 0) {
+                      v.volume = 1;
+                      setVolume(1);
+                    }
+                    v.play().catch(() => undefined);
+                  }
+                  setMuted(false);
+                  setAutoplayMutedBanner(false);
+                }}
+                className="absolute top-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/60 bg-[#09090B]/90 px-4 text-xs font-semibold text-[#E2C275] shadow-xl backdrop-blur-xl transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+              >
+                <VolumeX className="h-4 w-4" />
+                Tap to Unmute
+              </button>
             )}
 
             {/* Error Overlay */}
@@ -1088,7 +1285,7 @@ export function VideoPlayer({
                       <button
                         type="button"
                         onClick={() => setClickGuardActive((c) => !c)}
-                        title="Toggle transparent click-shield overlay"
+                        title="Toggle transparent popup / redirect shield overlay"
                         className={cn(
                           'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
                           clickGuardActive
@@ -1096,7 +1293,7 @@ export function VideoPlayer({
                             : 'border-white/[0.08] text-[#71717A] hover:text-[#FAFAFA]'
                         )}
                       >
-                        {clickGuardActive ? 'Click-Shield: Locked' : 'Click-Shield'}
+                        {clickGuardActive ? 'Popup Shield: ON' : 'Popup Shield: OFF'}
                       </button>
 
                       <button

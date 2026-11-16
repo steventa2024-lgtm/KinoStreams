@@ -45,7 +45,7 @@ export default function LibraryPage() {
   } = useKino();
 
   const [sources, setSources] = useState<CustomSourceConfig[]>([]);
-  const [preferredResolver, setPreferredResolverState] = useState<string>('vidsrc-to');
+  const [preferredResolver, setPreferredResolverState] = useState<string>('vidlink-pro');
 
   useEffect(() => {
     setSources(getCustomSources());

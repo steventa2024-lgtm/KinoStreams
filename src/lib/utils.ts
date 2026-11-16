@@ -94,3 +94,37 @@ export function sanitizeMediaUrl(raw?: string | null): string | undefined {
     return undefined;
   }
 }
+
+/**
+ * Append explicit autoplay (and optional mute) parameters to any third-party
+ * embed URL without stripping existing theme/player parameters.
+ */
+export function withEmbedAutoplayParams(
+  rawUrl: string,
+  options?: { muted?: boolean }
+): string {
+  try {
+    const url = new URL(rawUrl);
+    if (!url.searchParams.has('autoplay')) {
+      url.searchParams.set('autoplay', '1');
+    }
+    if (!url.searchParams.has('autoPlay')) {
+      url.searchParams.set('autoPlay', 'true');
+    }
+    if (!url.searchParams.has('playsinline')) {
+      url.searchParams.set('playsinline', '1');
+    }
+    if (options?.muted) {
+      url.searchParams.set('mute', '1');
+      url.searchParams.set('muted', 'true');
+    } else if (url.searchParams.has('mute') || url.searchParams.has('muted')) {
+      url.searchParams.set('mute', '0');
+      url.searchParams.set('muted', 'false');
+    }
+    return url.toString();
+  } catch {
+    const sep = rawUrl.includes('?') ? '&' : '?';
+    const muteParams = options?.muted ? '&mute=1&muted=true' : '';
+    return `${rawUrl}${sep}autoplay=1&autoPlay=true&playsinline=1${muteParams}`;
+  }
+}

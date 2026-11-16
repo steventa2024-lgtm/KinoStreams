@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Hls from 'hls.js';
 import { Maximize2, Pause, Play, Radio, Volume2, VolumeX, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
-import { buildStreamProxyUrl } from '@/lib/utils';
+import { buildStreamProxyUrl, withEmbedAutoplayParams } from '@/lib/utils';
 
 export function FloatingMiniPlayer() {
   const { miniPlayer, closeMiniPlayer, updateMiniPlayer } = useKino();
@@ -65,11 +65,22 @@ export function FloatingMiniPlayer() {
     const isMp4 =
       activeSource.format === 'mp4' || /\.mp4(\?|$)/i.test(activeSource.url);
 
+    const tryMiniAutoplay = async () => {
+      try {
+        video.muted = muted;
+        await video.play();
+      } catch {
+        // Mobile Safari fallback: retry muted autoplay if unmuted play is blocked
+        video.muted = true;
+        setMuted(true);
+        video.play().catch(() => undefined);
+      }
+    };
+
     if (isMp4) {
       video.src = playbackUrl;
-      video.muted = muted;
       video.addEventListener('loadedmetadata', seekIfNeeded, { once: true });
-      video.play().catch(() => undefined);
+      void tryMiniAutoplay();
     } else if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -79,15 +90,13 @@ export function FloatingMiniPlayer() {
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.muted = muted;
         seekIfNeeded();
-        video.play().catch(() => undefined);
+        void tryMiniAutoplay();
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = playbackUrl;
-      video.muted = muted;
       video.addEventListener('loadedmetadata', seekIfNeeded, { once: true });
-      video.play().catch(() => undefined);
+      void tryMiniAutoplay();
     }
 
     return () => {
@@ -145,15 +154,17 @@ export function FloatingMiniPlayer() {
       <div className="relative aspect-video w-full bg-black">
         {isEmbed ? (
           <iframe
-            src={activeSource.url}
+            src={withEmbedAutoplayParams(activeSource.url, { muted })}
             title={miniPlayer.title}
-            allow="autoplay; fullscreen; encrypted-media"
+            allowFullScreen
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             referrerPolicy="no-referrer"
             className="h-full w-full border-0"
           />
         ) : (
           <video
             ref={videoRef}
+            autoPlay
             playsInline
             muted={muted}
             onPlay={() => setPlaying(true)}

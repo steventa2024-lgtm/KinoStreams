@@ -1,4 +1,9 @@
-import { FALLBACK_MOVIES, FALLBACK_SERIES } from '@/config/fallback-streams';
+import {
+  FALLBACK_ANIME_MOVIES,
+  FALLBACK_ANIME_SERIES,
+  FALLBACK_MOVIES,
+  FALLBACK_SERIES,
+} from '@/config/fallback-streams';
 import type { StreamSource } from '@/types/media';
 
 export interface VodResolverDefinition {
@@ -11,61 +16,69 @@ export interface VodResolverDefinition {
   enabledByDefault: boolean;
 }
 
+const VIDLINK_THEME_PARAMS =
+  'autoplay=true&primaryColor=f59e0b&secondaryColor=18181b&iconColor=ffffff';
+
 /**
  * Modular VOD stream & embed resolver registry.
- * Index 0 (Cinema Server I - Primary HD) is selected automatically for movies/shows;
- * Anime series prioritize VidLink HD (index 1) for full multi-season coverage.
+ * VidLink HD is Cinema Server I (default) for Movies, Series, and Anime;
+ * popup-heavy legacy embed providers sit in lower fallback slots.
  */
 export const VOD_RESOLVERS: VodResolverDefinition[] = [
   {
-    id: 'vidsrc-to',
-    name: 'Cinema Server I - Primary HD',
-    description: 'Primary reliable adaptive streaming server',
-    format: 'embed',
-    enabledByDefault: true,
-    buildMovieUrl: (tmdbId) => `https://vidsrc.to/embed/movie/${tmdbId}`,
-    buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`,
-  },
-  {
     id: 'vidlink-pro',
-    name: 'Cinema Server II - VidLink HD',
-    description: 'Multi-season anime & series adaptive server',
+    name: 'Cinema Server I - VidLink HD',
+    description: 'Primary low-popup autoplay adaptive player',
     format: 'embed',
     enabledByDefault: true,
-    buildMovieUrl: (tmdbId) => `https://vidlink.pro/movie/${tmdbId}`,
+    buildMovieUrl: (tmdbId) =>
+      `https://vidlink.pro/movie/${tmdbId}?${VIDLINK_THEME_PARAMS}`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}`,
+      `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?${VIDLINK_THEME_PARAMS}`,
   },
   {
     id: 'vidsrc-me',
-    name: 'Cinema Server III - Mirror',
-    description: 'High-availability multi-CDN mirror',
+    name: 'Cinema Server II - Mirror HD',
+    description: 'High-availability multi-CDN autoplay mirror',
     format: 'embed',
     enabledByDefault: true,
-    buildMovieUrl: (tmdbId) => `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`,
+    buildMovieUrl: (tmdbId) =>
+      `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}`,
+      `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1&autoPlay=true`,
   },
   {
     id: 'twoembed-cc',
-    name: 'Cinema Server IV - Anime & TV',
+    name: 'Cinema Server III - Anime & TV',
     description: 'Dedicated multi-season anime & TV mirror',
     format: 'embed',
     enabledByDefault: true,
-    buildMovieUrl: (tmdbId) => `https://www.2embed.cc/embed/${tmdbId}`,
+    buildMovieUrl: (tmdbId) =>
+      `https://www.2embed.cc/embed/${tmdbId}?autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}`,
+      `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}?autoplay=1&autoPlay=true`,
+  },
+  {
+    id: 'vidsrc-to',
+    name: 'Cinema Server IV - Fallback',
+    description: 'Secondary legacy fallback embed server',
+    format: 'embed',
+    enabledByDefault: true,
+    buildMovieUrl: (tmdbId) =>
+      `https://vidsrc.to/embed/movie/${tmdbId}?autoplay=1&autoPlay=true`,
+    buildSeriesUrl: (tmdbId, season, episode) =>
+      `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1&autoPlay=true`,
   },
   {
     id: 'multiembed',
     name: 'Cinema Server V - Backup',
-    description: 'Secondary fallback embed server',
+    description: 'Tertiary backup embed server',
     format: 'embed',
     enabledByDefault: true,
-    buildMovieUrl: (tmdbId) => `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`,
+    buildMovieUrl: (tmdbId) =>
+      `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}`,
+      `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&autoplay=1&autoPlay=true`,
   },
 ];
 
@@ -76,6 +89,7 @@ export function resolveVodSources(params: {
   season?: number;
   episode?: number;
   directUrl?: string;
+  resolvedDirectSources?: StreamSource[];
   preferredResolverId?: string;
   isAnime?: boolean;
 }): StreamSource[] {
@@ -87,33 +101,43 @@ export function resolveVodSources(params: {
     season = 1,
     episode = 1,
     directUrl,
+    resolvedDirectSources,
     preferredResolverId,
-    isAnime = false,
   } = params;
 
-  if (directUrl) {
+  if (resolvedDirectSources && resolvedDirectSources.length > 0) {
+    for (const s of resolvedDirectSources) {
+      sources.push({ ...s, isDefault: sources.length === 0 });
+    }
+  }
+
+  if (directUrl && !sources.some((s) => s.url === directUrl)) {
     sources.push({
       id: 'user-direct',
       name: 'Direct Stream',
       label: 'Direct HLS / MP4',
       quality: 'Adaptive',
-      format: directUrl.includes('.mp4') ? 'mp4' : 'hls',
+      format: directUrl.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
       url: directUrl,
-      isDefault: true,
+      isDefault: sources.length === 0,
     });
   }
 
   // Check if this matches one of the built-in legal open-access VOD items
-  const fallbackMatch = [...FALLBACK_MOVIES, ...FALLBACK_SERIES].find(
-    (item) => item.id === id || (tmdbId !== undefined && item.tmdbId === tmdbId)
-  );
-  if (fallbackMatch?.streamUrl) {
+  const fallbackMatch = [
+    ...FALLBACK_MOVIES,
+    ...FALLBACK_SERIES,
+    ...FALLBACK_ANIME_MOVIES,
+    ...FALLBACK_ANIME_SERIES,
+  ].find((item) => item.id === id || (tmdbId !== undefined && item.tmdbId === tmdbId));
+
+  if (fallbackMatch?.streamUrl && !sources.some((s) => s.url === fallbackMatch.streamUrl)) {
     sources.push({
       id: 'open-archive-master',
       name: 'Open Archive Master',
       label: `${fallbackMatch.quality || 'HD'} Direct`,
       quality: fallbackMatch.quality || 'HD',
-      format: fallbackMatch.streamUrl.endsWith('.mp4') ? 'mp4' : 'hls',
+      format: fallbackMatch.streamUrl.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
       url: fallbackMatch.streamUrl,
       isDefault: sources.length === 0,
     });
@@ -121,16 +145,7 @@ export function resolveVodSources(params: {
 
   const numericId = tmdbId || (/^\d+$/.test(id) ? Number(id) : undefined);
   if (numericId) {
-    // For anime series (especially later seasons), VidLink HD provides full TMDB season coverage
-    const orderedResolvers =
-      isAnime && type === 'series'
-        ? [
-            ...VOD_RESOLVERS.filter((r) => r.id === 'vidlink-pro' || r.id === 'twoembed-cc'),
-            ...VOD_RESOLVERS.filter((r) => r.id !== 'vidlink-pro' && r.id !== 'twoembed-cc'),
-          ]
-        : VOD_RESOLVERS;
-
-    for (const resolver of orderedResolvers) {
+    for (const resolver of VOD_RESOLVERS) {
       const url =
         type === 'movie'
           ? resolver.buildMovieUrl(numericId)
@@ -147,22 +162,21 @@ export function resolveVodSources(params: {
     }
   }
 
-  // Select default source cleanly
+  // Select default source: direct native HLS/MP4 wins when present; otherwise VidLink HD (Cinema Server I)
   if (sources.length > 0 && !sources.some((s) => s.isDefault)) {
-    if (isAnime && type === 'series') {
-      const vidlink = sources.find((s) => s.id === 'vidlink-pro');
-      if (vidlink) {
-        vidlink.isDefault = true;
-        return sources;
-      }
-    }
-    const preferred = preferredResolverId
-      ? sources.find((s) => s.id === preferredResolverId)
-      : undefined;
+    const preferred =
+      preferredResolverId && preferredResolverId !== 'vidsrc-to'
+        ? sources.find((s) => s.id === preferredResolverId)
+        : undefined;
     if (preferred) {
       preferred.isDefault = true;
     } else {
-      sources[0].isDefault = true;
+      const vidlink = sources.find((s) => s.id === 'vidlink-pro');
+      if (vidlink) {
+        vidlink.isDefault = true;
+      } else {
+        sources[0].isDefault = true;
+      }
     }
   }
 
