@@ -4,7 +4,7 @@ Streaming & media dashboard web application built with a minimalist obsidian and
 
 ## Live Website
 
-- **[Open KinoStream](https://kinostream.vercel.app)**
+- **[Open KinoStream](https://kinostreams.vercel.app)**
 
 ## Source Code
 
