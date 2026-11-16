@@ -7,6 +7,7 @@ import {
   Bookmark,
   CalendarClock,
   Check,
+  Clock,
   Film,
   Loader2,
   Play,
@@ -26,6 +27,11 @@ import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVodSources } from '@/config/sources';
 import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/anime';
 import {
+  buildChannelStreamSources,
+  matchBroadcastChannelsForMatch,
+  resolveSportsMatchStreamSources,
+} from '@/lib/sports-networks';
+import {
   getAnimeAudioMode,
   getPreferredVodResolver,
   getWatchHistory,
@@ -33,93 +39,12 @@ import {
 } from '@/lib/storage';
 import { cn, formatClockTime, getInitials } from '@/lib/utils';
 import type {
-  Channel,
-  EpgChannelSchedule,
   EpisodeItem,
   MediaCategory,
   MediaItem,
   SportsMatch,
   StreamSource,
 } from '@/types/media';
-
-interface MatchedLiveFeed {
-  channel: Channel;
-  reasons: string[];
-  score: number;
-  nowTitle?: string;
-}
-
-function matchBroadcastChannels(
-  match: SportsMatch,
-  channels: Channel[],
-  epgSchedules: Record<string, EpgChannelSchedule>
-): MatchedLiveFeed[] {
-  const stopWords = new Set(['hd', 'tv', 'plus', 'live', 'the', 'and', 'ind', 'usa', 'net', 'network']);
-  const broadcastTokens = (match.broadcast || '')
-    .toLowerCase()
-    .split(/[\s/,+&]+/)
-    .filter((t) => t.length >= 2 && !stopWords.has(t));
-
-  const competitorTokens = [
-    match.awayTeam.shortName,
-    match.homeTeam.shortName,
-    match.awayTeam.name,
-    match.homeTeam.name,
-  ]
-    .join(' ')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length >= 3);
-
-  const leagueToken = match.league.toLowerCase();
-  const scored: MatchedLiveFeed[] = [];
-
-  for (const ch of channels) {
-    const sched = epgSchedules[ch.tvgId || ch.id];
-    const epgText = `${sched?.now?.title || ''} ${sched?.now?.description || ''} ${
-      sched?.next?.title || ''
-    }`.toLowerCase();
-    const channelText = `${ch.name} ${ch.group} ${ch.league || ''}`.toLowerCase();
-    const combined = `${channelText} ${epgText}`;
-
-    let score = 0;
-    const reasons: string[] = [];
-
-    for (const token of broadcastTokens) {
-      if (channelText.includes(token)) {
-        score += 14;
-        reasons.push(`Network: ${token.toUpperCase()}`);
-      } else if (epgText.includes(token)) {
-        score += 8;
-        reasons.push(`EPG: ${token.toUpperCase()}`);
-      }
-    }
-
-    for (const token of competitorTokens) {
-      if (combined.includes(token)) {
-        score += epgText.includes(token) ? 12 : 9;
-        reasons.push(`Match: ${token.charAt(0).toUpperCase() + token.slice(1)}`);
-      }
-    }
-
-    if (combined.includes(leagueToken)) {
-      score += 6;
-      reasons.push(match.league);
-    }
-
-    if (score > 0) {
-      scored.push({
-        channel: ch,
-        reasons: Array.from(new Set(reasons)).slice(0, 2),
-        score,
-        nowTitle: sched?.now?.title,
-      });
-    }
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 8);
-}
 
 function WatchViewContent() {
   const params = useParams<{ type: string; id: string }>();
@@ -145,6 +70,7 @@ function WatchViewContent() {
     isSaved,
     toggleSaved,
     channelsLoading,
+    openSources,
   } = useKino();
 
   const seasonParam = searchParams.get('season');
@@ -235,13 +161,18 @@ function WatchViewContent() {
 
   const matchedMatchFeeds = useMemo(() => {
     if (!sportsMatch) return [];
-    return matchBroadcastChannels(sportsMatch, channels, epgSchedules);
+    return matchBroadcastChannelsForMatch(sportsMatch, channels, epgSchedules);
   }, [sportsMatch, channels, epgSchedules]);
 
   const relatedChannels = useMemo(() => {
     if (!isChannelType) return [];
     return channels
-      .filter((c) => c.id !== activeChannel?.id && c.category === mediaType)
+      .filter(
+        (c) =>
+          !c.excludeFromMatchRouting &&
+          c.id !== activeChannel?.id &&
+          c.category === mediaType
+      )
       .slice(0, 8);
   }, [isChannelType, channels, activeChannel?.id, mediaType]);
 
@@ -517,60 +448,23 @@ function WatchViewContent() {
     const combined: StreamSource[] = [...pastedSources];
 
     if (activeChannel) {
-      const chUrl = activeChannel.url;
-      const chFormat = chUrl.toLowerCase().includes('.mp4')
-        ? 'mp4'
-        : /\/embed\/|\.html($|\?)/i.test(chUrl) && !chUrl.toLowerCase().includes('.m3u8')
-        ? 'embed'
-        : 'hls';
-      combined.push({
-        id: activeChannel.id,
-        name: activeChannel.name,
-        label: activeChannel.quality || 'LIVE HLS',
-        quality: activeChannel.quality || 'Live',
-        format: chFormat,
-        url: chUrl,
-        referrer: activeChannel.referrer,
-        isDefault: combined.length === 0,
-      });
-      return combined;
+      return [...combined, ...buildChannelStreamSources(activeChannel)];
     }
 
     if (sportsMatch) {
-      matchedMatchFeeds.forEach((feed, idx) => {
-        const isPicked = selectedMatchedFeedId
-          ? feed.channel.id === selectedMatchedFeedId
-          : idx === 0;
-        const feedUrl = feed.channel.url;
-        const feedFormat = feedUrl.toLowerCase().includes('.mp4')
-          ? 'mp4'
-          : /\/embed\/|\.html($|\?)/i.test(feedUrl) && !feedUrl.toLowerCase().includes('.m3u8')
-          ? 'embed'
-          : 'hls';
-        combined.push({
-          id: `match-ch-${feed.channel.id}`,
-          name: feed.channel.name,
-          label: feed.channel.quality || 'LIVE',
-          quality: feed.channel.quality || 'Live',
-          format: feedFormat,
-          url: feedUrl,
-          referrer: feed.channel.referrer,
-          isDefault: combined.length === 0 && isPicked,
-        });
+      const { streams: resolvedSports } = resolveSportsMatchStreamSources({
+        match: sportsMatch,
+        channels,
+        epgSchedules,
+        selectedFeedChannelId: selectedMatchedFeedId,
       });
-
-      if (sportsMatch.highlightVideoUrl) {
-        combined.push({
-          id: `match-hl-${sportsMatch.id}`,
-          name: 'ESPN Highlights',
-          label: 'Highlights HD',
-          quality: 'HD',
-          format: sportsMatch.highlightVideoUrl.includes('.m3u8') ? 'hls' : 'mp4',
-          url: sportsMatch.highlightVideoUrl,
-          isDefault: combined.length === 0 || (!selectedMatchedFeedId && matchedMatchFeeds.length === 0),
-        });
+      if (combined.length > 0) {
+        return [
+          ...combined,
+          ...resolvedSports.map((s) => ({ ...s, isDefault: false })),
+        ];
       }
-      return combined;
+      return resolvedSports;
     }
 
     if (mediaDetails) {
@@ -595,7 +489,8 @@ function WatchViewContent() {
     resolvedDirectSources,
     activeChannel,
     sportsMatch,
-    matchedMatchFeeds,
+    channels,
+    epgSchedules,
     selectedMatchedFeedId,
     mediaDetails,
     mediaType,
@@ -604,6 +499,21 @@ function WatchViewContent() {
     isAnimeSeries,
     animeAudio,
   ]);
+
+  const handleCyclePreGameFeed = useCallback(() => {
+    if (matchedMatchFeeds.length === 0) return;
+    const currentId = selectedMatchedFeedId || matchedMatchFeeds[0].channel.id;
+    const curIdx = matchedMatchFeeds.findIndex((f) => f.channel.id === currentId);
+    const nextFeed = matchedMatchFeeds[(curIdx + 1) % matchedMatchFeeds.length];
+    if (nextFeed) {
+      setSelectedMatchedFeedId(nextFeed.channel.id);
+    }
+  }, [matchedMatchFeeds, selectedMatchedFeedId]);
+
+  const preGameStartTime = useMemo(() => {
+    if (!sportsMatch) return '';
+    return formatClockTime(sportsMatch.date) || sportsMatch.statusText;
+  }, [sportsMatch]);
 
   const displayTitle = activeChannel
     ? activeChannel.name
@@ -692,6 +602,55 @@ function WatchViewContent() {
           </div>
         ) : (
           <>
+            {/* Pre-Game / Upcoming Match Broadcast Notice */}
+            {sportsMatch && sportsMatch.statusState === 'pre' && (
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#D4AF37]/40 bg-[#121215]/95 p-4 shadow-xl">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#D4AF37]">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-[#E2C275] uppercase">
+                        Pre-Game
+                      </span>
+                      <p className="font-serif text-base font-medium text-[#FAFAFA] sm:text-lg">
+                        Broadcast Starts at {preGameStartTime}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 text-xs text-[#A1A1AA]">
+                      Assigned network:{' '}
+                      <span className="font-semibold text-[#E2C275]">
+                        {sportsMatch.broadcast || matchedMatchFeeds[0]?.channel.name || sportsMatch.league}
+                      </span>
+                      {sportsMatch.venue ? ` · ${sportsMatch.venue}` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {matchedMatchFeeds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleCyclePreGameFeed}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-[#D4AF37] px-4 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+                    >
+                      <Radio className="h-3.5 w-3.5" />
+                      Switch Feed
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={openSources}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                  >
+                    <Plus className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    Custom M3U
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Video Player */}
             <VideoPlayer
               mediaId={mediaId}
@@ -711,7 +670,7 @@ function WatchViewContent() {
                 mediaDetails?.backdropPath
               }
               sources={streamSources}
-              isLive={Boolean(activeChannel)}
+              isLive={Boolean(activeChannel || sportsMatch?.statusState === 'in')}
               season={mediaType === 'series' ? selectedSeason : undefined}
               episode={mediaType === 'series' ? selectedEpisode : undefined}
               initialTime={initialTime}
@@ -724,8 +683,8 @@ function WatchViewContent() {
                     }
                   : undefined
               }
-              referrer={activeChannel?.referrer}
-              userAgent={activeChannel?.userAgent}
+              referrer={activeChannel?.referrer || matchedMatchFeeds[0]?.channel.referrer}
+              userAgent={activeChannel?.userAgent || matchedMatchFeeds[0]?.channel.userAgent}
               allowCustomUrlInput={isChannelType}
               onAddCustomStreamUrl={isChannelType ? handleAddCustomStreamUrl : undefined}
               hasNextEpisode={Boolean(nextEpisodeTarget)}
@@ -774,7 +733,6 @@ function WatchViewContent() {
                           type="button"
                           onClick={() => {
                             setSelectedMatchedFeedId(feed.channel.id);
-                            handleAddCustomStreamUrl(feed.channel.url);
                           }}
                           className={cn(
                             'flex min-h-[64px] items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition active:scale-[0.99]',

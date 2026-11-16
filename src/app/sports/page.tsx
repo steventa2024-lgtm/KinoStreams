@@ -2,14 +2,28 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { LayoutGrid, Loader2, Play, Plus, RefreshCw, Trophy, Tv } from 'lucide-react';
+import {
+  LayoutGrid,
+  Loader2,
+  Play,
+  Plus,
+  Radio,
+  RefreshCw,
+  Trophy,
+  Tv,
+} from 'lucide-react';
 import { DropdownPill } from '@/components/DropdownPill';
 import { useKino } from '@/components/KinoProvider';
 import { MatchCard } from '@/components/MatchCard';
 import { TopBar } from '@/components/TopBar';
 import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
-import { getInitials, cn } from '@/lib/utils';
-import type { SportsLeague, SportsMatch } from '@/types/media';
+import {
+  NETWORK_FILTER_PILLS,
+  channelMatchesNetworkFilter,
+  matchMatchesNetworkFilter,
+} from '@/lib/sports-networks';
+import { cn, getInitials } from '@/lib/utils';
+import type { NetworkCategoryFilter, SportsLeague, SportsMatch } from '@/types/media';
 
 type LeagueTab = 'ALL' | SportsLeague;
 type MatchStatusFilter = 'all' | 'live' | 'highlights' | 'upcoming' | 'final';
@@ -23,9 +37,10 @@ const LEAGUE_TABS: Array<{ id: LeagueTab; label: string }> = [
 ];
 
 export default function SportsPage() {
-  const { openSources } = useKino();
+  const { openSources, channels } = useKino();
   const [selectedLeague, setSelectedLeague] = useState<LeagueTab>('ALL');
   const [statusFilter, setStatusFilter] = useState<MatchStatusFilter>('all');
+  const [networkFilter, setNetworkFilter] = useState<NetworkCategoryFilter>('all');
   const [matches, setMatches] = useState<SportsMatch[]>(FALLBACK_SPORTS_MATCHES);
   const [loading, setLoading] = useState(true);
 
@@ -57,19 +72,45 @@ export default function SportsPage() {
   const filteredMatches = useMemo(() => {
     return matches.filter((m) => {
       if (selectedLeague !== 'ALL' && m.league !== selectedLeague) return false;
-      if (statusFilter === 'live') return m.statusState === 'in';
-      if (statusFilter === 'highlights') return Boolean(m.highlightVideoUrl);
-      if (statusFilter === 'upcoming') return m.statusState === 'pre';
-      if (statusFilter === 'final') return m.statusState === 'post';
+      if (statusFilter === 'live' && m.statusState !== 'in') return false;
+      if (statusFilter === 'highlights' && !m.highlightVideoUrl) return false;
+      if (statusFilter === 'upcoming' && m.statusState !== 'pre') return false;
+      if (statusFilter === 'final' && m.statusState !== 'post') return false;
+      if (!matchMatchesNetworkFilter(m, networkFilter)) return false;
       return true;
     });
-  }, [matches, selectedLeague, statusFilter]);
+  }, [matches, selectedLeague, statusFilter, networkFilter]);
+
+  const filteredNetworks = useMemo(() => {
+    return channels.filter(
+      (ch) => !ch.excludeFromMatchRouting && channelMatchesNetworkFilter(ch, networkFilter)
+    );
+  }, [channels, networkFilter]);
 
   const spotlight = filteredMatches[0];
-  const liveCount = filteredMatches.filter((m) => m.statusState === 'in').length;
+  const liveCount = matches.filter((m) => m.statusState === 'in').length;
+
+  const spotlightStatusLabel = useMemo(() => {
+    if (!spotlight) return '';
+    if (spotlight.statusState === 'in') {
+      return spotlight.statusText.toUpperCase().startsWith('LIVE')
+        ? spotlight.statusText
+        : `LIVE · ${spotlight.statusText}`;
+    }
+    if (spotlight.statusState === 'pre') {
+      const d = new Date(spotlight.date);
+      const localTime = Number.isNaN(d.getTime())
+        ? spotlight.statusText
+        : d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return `UPCOMING · ${localTime}`;
+    }
+    return spotlight.statusText.toUpperCase().includes('FINAL')
+      ? spotlight.statusText
+      : `FINAL · ${spotlight.statusText}`;
+  }, [spotlight]);
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-10">
+    <main className="min-h-screen overflow-x-hidden bg-[#09090B] pt-20 pb-10">
       <TopBar solid />
 
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
@@ -84,7 +125,7 @@ export default function SportsPage() {
               NBA, NFL, UFC &amp; MLB
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
-              Real-time scoreboards, broadcast networks, and instant channel matching.
+              Per-match live feeds, real-time scoreboards, and 24/7 sports networks.
             </p>
           </div>
 
@@ -102,7 +143,9 @@ export default function SportsPage() {
               disabled={loading}
               className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#121215] px-4 py-2 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/40"
             >
-              <RefreshCw className={cn('h-3.5 w-3.5 text-[#D4AF37]', loading && 'animate-spin')} />
+              <RefreshCw
+                className={cn('h-3.5 w-3.5 text-[#D4AF37]', loading && 'animate-spin')}
+              />
               Refresh Scores
             </button>
             <button
@@ -116,8 +159,38 @@ export default function SportsPage() {
           </div>
         </div>
 
+        {/* Horizontal Snap-Scroll Network & Live Games Filter Pills */}
+        <div className="no-scrollbar mt-5 flex items-center gap-2 overflow-x-auto pb-1">
+          {NETWORK_FILTER_PILLS.map((pill) => {
+            const active = networkFilter === pill.id;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setNetworkFilter(pill.id)}
+                className={cn(
+                  'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-full border px-4 text-xs font-semibold transition',
+                  active
+                    ? 'border-[#D4AF37] bg-[#D4AF37] text-[#09090B] shadow-[0_0_20px_rgba(212,175,55,0.28)]'
+                    : 'border-white/[0.08] bg-[#121215] text-[#A1A1AA] hover:border-[#D4AF37]/40 hover:text-[#FAFAFA]'
+                )}
+              >
+                {pill.id === 'live_games' && (
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      active ? 'bg-[#09090B]' : 'animate-pulse bg-[#EF4444]'
+                    )}
+                  />
+                )}
+                {pill.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* League & Status Dropdown Pills */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-2.5">
             <DropdownPill
               label="League"
@@ -135,7 +208,7 @@ export default function SportsPage() {
             />
 
             <DropdownPill
-              label="Filter"
+              label="Status"
               value={statusFilter}
               options={[
                 { value: 'all', label: 'All Matches' },
@@ -156,7 +229,7 @@ export default function SportsPage() {
               </span>
             )}
             <Link href="/live" className="text-[#E2C275] hover:underline">
-              24/7 Sports Channels →
+              Full Network Guide →
             </Link>
           </div>
         </div>
@@ -175,13 +248,15 @@ export default function SportsPage() {
                       'inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-[11px] font-bold',
                       spotlight.statusState === 'in'
                         ? 'bg-[#EF4444] text-white'
-                        : 'border border-white/10 bg-[#09090B]/70 text-[#FAFAFA]'
+                        : spotlight.statusState === 'pre'
+                        ? 'border border-[#D4AF37]/35 bg-[#D4AF37]/10 text-[#E2C275]'
+                        : 'border border-white/10 bg-[#09090B]/70 text-[#A1A1AA]'
                     )}
                   >
                     {spotlight.statusState === 'in' && (
                       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
                     )}
-                    {spotlight.statusText}
+                    {spotlightStatusLabel}
                   </span>
                   {spotlight.broadcast && (
                     <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#09090B]/70 px-3 py-0.5 text-[11px] font-medium text-[#A1A1AA]">
@@ -269,7 +344,7 @@ export default function SportsPage() {
 
                 <Link
                   href={`/watch/sports/${encodeURIComponent(spotlight.id)}`}
-                  className="inline-flex items-center gap-2.5 rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275]"
+                  className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275]"
                 >
                   <Play className="h-4 w-4 fill-current" />
                   Open Match Stream
@@ -301,13 +376,48 @@ export default function SportsPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-8 text-center">
               <p className="text-sm text-[#A1A1AA]">
-                No games scheduled for {selectedLeague} right now.
+                No matches found for this filter. Tune directly to a live network below or switch filters.
               </p>
             </div>
           )}
         </section>
+
+        {/* Live Sports & Broadcast Networks Quick-Tune Strip */}
+        {filteredNetworks.length > 0 && (
+          <section className="mt-10">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-serif text-xl font-medium text-[#FAFAFA]">
+                <Radio className="h-4 w-4 text-[#D4AF37]" />
+                Sports &amp; Broadcast Networks
+              </h2>
+              <span className="text-xs text-[#71717A]">
+                {filteredNetworks.length} networks
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+              {filteredNetworks.slice(0, 18).map((ch) => (
+                <Link
+                  key={ch.id}
+                  href={`/watch/${ch.category}/${encodeURIComponent(ch.id)}`}
+                  className="group flex min-h-[72px] flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 transition hover:border-[#D4AF37]/50 hover:bg-[#17171B]"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-serif text-sm font-semibold text-[#FAFAFA] group-hover:text-[#E2C275]">
+                      {ch.name}
+                    </span>
+                    <span className="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#EF4444]" />
+                  </div>
+                  <span className="mt-1.5 truncate text-[11px] text-[#71717A]">
+                    {ch.league || ch.group}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </main>
   );

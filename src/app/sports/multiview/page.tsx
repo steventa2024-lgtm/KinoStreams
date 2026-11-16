@@ -39,14 +39,30 @@ function MultiViewSlotPlayer({
   const { proxyMode } = useKino();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const [useProxy, setUseProxy] = useState(proxyMode === 'always' || Boolean(channel?.referrer));
+  const needsHttpsProxy =
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    Boolean(channel?.url?.startsWith('http://'));
+  const [useProxy, setUseProxy] = useState(
+    proxyMode === 'always' ||
+      Boolean(channel?.referrer) ||
+      (proxyMode !== 'direct' && needsHttpsProxy)
+  );
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setUseProxy(proxyMode === 'always' || Boolean(channel?.referrer));
+    const httpOnHttps =
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      Boolean(channel?.url?.startsWith('http://'));
+    setUseProxy(
+      proxyMode === 'always' ||
+        Boolean(channel?.referrer) ||
+        (proxyMode !== 'direct' && httpOnHttps)
+    );
     setErrorMsg(null);
-  }, [channel?.id, channel?.referrer, proxyMode]);
+  }, [channel?.id, channel?.referrer, channel?.url, proxyMode]);
 
   useEffect(() => {
     if (videoRef.current) {

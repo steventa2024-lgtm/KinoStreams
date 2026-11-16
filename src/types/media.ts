@@ -4,13 +4,32 @@ export type MediaCategory = 'sports' | 'live' | 'movie' | 'series';
 
 export type ProxyMode = 'auto' | 'always' | 'direct';
 
+export type NetworkCategoryFilter =
+  | 'all'
+  | 'live_games'
+  | 'espn_disney'
+  | 'tnt_tbs'
+  | 'fox_fs1'
+  | 'league_networks'
+  | 'broadcast';
+
+export interface ChannelBackupSource {
+  label: string;
+  url: string;
+  referrer?: string;
+  userAgent?: string;
+}
+
 export interface Channel {
   id: string;
   name: string;
   logo?: string;
   group: string;
+  networkGroup?: Exclude<NetworkCategoryFilter, 'all' | 'live_games'>;
+  aliases?: string[];
   category: 'sports' | 'live';
   url: string;
+  backupUrls?: ChannelBackupSource[];
   tvgId?: string;
   tvgName?: string;
   referrer?: string;
@@ -25,6 +44,7 @@ export interface Channel {
   backdrop?: string;
   sourceId?: string;
   sourceName?: string;
+  excludeFromMatchRouting?: boolean;
 }
 
 export interface EpgProgram {

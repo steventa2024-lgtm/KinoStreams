@@ -177,11 +177,13 @@ async function resolveSources(
 
   const merged = includeFallback ? [...customChannels, ...FALLBACK_CHANNELS] : customChannels;
   const deduped: Channel[] = [];
-  const seenUrls = new Set<string>();
+  const seenKeys = new Set<string>();
 
   for (const ch of merged) {
-    if (!seenUrls.has(ch.url)) {
-      seenUrls.add(ch.url);
+    // Keep built-in named network directory entries distinct by id; dedupe custom playlist URLs
+    const key = ch.sourceId ? `url:${ch.url}` : `id:${ch.id}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
       deduped.push(ch);
     }
   }

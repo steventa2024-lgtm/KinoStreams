@@ -1,3 +1,4 @@
+import { MAJOR_NETWORK_CHANNELS } from '@/lib/sports-networks';
 import type { Channel, EpgProgram, GenreItem, MediaItem, SportsMatch } from '@/types/media';
 
 function svgArtwork(
@@ -43,73 +44,16 @@ function svgArtwork(
 }
 
 /**
- * Curated legal, public free-to-air & open HLS streams so playback works out-of-the-box.
+ * Built-in Sports & National Broadcast Network Directory paired with
+ * public free-to-air world news and science streams (never matched onto sports games).
  */
 export const FALLBACK_CHANNELS: Channel[] = [
-  {
-    id: 'fta-redbull-tv',
-    name: 'Red Bull TV',
-    group: 'Motorsport & Action',
-    category: 'sports',
-    league: 'Action Sports',
-    badge: 'LIVE HD',
-    quality: '1080p',
-    url: 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8',
-    tvgId: 'redbull.tv',
-    tvgName: 'Red Bull TV',
-    isLive: true,
-    description: '24/7 global action sports, motorsport highlights, cliff diving, and live alpine events.',
-    backdrop: svgArtwork('Red Bull Grand Prix & Alpine Series', 'Live Motorsport & Action', '#D4AF37', '#261710', 'wide'),
-  },
-  {
-    id: 'fta-world-motorsport',
-    name: 'Kino Motorsport Live',
-    group: 'Motorsport',
-    category: 'sports',
-    league: 'Formula & GT',
-    badge: '4K HDR',
-    quality: '1080p',
-    url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-    tvgId: 'kino.motorsport',
-    tvgName: 'Kino Motorsport Live',
-    isLive: true,
-    description: 'Endurance racing telemetry, paddock analysis, and continuous open-wheel showcase feed.',
-    backdrop: svgArtwork('Monza Endurance Showcase', 'Formula & GT Telemetry', '#E2C275', '#1B1914', 'wide'),
-  },
-  {
-    id: 'fta-champions-arena',
-    name: 'Arena World Sports',
-    group: 'Football',
-    category: 'sports',
-    league: 'European Football',
-    badge: 'MATCHDAY',
-    quality: '1080p',
-    url: 'https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8',
-    tvgId: 'arena.sports',
-    tvgName: 'Arena World Sports',
-    isLive: true,
-    description: 'Matchday tactical briefings, live studio commentary, and international club highlights.',
-    backdrop: svgArtwork('Continental Cup Matchday', 'European Football Studio', '#D4AF37', '#111C18', 'wide'),
-  },
-  {
-    id: 'fta-courtside-hoops',
-    name: 'Courtside Prime HD',
-    group: 'Basketball',
-    category: 'sports',
-    league: 'Pro Basketball',
-    badge: 'LIVE HD',
-    quality: '1080p',
-    url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8',
-    tvgId: 'courtside.prime',
-    tvgName: 'Courtside Prime HD',
-    isLive: true,
-    description: 'Nightly hardwood analytics, live shot-chart breakdowns, and post-game press conferences.',
-    backdrop: svgArtwork('Courtside Tip-Off Special', 'Pro Basketball Network', '#E2C275', '#211512', 'wide'),
-  },
+  ...MAJOR_NETWORK_CHANNELS,
   {
     id: 'fta-france24-en',
     name: 'France 24 English',
     group: 'World News',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: 'LIVE',
     quality: '1080p',
@@ -117,6 +61,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'france24.en',
     tvgName: 'France 24 English',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: 'International breaking news, culture reports, and European affairs live from Paris.',
     backdrop: svgArtwork('France 24 World Desk', 'International News', '#D4AF37', '#101824', 'wide'),
   },
@@ -124,6 +69,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     id: 'fta-dw-english',
     name: 'DW News English',
     group: 'World News',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: 'LIVE',
     quality: '1080p',
@@ -131,6 +77,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'dw.en',
     tvgName: 'DW News English',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: 'Global journalism, European documentaries, and live world business briefings from Berlin.',
     backdrop: svgArtwork('DW Global Briefing', 'World News & Docs', '#E2C275', '#121922', 'wide'),
   },
@@ -138,6 +85,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     id: 'fta-aljazeera-en',
     name: 'Al Jazeera English',
     group: 'World News',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: 'LIVE',
     quality: '1080p',
@@ -145,6 +93,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'aljazeera.en',
     tvgName: 'Al Jazeera English',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: '24-hour international newsroom coverage, investigative films, and live correspondents.',
     backdrop: svgArtwork('Global Newsroom Live', 'Investigative Journalism', '#D4AF37', '#1D1812', 'wide'),
   },
@@ -152,6 +101,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     id: 'fta-nasa-uhd',
     name: 'NASA Public TV',
     group: 'Science & Space',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: 'UHD',
     quality: '1080p',
@@ -159,6 +109,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'nasa.tv',
     tvgName: 'NASA Public TV',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: 'Live International Space Station Earth views, mission briefings, and orbital launches.',
     backdrop: svgArtwork('Orbital Horizon Feed', 'Science & Space', '#E2C275', '#0D131F', 'wide'),
   },
@@ -166,6 +117,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     id: 'fta-cinema-noir',
     name: 'Kino Noir Classics',
     group: 'Cinema',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: '24/7',
     quality: '1080p',
@@ -173,6 +125,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'kino.noir',
     tvgName: 'Kino Noir Classics',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: 'Continuous curated open-cinema screenings, restored reels, and sci-fi short features.',
     backdrop: svgArtwork('Late Night Screening Room', 'Curated Open Cinema', '#D4AF37', '#18141A', 'wide'),
   },
@@ -180,6 +133,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     id: 'fta-euronews',
     name: 'Euronews Live',
     group: 'World News',
+    networkGroup: 'broadcast',
     category: 'live',
     badge: 'LIVE',
     quality: '720p',
@@ -187,6 +141,7 @@ export const FALLBACK_CHANNELS: Channel[] = [
     tvgId: 'euronews.en',
     tvgName: 'Euronews Live',
     isLive: true,
+    excludeFromMatchRouting: true,
     description: 'Pan-European headlines, market updates, and cultural dispatches across the continent.',
     backdrop: svgArtwork('Euronews Continental', 'European Affairs', '#E2C275', '#101926', 'wide'),
   },
@@ -431,25 +386,66 @@ export const FALLBACK_SERIES: MediaItem[] = [
 ];
 
 const EPG_TEMPLATES: Record<string, Array<{ title: string; description: string; category: string }>> = {
-  'redbull.tv': [
-    { title: 'Hard Enduro World Series: Erzberg Highlight', description: 'Extended coverage from the iron mountain climb.', category: 'Motorsport' },
-    { title: 'Cliff Diving World Tour: Polignano a Mare', description: 'High-altitude dives off the Adriatic coast.', category: 'Action Sports' },
-    { title: 'UCI Downhill Mountain Bike Finals', description: 'Full-run telemetry and podium reactions.', category: 'Cycling' },
+  'ESPN.us': [
+    { title: 'NBA Coast-to-Coast Pregame', description: 'Live tip-off coverage, injury wire, and studio analysis.', category: 'Basketball' },
+    { title: 'SportsCenter Live Desk', description: 'Breaking scores, highlights, and marquee matchups.', category: 'Sports News' },
+    { title: 'UFC & NFL Nightly Wire', description: 'Main event weigh-ins and primetime breakdown.', category: 'Sports' },
   ],
-  'kino.motorsport': [
-    { title: 'Monza 6-Hour Endurance Qualifying', description: 'Live sector splits and pit wall strategy.', category: 'Motorsport' },
-    { title: 'Grand Prix Paddock Notebook', description: 'Technical aerodynamics breakdown.', category: 'Motorsport' },
-    { title: 'Night Stint Classic Replay', description: 'Restored endurance highlights.', category: 'Motorsport' },
+  'ESPN2.us': [
+    { title: 'Live Court & Gridiron Action', description: 'Collegiate matchups and championship tourneys.', category: 'Sports' },
+    { title: 'UFC Prelims & Fight Breakdown', description: 'Octagon telemetry and corner audio preview.', category: 'MMA' },
   ],
-  'arena.sports': [
-    { title: 'Continental Matchday Preview Live', description: 'Starting lineups, tactical boards, and pitch reports.', category: 'Football' },
-    { title: 'European Club Tactical Review', description: 'Pressing traps and set-piece analysis.', category: 'Football' },
-    { title: 'Extra Time Studio', description: 'Late goals and post-match manager interviews.', category: 'Football' },
+  'TNT.us': [
+    { title: 'NBA on TNT Marquee Showcase', description: 'Doubleheader coverage with Inside the NBA studio.', category: 'Basketball' },
+    { title: 'NHL on TNT Matchday', description: 'Live Stanley Cup & regular-season ice action.', category: 'Hockey' },
   ],
-  'courtside.prime': [
-    { title: 'Courtside Tonight: Eastern Conference', description: 'Shot-chart analytics and live scoreboard.', category: 'Basketball' },
-    { title: 'Film Room: Pick & Roll Mastery', description: 'Frame-by-frame offensive breakdowns.', category: 'Basketball' },
-    { title: 'Final Buzzer Recap', description: 'Clutch fourth-quarter highlights.', category: 'Basketball' },
+  'TBS.us': [
+    { title: 'MLB Tuesday & Tourney Live', description: 'National baseball showcase and tournament coverage.', category: 'Baseball' },
+    { title: 'Inside the Diamond Studio', description: 'Live pitching splits and series preview.', category: 'Baseball' },
+  ],
+  'truTV.us': [
+    { title: 'TNT Sports Nightly Overflow', description: 'Live tournament and alternate broadcast feeds.', category: 'Sports' },
+    { title: 'Court & Ice Whip-Around', description: 'Dual-feed live score updates.', category: 'Sports' },
+  ],
+  'FS1.us': [
+    { title: 'Fox Sports 1 Live Showcase', description: 'MLB, Big East basketball, and NASCAR coverage.', category: 'Sports' },
+    { title: 'First Things First Studio', description: 'Daily NFL & NBA headline debate.', category: 'Talk' },
+  ],
+  'NFLNetwork.us': [
+    { title: 'NFL GameDay Kickoff', description: 'Active rosters, weather reports, and film room.', category: 'Football' },
+    { title: 'NFL Total Access', description: 'Around the AFC and NFC locker rooms.', category: 'Football' },
+  ],
+  'NBATV.us': [
+    { title: 'NBA GameTime Live', description: 'Live look-ins, shot charts, and highlight reels.', category: 'Basketball' },
+    { title: 'Center Court Showcase', description: 'National NBA marquee broadcast.', category: 'Basketball' },
+  ],
+  'MLBNetwork.us': [
+    { title: 'MLB Tonight Live', description: 'Real-time inning look-ins across all ballparks.', category: 'Baseball' },
+    { title: 'Quick Pitch Highlight Wire', description: 'Walk-offs, velocity tracking, and bullpen breakdowns.', category: 'Baseball' },
+  ],
+  'NHLNetwork.us': [
+    { title: 'NHL Tonight Live', description: 'Power-play analytics and game look-ins.', category: 'Hockey' },
+    { title: 'On the Fly Final', description: 'Every goal and goalie highlight.', category: 'Hockey' },
+  ],
+  'CBSSportsNetwork.us': [
+    { title: 'CBS Sports Golazo & HQ', description: 'Champions League, NFL Sunday preview, and live scores.', category: 'Soccer' },
+    { title: 'NCAA Showcase Studio', description: 'Bracketology and conference play.', category: 'Basketball' },
+  ],
+  'ABC.us': [
+    { title: 'Saturday Primetime & ABC World News', description: 'National broadcast showcase and breaking headlines.', category: 'Broadcast' },
+    { title: 'NBA Saturday Showcase', description: 'Eastern & Western conference featured games.', category: 'Broadcast' },
+  ],
+  'CBS.us': [
+    { title: 'NFL on CBS & Primetime', description: 'Sunday afternoon football and national broadcast coverage.', category: 'Broadcast' },
+    { title: 'CBS Evening Broadcast', description: 'National dispatches and sports wire.', category: 'Broadcast' },
+  ],
+  'FOX.us': [
+    { title: 'FOX National Sports & Broadcast', description: 'NFC Sunday games, MLB showcase, and local live feed.', category: 'Broadcast' },
+    { title: 'FOX Primetime Special', description: 'Live studio and evening programming.', category: 'Broadcast' },
+  ],
+  'NBC.us': [
+    { title: 'Sunday Night Showcase on NBC', description: 'NFL primetime, Olympic trials, and Premier League.', category: 'Broadcast' },
+    { title: 'NBC Nightly News', description: 'National reporting and live desk.', category: 'Broadcast' },
   ],
   'france24.en': [
     { title: 'The World This Hour', description: 'Live headlines and correspondent dispatches from Paris.', category: 'News' },

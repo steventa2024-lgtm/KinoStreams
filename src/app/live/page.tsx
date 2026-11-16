@@ -1,52 +1,79 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarClock, LayoutGrid, Play, Plus, Radio, Search } from 'lucide-react';
-import { DropdownPill } from '@/components/DropdownPill';
+import {
+  CalendarClock,
+  LayoutGrid,
+  Play,
+  Plus,
+  Radio,
+  Search,
+  Trophy,
+} from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { MatchCard } from '@/components/MatchCard';
 import { TopBar } from '@/components/TopBar';
+import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
+import {
+  NETWORK_FILTER_PILLS,
+  channelMatchesNetworkFilter,
+} from '@/lib/sports-networks';
 import {
   calculateEpgProgress,
   cn,
   formatClockTime,
   getInitials,
 } from '@/lib/utils';
+import type { NetworkCategoryFilter, SportsMatch } from '@/types/media';
 
 export default function LiveTvPage() {
   const { channels, epgSchedules, openSources, channelsLoading } = useKino();
-  const [selectedGroup, setSelectedGroup] = useState<string>('All');
+  const [selectedFilter, setSelectedFilter] = useState<NetworkCategoryFilter>('all');
   const [filterText, setFilterText] = useState('');
+  const [liveMatches, setLiveMatches] = useState<SportsMatch[]>(FALLBACK_SPORTS_MATCHES);
 
-  const groups = useMemo(() => {
-    const set = new Set<string>(['All', 'Sports']);
-    for (const ch of channels) {
-      set.add(ch.group || 'General');
-    }
-    return Array.from(set);
-  }, [channels]);
+  useEffect(() => {
+    let active = true;
+    fetch('/api/sports?league=all', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { matches?: SportsMatch[] } | null) => {
+        if (!active || !Array.isArray(data?.matches)) return;
+        setLiveMatches(data.matches);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredChannels = useMemo(() => {
     const q = filterText.trim().toLowerCase();
     return channels.filter((ch) => {
-      const matchesGroup =
-        selectedGroup === 'All' ||
-        (selectedGroup === 'Sports'
-          ? ch.category === 'sports' || ch.group.toLowerCase().includes('sport')
-          : (ch.group || 'General') === selectedGroup);
-      if (!matchesGroup) return false;
+      if (!channelMatchesNetworkFilter(ch, selectedFilter)) return false;
       if (!q) return true;
       const sched = epgSchedules[ch.tvgId || ch.id];
+      const aliasText = (ch.aliases || []).join(' ').toLowerCase();
       return (
         ch.name.toLowerCase().includes(q) ||
         ch.group.toLowerCase().includes(q) ||
+        aliasText.includes(q) ||
+        (ch.league || '').toLowerCase().includes(q) ||
         sched?.now?.title.toLowerCase().includes(q)
       );
     });
-  }, [channels, selectedGroup, filterText, epgSchedules]);
+  }, [channels, selectedFilter, filterText, epgSchedules]);
+
+  const activeSportsGames = useMemo(
+    () =>
+      liveMatches
+        .filter((m) => m.statusState === 'in')
+        .slice(0, 6),
+    [liveMatches]
+  );
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-10">
+    <main className="min-h-screen overflow-x-hidden bg-[#09090B] pt-20 pb-10">
       <TopBar solid />
 
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
@@ -58,10 +85,10 @@ export default function LiveTvPage() {
               Electronic Program Guide
             </div>
             <h1 className="mt-1.5 font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
-              Live TV Directory
+              Live TV &amp; Sports Directory
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
-              Now &amp; Next schedules across {channels.length} live channels.
+              Now &amp; Next schedules across {channels.length} sports and broadcast networks.
             </p>
           </div>
 
@@ -72,7 +99,7 @@ export default function LiveTvPage() {
                 type="text"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                placeholder="Filter channels or shows..."
+                placeholder="Search ESPN, TNT, FS1, shows..."
                 className="min-h-[44px] w-52 rounded-full border border-white/[0.08] bg-[#121215] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none sm:w-64"
               />
             </div>
@@ -96,39 +123,78 @@ export default function LiveTvPage() {
           </div>
         </div>
 
-        {/* Category Dropdown Pill & Quick Count */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <DropdownPill
-            label="Category"
-            value={selectedGroup}
-            options={groups.map((group) => {
-              const count =
-                group === 'All'
-                  ? channels.length
-                  : group === 'Sports'
-                  ? channels.filter(
-                      (c) =>
-                        c.category === 'sports' ||
-                        c.group.toLowerCase().includes('sport')
-                    ).length
-                  : channels.filter((c) => (c.group || 'General') === group).length;
-              return {
-                value: group,
-                label: group,
-                badge: String(count),
-              };
-            })}
-            onChange={(val) => setSelectedGroup(val)}
-          />
+        {/* Horizontal Snap-Scroll Category Filter Pills */}
+        <div className="no-scrollbar mt-5 flex items-center gap-2 overflow-x-auto pb-1">
+          {NETWORK_FILTER_PILLS.map((pill) => {
+            const active = selectedFilter === pill.id;
+            const count = channels.filter((ch) =>
+              channelMatchesNetworkFilter(ch, pill.id)
+            ).length;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setSelectedFilter(pill.id)}
+                className={cn(
+                  'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-xs font-semibold transition',
+                  active
+                    ? 'border-[#D4AF37] bg-[#D4AF37] text-[#09090B] shadow-[0_0_20px_rgba(212,175,55,0.28)]'
+                    : 'border-white/[0.08] bg-[#121215] text-[#A1A1AA] hover:border-[#D4AF37]/40 hover:text-[#FAFAFA]'
+                )}
+              >
+                {pill.id === 'live_games' && (
+                  <span
+                    className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      active ? 'bg-[#09090B]' : 'animate-pulse bg-[#EF4444]'
+                    )}
+                  />
+                )}
+                <span>{pill.label}</span>
+                <span
+                  className={cn(
+                    'rounded-full px-1.5 py-0.5 text-[10px]',
+                    active
+                      ? 'bg-[#09090B]/15 text-[#09090B]'
+                      : 'bg-white/[0.06] text-[#71717A]'
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
 
-          <span className="text-xs text-[#71717A]">
+        {/* Live Matchups Shelf when "Live Games" filter is active */}
+        {selectedFilter === 'live_games' && activeSportsGames.length > 0 && (
+          <section className="mt-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-[#FAFAFA]">
+                <Trophy className="h-4 w-4 text-[#D4AF37]" />
+                In-Progress Live Matchups
+              </h2>
+              <Link href="/sports" className="text-xs text-[#E2C275] hover:underline">
+                Open Match Center →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {activeSportsGames.map((match) => (
+                <MatchCard key={match.id} match={match} fullWidth />
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="mt-5 flex items-center justify-between">
+          <span className="text-xs font-medium text-[#A1A1AA]">
             Showing {filteredChannels.length} of {channels.length} channels
           </span>
         </div>
 
         {/* Channel & EPG Grid */}
         {channelsLoading && channels.length === 0 ? (
-          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
             {[1, 2, 3, 4].map((n) => (
               <div
                 key={n}
@@ -137,13 +203,13 @@ export default function LiveTvPage() {
             ))}
           </div>
         ) : filteredChannels.length === 0 ? (
-          <div className="mt-8 rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
+          <div className="mt-6 rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
             <p className="text-sm text-[#A1A1AA]">
               No channels match your current filter.
             </p>
           </div>
         ) : (
-          <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
             {filteredChannels.map((channel) => {
               const schedule = epgSchedules[channel.tvgId || channel.id];
               const nowProg = schedule?.now;
@@ -164,7 +230,7 @@ export default function LiveTvPage() {
                           <img
                             src={channel.logo}
                             alt={channel.name}
-                            className="h-full w-full object-contain p-1.5"
+                            className="h-full w-full object-contain p-1"
                             loading="lazy"
                           />
                         ) : (
@@ -186,12 +252,13 @@ export default function LiveTvPage() {
                         </div>
                         <p className="mt-0.5 text-xs text-[#71717A]">
                           {channel.group}
+                          {channel.league ? ` · ${channel.league}` : ''}
                           {channel.quality ? ` · ${channel.quality}` : ''}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] shadow-lg transition-transform group-hover:scale-105">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] shadow-lg transition-transform group-hover:scale-105">
                       <Play className="ml-0.5 h-4 w-4 fill-current" />
                     </div>
                   </div>

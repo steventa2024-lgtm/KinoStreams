@@ -20,6 +20,12 @@ export function FloatingMiniPlayer() {
     miniPlayer?.sources.find((s) => s.id === miniPlayer.selectedSourceId) ||
     miniPlayer?.sources[0];
 
+  const needsMixedContentProxy =
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    Boolean(activeSource?.url?.startsWith('http://'));
+  const shouldProxy = Boolean(miniPlayer?.useProxy || needsMixedContentProxy);
+
   const isOnSameWatchRoute = Boolean(
     miniPlayer &&
       pathname.startsWith('/watch/') &&
@@ -43,7 +49,7 @@ export function FloatingMiniPlayer() {
       hlsRef.current = null;
     }
 
-    const playbackUrl = miniPlayer.useProxy
+    const playbackUrl = shouldProxy
       ? buildStreamProxyUrl(activeSource.url, {
           referrer: activeSource.referrer || miniPlayer.referrer,
           userAgent: miniPlayer.userAgent,

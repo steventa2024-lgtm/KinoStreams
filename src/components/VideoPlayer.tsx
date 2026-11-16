@@ -196,10 +196,16 @@ export function VideoPlayer({
   }, [shieldNotice]);
 
   useEffect(() => {
+    const needsMixedContentProxy =
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      Boolean(activeSource?.url?.startsWith('http://'));
     setUseProxy(
-      globalProxyMode === 'always' || Boolean(referrer || activeSource?.referrer)
+      globalProxyMode === 'always' ||
+        Boolean(referrer || activeSource?.referrer) ||
+        (globalProxyMode !== 'direct' && needsMixedContentProxy)
     );
-  }, [globalProxyMode, referrer, activeSource?.referrer]);
+  }, [globalProxyMode, referrer, activeSource?.referrer, activeSource?.url]);
 
   const failoverToNextSource = useCallback(() => {
     if (!activeSource) return false;

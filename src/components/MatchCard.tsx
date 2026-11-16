@@ -58,8 +58,26 @@ function SmallCompetitorIcon({
 export function MatchCard({ match, fullWidth = false }: MatchCardProps) {
   const isLive = match.statusState === 'in';
   const isFinal = match.statusState === 'post';
+  const isUpcoming = match.statusState === 'pre';
   const isUfc = match.league === 'UFC';
   const href = `/watch/sports/${encodeURIComponent(match.id)}`;
+
+  const localStartTime = React.useMemo(() => {
+    if (!match.date) return match.statusText;
+    const parsed = new Date(match.date);
+    if (Number.isNaN(parsed.getTime())) return match.statusText;
+    return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }, [match.date, match.statusText]);
+
+  const badgeText = isLive
+    ? match.statusText.toUpperCase().startsWith('LIVE')
+      ? match.statusText
+      : `LIVE · ${match.statusText}`
+    : isUpcoming
+    ? `UPCOMING · ${localStartTime}`
+    : match.statusText.toUpperCase().includes('FINAL')
+    ? match.statusText
+    : `FINAL · ${match.statusText}`;
 
   return (
     <Link
@@ -109,7 +127,7 @@ export function MatchCard({ match, fullWidth = false }: MatchCardProps) {
               {isLive && (
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
               )}
-              {match.statusText}
+              {badgeText}
             </span>
 
             {match.highlightVideoUrl && match.broadcast && (

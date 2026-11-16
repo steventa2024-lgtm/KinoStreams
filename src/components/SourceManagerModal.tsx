@@ -113,11 +113,13 @@ export function SourceManagerModal() {
   const handleToggle = (id: string) => {
     toggleCustomSource(id);
     setSources(getCustomSources());
+    void refreshChannels();
   };
 
   const handleRemove = (id: string) => {
     removeCustomSource(id);
     setSources(getCustomSources());
+    void refreshChannels();
   };
 
   const handleProxySelect = (mode: ProxyMode) => {
@@ -219,7 +221,7 @@ export function SourceManagerModal() {
                   setFormError(null);
                 }}
                 className={cn(
-                  'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition',
+                  'inline-flex min-h-[44px] items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition',
                   tab === item.id
                     ? 'border-[#D4AF37]/50 bg-[#D4AF37]/15 text-[#E2C275]'
                     : 'border-white/[0.08] bg-white/[0.02] text-[#A1A1AA] hover:text-[#FAFAFA]'
