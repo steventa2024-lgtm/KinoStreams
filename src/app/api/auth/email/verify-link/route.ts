@@ -72,7 +72,8 @@ async function handleVerifyToken(token: string | null) {
     challengeId,
     verifiedToken,
     provider: mailResult.provider,
-    devPreview: mailResult.devPreview,
+    devPreview:
+      process.env.NODE_ENV === 'development' ? mailResult.devPreview : undefined,
   });
 }
 

@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findAccountByEmail } from '@/lib/accounts-store';
+import { normalizeEmail, upsertGoogleUser } from '@/lib/accounts-store';
 import {
   OAUTH_STATE_COOKIE_NAME,
   type OAuthStatePayload,
   SESSION_COOKIE_NAME,
   SESSION_MAX_AGE_SECONDS,
-  createEmailChallenge,
   createSessionCookieToken,
   safeEqualHex,
   sanitizeRedirectPath,
   verifyToken,
 } from '@/lib/auth-crypto';
-import { sendVerificationLinkEmail } from '@/lib/mailer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -80,88 +78,37 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${origin}/?auth_error=google_email_missing`);
     }
 
-    const normalizedEmail = profile.email.trim().toLowerCase();
-    const existingAccount = await findAccountByEmail(normalizedEmail);
+    if (profile.email_verified === false) {
+      return NextResponse.redirect(`${origin}/?auth_error=google_email_unverified`);
+    }
+
+    const normalizedEmail = normalizeEmail(profile.email);
+    const account = await upsertGoogleUser({
+      email: normalizedEmail,
+      name: profile.name,
+    });
+
     const isSecure = process.env.NODE_ENV === 'production';
     const safeNext = sanitizeRedirectPath(parsedState.next, '/');
 
-    // Existing verified account: sign straight in without re-verifying
-    if (existingAccount) {
-      const sessionToken = createSessionCookieToken({
-        email: existingAccount.email,
-        name: existingAccount.name || profile.name,
-        provider: 'google',
-      });
-
-      const response = NextResponse.redirect(`${origin}${safeNext}`);
-      response.cookies.set({
-        name: SESSION_COOKIE_NAME,
-        value: sessionToken,
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isSecure,
-        path: '/',
-        maxAge: SESSION_MAX_AGE_SECONDS,
-      });
-      response.cookies.set({
-        name: OAUTH_STATE_COOKIE_NAME,
-        value: '',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isSecure,
-        path: '/',
-        maxAge: 0,
-      });
-      return response;
-    }
-
-    // Strict Sign-In enforcement: do NOT allow signing in if no account exists yet
-    if (parsedState.mode !== 'signup') {
-      const rejectUrl = new URL(`${origin}/`);
-      rejectUrl.searchParams.set('auth_error', 'account_not_found');
-      rejectUrl.searchParams.set('email', normalizedEmail);
-
-      const response = NextResponse.redirect(rejectUrl.toString());
-      response.cookies.set({
-        name: OAUTH_STATE_COOKIE_NAME,
-        value: '',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isSecure,
-        path: '/',
-        maxAge: 0,
-      });
-      response.cookies.set({
-        name: SESSION_COOKIE_NAME,
-        value: '',
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: isSecure,
-        path: '/',
-        maxAge: 0,
-      });
-      return response;
-    }
-
-    // New account via Create Account: complete two-step email verification -> 6-digit code flow
-    const { challengeId, verifyLinkToken } = createEmailChallenge(normalizedEmail, {
-      name: profile.name,
+    // Google OAuth has verified ownership of this email address; issue a
+    // self-contained signed HTTP-only session cookie regardless of mode or disk state.
+    const sessionToken = createSessionCookieToken({
+      email: account.email,
+      name: account.name || profile.name,
       provider: 'google',
     });
-    const verifyUrl = `${origin}/verify-email?token=${encodeURIComponent(
-      verifyLinkToken
-    )}`;
 
-    await sendVerificationLinkEmail({
-      to: normalizedEmail,
-      verifyUrl,
+    const response = NextResponse.redirect(`${origin}${safeNext}`);
+    response.cookies.set({
+      name: SESSION_COOKIE_NAME,
+      value: sessionToken,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isSecure,
+      path: '/',
+      maxAge: SESSION_MAX_AGE_SECONDS,
     });
-
-    const target = new URL(`${origin}/`);
-    target.searchParams.set('oauth_challenge', challengeId);
-    target.searchParams.set('email', normalizedEmail);
-
-    const response = NextResponse.redirect(target.toString());
     response.cookies.set({
       name: OAUTH_STATE_COOKIE_NAME,
       value: '',
@@ -171,16 +118,6 @@ export async function GET(request: NextRequest) {
       path: '/',
       maxAge: 0,
     });
-    response.cookies.set({
-      name: SESSION_COOKIE_NAME,
-      value: '',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: isSecure,
-      path: '/',
-      maxAge: 0,
-    });
-
     return response;
   } catch {
     return NextResponse.redirect(`${origin}/?auth_error=google_oauth_error`);

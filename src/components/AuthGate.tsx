@@ -186,6 +186,9 @@ export function AuthGate({
         'Google Sign-In is not configured yet. Add GOOGLE_CLIENT_ID in .env.local or use Email Sign-In.'
       );
       window.history.replaceState({}, '', window.location.pathname);
+    } else if (authError === 'google_email_unverified') {
+      setErrorMsg('Your Google account email is not verified. Please verify it with Google or create an account via email.');
+      window.history.replaceState({}, '', window.location.pathname);
     } else if (authError === 'account_not_found') {
       setAuthenticated(false);
       setUser(null);
@@ -196,7 +199,7 @@ export function AuthGate({
       setErrorMsg(
         oauthEmail
           ? `No KinoStream account found for ${oauthEmail}. Please create an account and complete verification first.`
-          : 'No KinoStream account found for this Google email. Please create an account first.'
+          : 'No KinoStream account found for this email. Please create an account first.'
       );
       window.history.replaceState({}, '', window.location.pathname);
     } else if (authError) {
