@@ -43,9 +43,9 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
     format: 'embed',
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
-      `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&autoplay=1&autoPlay=true`,
+      `https://vidsrc.sh/embed/movie?tmdb=${tmdbId}&autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1&autoPlay=true`,
+      `https://vidsrc.sh/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1&autoPlay=true`,
   },
   {
     id: 'twoembed-cc',
@@ -92,6 +92,7 @@ export function resolveVodSources(params: {
   resolvedDirectSources?: StreamSource[];
   preferredResolverId?: string;
   isAnime?: boolean;
+  animeAudio?: 'sub' | 'dub';
 }): StreamSource[] {
   const sources: StreamSource[] = [];
   const {
@@ -103,12 +104,23 @@ export function resolveVodSources(params: {
     directUrl,
     resolvedDirectSources,
     preferredResolverId,
+    animeAudio = 'sub',
   } = params;
 
   if (resolvedDirectSources && resolvedDirectSources.length > 0) {
-    for (const s of resolvedDirectSources) {
-      sources.push({ ...s, isDefault: sources.length === 0 });
-    }
+    const preferredAudioIdx = resolvedDirectSources.findIndex(
+      (s) => s.audioTrack === animeAudio || s.language === animeAudio
+    );
+    const hasExplicitDefault = resolvedDirectSources.some((s) => s.isDefault);
+    resolvedDirectSources.forEach((s, idx) => {
+      const pickDefault =
+        preferredAudioIdx >= 0
+          ? idx === preferredAudioIdx
+          : hasExplicitDefault
+          ? Boolean(s.isDefault)
+          : idx === 0;
+      sources.push({ ...s, isDefault: pickDefault });
+    });
   }
 
   if (directUrl && !sources.some((s) => s.url === directUrl)) {
@@ -155,6 +167,8 @@ export function resolveVodSources(params: {
         name: resolver.name,
         label: resolver.name,
         quality: 'Auto HD',
+        audioTrack: 'sub',
+        audioSupport: { sub: true, dub: false },
         format: resolver.format,
         url,
         isDefault: false,

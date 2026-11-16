@@ -114,6 +114,11 @@ export interface StreamSource {
   label: string;
   quality?: string;
   language?: string;
+  audioTrack?: 'sub' | 'dub' | 'both';
+  audioSupport?: {
+    sub: boolean;
+    dub: boolean;
+  };
   format: StreamFormat;
   url: string;
   referrer?: string;

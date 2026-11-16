@@ -5,6 +5,7 @@ import {
   FALLBACK_MOVIES,
   FALLBACK_SERIES,
 } from '@/config/fallback-streams';
+import { resolveAnimePlaybackSources } from '@/lib/anime';
 import { requireApiSession } from '@/lib/auth-crypto';
 import {
   SsrfBlockedError,
@@ -67,6 +68,8 @@ async function extractDirectStreamsFromBody(
         name: format === 'hls' ? 'Direct HLS Master' : 'Direct MP4 Stream',
         label: format === 'hls' ? 'Native HLS · No Popups' : 'Direct MP4 · No Popups',
         quality: 'Adaptive HD',
+        audioTrack: 'both',
+        audioSupport: { sub: true, dub: true },
         format,
         url: safeUrl.toString(),
         referrer: referer,
@@ -92,6 +95,23 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const id = searchParams.get('id')?.trim() || '';
   const tmdbIdRaw = searchParams.get('tmdbId')?.trim() || '';
+  const mediaTypeParam = searchParams.get('type')?.trim() || 'movie';
+  const type: 'movie' | 'series' =
+    mediaTypeParam === 'tv' || mediaTypeParam === 'series' ? 'series' : 'movie';
+  const season = Math.max(1, Number(searchParams.get('season') || '1') || 1);
+  const episode = Math.max(1, Number(searchParams.get('episode') || '1') || 1);
+  const absEpisode = Math.max(
+    episode,
+    Number(searchParams.get('absEpisode') || String(episode)) || episode
+  );
+  const isAnime = searchParams.get('isAnime') === '1';
+  const animeAudio: 'sub' | 'dub' =
+    searchParams.get('animeAudio') === 'dub' ? 'dub' : 'sub';
+  const title = searchParams.get('title')?.trim() || undefined;
+  const originalTitle = searchParams.get('originalTitle')?.trim() || undefined;
+  const yearNum = Number(searchParams.get('year') || '');
+  const year = Number.isFinite(yearNum) && yearNum > 1900 ? yearNum : undefined;
+
   const targetUrlParam = searchParams.get('url')?.trim() || '';
   const refererParam = searchParams.get('referer')?.trim() || '';
 
@@ -122,6 +142,8 @@ export async function GET(request: NextRequest) {
       name: 'Open Archive Master',
       label: `${catalogMatch.quality || 'HD'} Direct`,
       quality: catalogMatch.quality || 'HD',
+      audioTrack: 'sub',
+      audioSupport: { sub: true, dub: false },
       format,
       url: catalogMatch.streamUrl,
       isDefault: true,
@@ -175,58 +197,80 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      if (!upstream.ok && upstream.status !== 206) {
-        return NextResponse.json({
-          resolved: false,
-          streams: [],
-        });
-      }
+      if (upstream.ok || upstream.status === 206) {
+        const contentType = upstream.headers.get('content-type') || '';
+        const directFormat = inferStreamFormat(finalUrl.toString(), contentType);
 
-      const contentType = upstream.headers.get('content-type') || '';
-      const directFormat = inferStreamFormat(finalUrl.toString(), contentType);
+        if (directFormat) {
+          const stream: StreamSource = {
+            id: 'resolved-direct-1',
+            name: directFormat === 'hls' ? 'Direct HLS Master' : 'Direct MP4 Stream',
+            label: directFormat === 'hls' ? 'Native HLS · No Popups' : 'Direct MP4 · No Popups',
+            quality: 'Adaptive HD',
+            audioTrack: 'both',
+            audioSupport: { sub: true, dub: true },
+            format: directFormat,
+            url: finalUrl.toString(),
+            referrer: effectiveReferer,
+            isDefault: true,
+          };
+          return NextResponse.json({
+            resolved: true,
+            url: stream.url,
+            format: stream.format,
+            streams: [stream],
+          });
+        }
 
-      if (directFormat) {
-        const stream: StreamSource = {
-          id: 'resolved-direct-1',
-          name: directFormat === 'hls' ? 'Direct HLS Master' : 'Direct MP4 Stream',
-          label: directFormat === 'hls' ? 'Native HLS · No Popups' : 'Direct MP4 · No Popups',
-          quality: 'Adaptive HD',
-          format: directFormat,
-          url: finalUrl.toString(),
-          referrer: effectiveReferer,
-          isDefault: true,
-        };
-        return NextResponse.json({
-          resolved: true,
-          url: stream.url,
-          format: stream.format,
-          streams: [stream],
-        });
-      }
-
-      const ctLower = contentType.toLowerCase();
-      const declaredLen = Number(upstream.headers.get('content-length') || '0');
-      if (
-        (ctLower.includes('text/html') ||
-          ctLower.includes('application/json') ||
-          ctLower.includes('text/plain')) &&
-        declaredLen <= MAX_PROBE_HTML_BYTES
-      ) {
-        const text = await upstream.text();
-        if (Buffer.byteLength(text, 'utf8') <= MAX_PROBE_HTML_BYTES) {
-          const extracted = await extractDirectStreamsFromBody(text, finalUrl.origin);
-          if (extracted.length > 0) {
-            return NextResponse.json({
-              resolved: true,
-              url: extracted[0].url,
-              format: extracted[0].format,
-              streams: extracted,
-            });
+        const ctLower = contentType.toLowerCase();
+        const declaredLen = Number(upstream.headers.get('content-length') || '0');
+        if (
+          (ctLower.includes('text/html') ||
+            ctLower.includes('application/json') ||
+            ctLower.includes('text/plain')) &&
+          declaredLen <= MAX_PROBE_HTML_BYTES
+        ) {
+          const text = await upstream.text();
+          if (Buffer.byteLength(text, 'utf8') <= MAX_PROBE_HTML_BYTES) {
+            const extracted = await extractDirectStreamsFromBody(text, finalUrl.origin);
+            if (extracted.length > 0) {
+              return NextResponse.json({
+                resolved: true,
+                url: extracted[0].url,
+                format: extracted[0].format,
+                streams: extracted,
+              });
+            }
           }
         }
       }
     } catch {
-      // Upstream timeout/unreachable: let caller seamlessly fall back to embed servers
+      // Upstream timeout/unreachable: continue cleanly
+    }
+  }
+
+  // 3. Anime MAL/AniList disambiguation (title + release year + season/absolute episode + safe SUB/DUB)
+  if (isAnime && (numericTmdbId || title)) {
+    try {
+      const { meta, streams } = await resolveAnimePlaybackSources({
+        tmdbId: numericTmdbId,
+        type,
+        title,
+        originalTitle,
+        year,
+        season,
+        episode,
+        absoluteEpisode: absEpisode,
+        requestedAudio: animeAudio,
+      });
+
+      return NextResponse.json({
+        resolved: streams.length > 0,
+        streams,
+        animeMeta: meta,
+      });
+    } catch {
+      // Graceful fallback to TMDB embed servers if anime resolver times out
     }
   }
 

@@ -7,12 +7,11 @@ import {
   Airplay,
   AlertCircle,
   ChevronDown,
+  Eye,
   Link2,
   Loader2,
-  Lock,
   Maximize,
   Minimize,
-  MousePointerClick,
   Pause,
   PictureInPicture2,
   Play,
@@ -74,6 +73,8 @@ interface VideoPlayerProps {
   isAnime?: boolean;
   animeAudio?: 'sub' | 'dub';
   onAnimeAudioChange?: (mode: 'sub' | 'dub') => void;
+  animeAudioStatus?: string | null;
+  onFailoverAudioToSub?: () => void;
   minimizeBackHref?: string;
 }
 
@@ -100,6 +101,8 @@ export function VideoPlayer({
   isAnime = false,
   animeAudio = 'sub',
   onAnimeAudioChange,
+  animeAudioStatus,
+  onFailoverAudioToSub,
   minimizeBackHref = '/',
 }: VideoPlayerProps) {
   const { proxyMode: globalProxyMode, minimizeToPlayer } = useKino();
@@ -125,10 +128,12 @@ export function VideoPlayer({
   const [adShield, setAdShield] = useState<boolean>(true);
   const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
   const [clickGuardActive, setClickGuardActive] = useState<boolean>(true);
+  const [clearFrame, setClearFrame] = useState<boolean>(false);
   const [embedMutedAutoplay, setEmbedMutedAutoplay] = useState<boolean>(false);
   const [embedNonce, setEmbedNonce] = useState<number>(0);
   const [autoplayMutedBanner, setAutoplayMutedBanner] = useState<boolean>(false);
   const [shieldNotice, setShieldNotice] = useState<string | null>(null);
+  const [showSwitchPrompt, setShowSwitchPrompt] = useState<boolean>(false);
   const [playing, setPlaying] = useState(false);
   const [buffering, setBuffering] = useState(true);
   const [sourceReady, setSourceReady] = useState(false);
@@ -165,6 +170,7 @@ export function VideoPlayer({
     setErrorMsg(null);
     setAutoplayMutedBanner(false);
     setShieldNotice(null);
+    setShowSwitchPrompt(false);
     setAutoNextSeconds(null);
     setAutoNextDismissed(false);
     appliedInitialSeekRef.current = false;
@@ -200,6 +206,11 @@ export function VideoPlayer({
     const tried = new Set([...triedSourceIds, activeSource.id]);
     const nextCandidate = sources.find((s) => !tried.has(s.id));
     if (!nextCandidate) {
+      if (isAnime && animeAudio === 'dub' && onFailoverAudioToSub) {
+        onFailoverAudioToSub();
+        return true;
+      }
+      setShowSwitchPrompt(true);
       return false;
     }
     setTriedSourceIds(Array.from(tried));
@@ -207,9 +218,10 @@ export function VideoPlayer({
     setSourceReady(false);
     setErrorMsg(null);
     setBuffering(true);
+    setShowSwitchPrompt(true);
     setFailoverToast(`Switched to backup server (${nextCandidate.name})`);
     return true;
-  }, [activeSource, triedSourceIds, sources]);
+  }, [activeSource, triedSourceIds, sources, isAnime, animeAudio, onFailoverAudioToSub]);
 
   // Protect parent window from embed popup focus-stealing & top-level hijack when Ad-Shield is ON
   useEffect(() => {
@@ -239,13 +251,14 @@ export function VideoPlayer({
   // Auto-dismiss failover toast
   useEffect(() => {
     if (!failoverToast) return;
-    const t = setTimeout(() => setFailoverToast(null), 4000);
+    const t = setTimeout(() => setFailoverToast(null), 4500);
     return () => clearTimeout(t);
   }, [failoverToast]);
 
-  // 8-second readiness timeout for automatic failover
+  // Fast health/readiness timeout (4.5s for Anime, 8s general) for automatic server failover
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
+    const timeoutMs = isAnime ? 4500 : 8000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -253,9 +266,9 @@ export function VideoPlayer({
           setBuffering(false);
         }
       }
-    }, 8000);
+    }, timeoutMs);
     return () => clearTimeout(timer);
-  }, [activeSource, sourceReady, errorMsg, failoverToNextSource]);
+  }, [activeSource, sourceReady, errorMsg, isAnime, failoverToNextSource]);
 
   // Auto-next 10s countdown tick
   useEffect(() => {
@@ -615,14 +628,65 @@ export function VideoPlayer({
 
   const hasEmbedSources = activeSource?.format === 'embed';
 
+  const handleCycleServer = useCallback(() => {
+    if (!activeSource || sources.length <= 1) return;
+    const curIdx = sources.findIndex((s) => s.id === activeSource.id);
+    const nextSrc = sources[(curIdx + 1) % sources.length];
+    if (nextSrc) {
+      setSelectedSourceId(nextSrc.id);
+      setSourceReady(false);
+      setErrorMsg(null);
+      setBuffering(true);
+      setShowSwitchPrompt(false);
+      setFailoverToast(`Switched to ${nextSrc.name}`);
+    }
+  }, [activeSource, sources]);
+
+  const unmuteActivePlayer = useCallback(() => {
+    if (hasEmbedSources) {
+      setEmbedMutedAutoplay(false);
+      setEmbedNonce((n) => n + 1);
+      return;
+    }
+    const v = videoRef.current;
+    if (v) {
+      v.muted = false;
+      if (v.volume === 0) {
+        v.volume = 1;
+        setVolume(1);
+      }
+      v.play().catch(() => undefined);
+    }
+    setMuted(false);
+    setAutoplayMutedBanner(false);
+  }, [hasEmbedSources]);
+
+  const showTapToUnmute = hasEmbedSources
+    ? embedMutedAutoplay
+    : (autoplayMutedBanner || muted) && !errorMsg;
+
+  const shieldCurrentlyBlocking = Boolean(
+    hasEmbedSources && adShield && clickGuardActive && !clearFrame
+  );
+
   return (
     <div className="w-full">
       <div
         ref={containerRef}
         onMouseMove={scheduleHideControls}
         onTouchStart={scheduleHideControls}
-        className="relative aspect-video w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black shadow-2xl"
+        className={cn(
+          'overflow-hidden rounded-2xl border border-white/[0.08] bg-[#09090B] shadow-2xl',
+          isFullscreen && 'flex flex-col justify-between bg-black'
+        )}
       >
+        {/* 16:9 Media Viewport — All 4 Corners Kept 100% Unobstructed */}
+        <div
+          className={cn(
+            'relative w-full bg-black',
+            isFullscreen ? 'min-h-0 flex-1' : 'aspect-video'
+          )}
+        >
         {sources.length === 0 ? (
           <div className="flex h-full w-full flex-col items-center justify-center bg-[#09090B] px-6 text-center">
             <Radio className="h-10 w-10 text-[#D4AF37]/70" />
@@ -672,133 +736,24 @@ export function VideoPlayer({
               className="h-full w-full border-0"
             />
 
-            {/* Mobile Safari / Muted Autoplay Unmute Pill */}
-            {embedMutedAutoplay && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEmbedMutedAutoplay(false);
-                  setEmbedNonce((n) => n + 1);
-                }}
-                className="absolute top-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/60 bg-[#09090B]/90 px-4 text-xs font-semibold text-[#E2C275] shadow-xl backdrop-blur-xl transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
-              >
-                <VolumeX className="h-4 w-4" />
-                Tap to Unmute
-              </button>
-            )}
-
-            {/* Anti-Redirect / Popup Shield Overlay + KinoStream Native HUD Controls */}
-            {adShield && clickGuardActive ? (
-              <>
-                <div
-                  role="presentation"
-                  onClick={() =>
-                    setShieldNotice(
-                      'Redirect Shield Active · Use HUD controls or tap Interact'
-                    )
-                  }
-                  className="absolute inset-0 z-20 cursor-default bg-transparent"
-                />
-
-                {shieldNotice && (
-                  <div className="pointer-events-none absolute bottom-16 left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#D4AF37]/40 bg-[#09090B]/90 px-3.5 py-1.5 text-[11px] font-medium text-[#E2C275] shadow-lg backdrop-blur-md">
-                    {shieldNotice}
-                  </div>
-                )}
-
-                <div className="absolute inset-x-0 bottom-0 z-30 flex items-center justify-between gap-2 bg-gradient-to-t from-[#09090B]/95 via-[#09090B]/60 to-transparent px-3 pt-6 pb-2.5 sm:px-4">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setEmbedNonce((n) => n + 1)}
-                      aria-label="Replay / Autoplay embed stream"
-                      title="Restart Autoplay"
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
-                    >
-                      <Play className="ml-0.5 h-4 w-4 fill-current" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmbedMutedAutoplay((m) => !m);
-                        setEmbedNonce((n) => n + 1);
-                      }}
-                      aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
-                      title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#121215]/90 px-3 text-xs font-medium text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/50"
-                    >
-                      {embedMutedAutoplay ? (
-                        <VolumeX className="h-4 w-4 text-[#D4AF37]" />
-                      ) : (
-                        <Volume2 className="h-4 w-4" />
-                      )}
-                      <span className="hidden sm:inline">
-                        {embedMutedAutoplay ? 'Unmute' : 'Audio'}
-                      </span>
-                    </button>
-
-                    {sources.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const curIdx = sources.findIndex(
-                            (s) => s.id === activeSource.id
-                          );
-                          const nextSrc = sources[(curIdx + 1) % sources.length];
-                          if (nextSrc) {
-                            setSelectedSourceId(nextSrc.id);
-                            setSourceReady(false);
-                            setBuffering(true);
-                          }
-                        }}
-                        title="Switch to next server"
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#121215]/90 px-3 text-xs font-medium text-[#A1A1AA] backdrop-blur-md transition hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]"
-                      >
-                        <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        <span className="hidden sm:inline">Switch Server</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setClickGuardActive(false)}
-                      title="Temporarily allow direct clicks inside the third-party embed player"
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#09090B]/90 px-3 text-xs font-medium text-[#E2C275] backdrop-blur-md transition hover:bg-[#D4AF37] hover:text-[#09090B]"
-                    >
-                      <MousePointerClick className="h-3.5 w-3.5" />
-                      Interact
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={toggleFullscreen}
-                      aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#121215]/90 text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/50"
-                    >
-                      {isFullscreen ? (
-                        <Minimize className="h-4 w-4" />
-                      ) : (
-                        <Maximize className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </>
-            ) : (
-              adShield && (
-                <button
-                  type="button"
-                  onClick={() => setClickGuardActive(true)}
-                  className="absolute bottom-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-emerald-500/40 bg-[#09090B]/85 px-3.5 text-[11px] font-semibold text-emerald-300 shadow-lg backdrop-blur-md transition hover:border-[#D4AF37]/60 hover:text-[#E2C275]"
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                  Lock Shield
-                </button>
-              )
-            )}
+            {/* Transparent Anti-Redirect Shield (dropped completely when Clear Frame is active) */}
+            <div
+              role="presentation"
+              onClick={
+                shieldCurrentlyBlocking
+                  ? () =>
+                      setShieldNotice(
+                        'Redirect blocked · Tap Clear Frame below to click native X / Skip'
+                      )
+                  : undefined
+              }
+              className={cn(
+                'absolute inset-0 z-20 bg-transparent transition-opacity',
+                shieldCurrentlyBlocking
+                  ? 'pointer-events-auto cursor-default'
+                  : 'pointer-events-none'
+              )}
+            />
           </div>
         ) : (
           <>
@@ -880,30 +835,6 @@ export function VideoPlayer({
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
                 <Loader2 className="h-10 w-10 animate-spin text-[#D4AF37]" />
               </div>
-            )}
-
-            {/* Mobile Safari / Browser Policy Muted Autoplay Unmute Pill */}
-            {(autoplayMutedBanner || muted) && !errorMsg && (
-              <button
-                type="button"
-                onClick={() => {
-                  const v = videoRef.current;
-                  if (v) {
-                    v.muted = false;
-                    if (v.volume === 0) {
-                      v.volume = 1;
-                      setVolume(1);
-                    }
-                    v.play().catch(() => undefined);
-                  }
-                  setMuted(false);
-                  setAutoplayMutedBanner(false);
-                }}
-                className="absolute top-3 left-3 z-30 inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/60 bg-[#09090B]/90 px-4 text-xs font-semibold text-[#E2C275] shadow-xl backdrop-blur-xl transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
-              >
-                <VolumeX className="h-4 w-4" />
-                Tap to Unmute
-              </button>
             )}
 
             {/* Error Overlay */}
@@ -1109,69 +1040,191 @@ export function VideoPlayer({
             </div>
           </>
         )}
+        </div>
 
-        {/* Subtle Backup Server Toast */}
-        {failoverToast && (
-          <div className="pointer-events-none absolute top-4 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#D4AF37]/40 bg-[#121215]/95 px-4 py-1.5 text-xs font-medium text-[#E2C275] shadow-xl backdrop-blur-md">
-            {failoverToast}
-          </div>
-        )}
-
-        {/* Top-Right Touch-Friendly Minimize & Next Episode Quick HUD (rendered after iframe for guaranteed z-order) */}
+        {/* External Obsidian-and-Gold Control Strip (Below 16:9 Frame — Zero Corner Overlap) */}
         {sources.length > 0 && (
-          <div className="absolute top-3 right-3 z-30 flex items-center gap-2">
-            {hasNextEpisode && onNextEpisode && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] bg-[#121215]/95 px-3 py-2.5 sm:px-4">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {showTapToUnmute && (
+                <button
+                  type="button"
+                  onClick={unmuteActivePlayer}
+                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/70 bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                >
+                  <VolumeX className="h-4 w-4" />
+                  Tap to Unmute
+                </button>
+              )}
+
+              {hasEmbedSources && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEmbedNonce((n) => n + 1)}
+                    aria-label="Replay / Autoplay embed stream"
+                    title="Restart Autoplay"
+                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#D4AF37] px-3 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
+                  >
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    <span className="hidden sm:inline">Play</span>
+                  </button>
+
+                  {!showTapToUnmute && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEmbedMutedAutoplay((m) => !m);
+                        setEmbedNonce((n) => n + 1);
+                      }}
+                      aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
+                      title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                    >
+                      <Volume2 className="h-4 w-4" />
+                      <span className="hidden sm:inline">Audio</span>
+                    </button>
+                  )}
+
+                  {adShield && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (shieldCurrentlyBlocking) {
+                          setClearFrame(true);
+                          setShieldNotice(null);
+                        } else {
+                          setClearFrame(false);
+                          setClickGuardActive(true);
+                        }
+                      }}
+                      title={
+                        shieldCurrentlyBlocking
+                          ? 'Drop overlay so native Close (X) and Skip buttons inside the embed are 100% clickable'
+                          : 'Re-enable Redirect Shield over the embed surface'
+                      }
+                      className={cn(
+                        'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition',
+                        shieldCurrentlyBlocking
+                          ? 'border-[#D4AF37]/45 bg-[#09090B] text-[#E2C275] hover:bg-[#D4AF37] hover:text-[#09090B]'
+                          : 'border-emerald-500/45 bg-emerald-500/15 text-emerald-300 hover:border-[#D4AF37]/50'
+                      )}
+                    >
+                      {shieldCurrentlyBlocking ? (
+                        <>
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Clear Frame</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span>Enable Shield</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </>
+              )}
+
+              {sources.length > 1 && (
+                <button
+                  type="button"
+                  onClick={handleCycleServer}
+                  title="Rotate to next working server"
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
+                    showSwitchPrompt
+                      ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
+                      : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]'
+                  )}
+                >
+                  <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
+                  <span>{showSwitchPrompt ? 'Switch Server' : 'Next Server'}</span>
+                </button>
+              )}
+
+              {animeAudioStatus && (
+                <span className="inline-flex min-h-[36px] items-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/12 px-3 text-[11px] font-semibold text-[#E2C275]">
+                  {animeAudioStatus}
+                </span>
+              )}
+
+              {(failoverToast || shieldNotice) && (
+                <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090B] px-3 text-[11px] font-medium text-[#E2C275]">
+                  {failoverToast || shieldNotice}
+                </span>
+              )}
+
+              {autoNextSeconds !== null && hasNextEpisode && onNextEpisode && (
+                <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3 py-1">
+                  <span className="text-[11px] font-medium text-[#FAFAFA]">
+                    {nextEpisodeLabel ? `${nextEpisodeLabel} ` : 'Next '}
+                    in <strong className="text-[#D4AF37] tabular-nums">{autoNextSeconds}s</strong>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoNextSeconds(null);
+                      onNextEpisode();
+                    }}
+                    className="min-h-[34px] rounded-full bg-[#D4AF37] px-3 text-[11px] font-semibold text-[#09090B]"
+                  >
+                    Play Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAutoNextSeconds(null);
+                      setAutoNextDismissed(true);
+                    }}
+                    className="min-h-[34px] rounded-full border border-white/10 px-2.5 text-[11px] text-[#A1A1AA]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              {hasNextEpisode && onNextEpisode && (
+                <button
+                  type="button"
+                  onClick={onNextEpisode}
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                >
+                  <SkipForward className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Next Episode</span>
+                  <span className="sm:hidden">Next</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={onNextEpisode}
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B]/85 px-3.5 text-xs font-semibold text-[#E2C275] backdrop-blur-md transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                onClick={handleMinimize}
+                aria-label="Minimize to floating mini-player"
+                title="Minimize to mini-player"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275] active:scale-95"
               >
-                <SkipForward className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Next Episode</span>
-                <span className="sm:hidden">Next</span>
+                <ChevronDown className="h-4 w-4" />
+                <span className="hidden sm:inline">Minimize</span>
               </button>
-            )}
 
-            <button
-              type="button"
-              onClick={handleMinimize}
-              aria-label="Minimize to floating mini-player"
-              title="Minimize to mini-player"
-              className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B]/85 px-3 text-xs font-medium text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/60 hover:text-[#E2C275] active:scale-95"
-            >
-              <ChevronDown className="h-4 w-4" />
-              <span className="hidden sm:inline">Minimize</span>
-            </button>
-          </div>
-        )}
-
-        {/* 10-Second Auto-Advance Countdown Pill */}
-        {autoNextSeconds !== null && hasNextEpisode && onNextEpisode && (
-          <div className="absolute right-3 bottom-16 z-30 flex flex-wrap items-center gap-2 rounded-2xl border border-[#D4AF37]/45 bg-[#121215]/95 p-2.5 shadow-2xl backdrop-blur-xl sm:right-5 sm:bottom-20">
-            <span className="px-2 text-xs font-medium text-[#FAFAFA]">
-              {nextEpisodeLabel ? `${nextEpisodeLabel} ` : 'Next episode '}
-              in <strong className="text-[#D4AF37] tabular-nums">{autoNextSeconds}s</strong>
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setAutoNextSeconds(null);
-                onNextEpisode();
-              }}
-              className="min-h-[44px] rounded-xl bg-[#D4AF37] px-3.5 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
-            >
-              Play Now
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAutoNextSeconds(null);
-                setAutoNextDismissed(true);
-              }}
-              className="min-h-[44px] rounded-xl border border-white/10 px-3 text-xs text-[#A1A1AA] hover:text-[#FAFAFA]"
-            >
-              Cancel
-            </button>
+              {hasEmbedSources && (
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                  title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275]"
+                >
+                  {isFullscreen ? (
+                    <Minimize className="h-4 w-4" />
+                  ) : (
+                    <Maximize className="h-4 w-4" />
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -1220,6 +1273,7 @@ export function VideoPlayer({
                       setSourceReady(false);
                       setErrorMsg(null);
                       setBuffering(true);
+                      setShowSwitchPrompt(false);
                     }}
                     className={cn(
                       'inline-flex min-h-[44px] shrink-0 items-center rounded-full border px-4 text-xs font-medium transition',
@@ -1284,16 +1338,24 @@ export function VideoPlayer({
                     <>
                       <button
                         type="button"
-                        onClick={() => setClickGuardActive((c) => !c)}
+                        onClick={() => {
+                          if (shieldCurrentlyBlocking) {
+                            setClearFrame(true);
+                            setShieldNotice(null);
+                          } else {
+                            setClearFrame(false);
+                            setClickGuardActive(true);
+                          }
+                        }}
                         title="Toggle transparent popup / redirect shield overlay"
                         className={cn(
                           'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
-                          clickGuardActive
+                          shieldCurrentlyBlocking
                             ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
                             : 'border-white/[0.08] text-[#71717A] hover:text-[#FAFAFA]'
                         )}
                       >
-                        {clickGuardActive ? 'Popup Shield: ON' : 'Popup Shield: OFF'}
+                        {shieldCurrentlyBlocking ? 'Popup Shield: ON' : 'Popup Shield: OFF'}
                       </button>
 
                       <button

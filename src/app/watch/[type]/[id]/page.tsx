@@ -24,6 +24,7 @@ import { PosterCard } from '@/components/PosterCard';
 import { TopBar } from '@/components/TopBar';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVodSources } from '@/config/sources';
+import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/anime';
 import {
   getAnimeAudioMode,
   getPreferredVodResolver,
@@ -165,6 +166,8 @@ function WatchViewContent() {
   const [showTrailer, setShowTrailer] = useState(false);
   const [pastedSources, setPastedSources] = useState<StreamSource[]>([]);
   const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
+  const [animeDubAvailable, setAnimeDubAvailable] = useState<boolean | null>(null);
+  const [animeAudioStatus, setAnimeAudioStatus] = useState<string | null>(null);
 
   // Restore saved season/episode/timestamp & anime SUB/DUB preference
   useEffect(() => {
@@ -275,28 +278,63 @@ function WatchViewContent() {
     };
   }, [isChannelType, mediaId, mediaType]);
 
-  // Probe server-side direct HLS/MP4 resolver in background (never blocks embed playback)
+  const isAnimeSeries = useMemo(() => {
+    if (!mediaDetails || isChannelType) return false;
+    const isAnimation = Boolean(
+      mediaDetails.genres?.some((g) => g.toLowerCase() === 'animation') ||
+        mediaDetails.genreIds?.includes(16)
+    );
+    return (
+      mediaDetails.originalLanguage === 'ja' ||
+      (mediaDetails.originalLanguage === 'ja' && isAnimation)
+    );
+  }, [mediaDetails, isChannelType]);
+
+  // Probe server-side direct HLS/MP4 & Anime MAL/AniList resolver in background (never blocks embed playback)
   useEffect(() => {
-    if (isChannelType || !mediaId) {
+    if (isChannelType || !mediaId || !mediaDetails) {
       setResolvedDirectSources([]);
+      setAnimeDubAvailable(null);
       return;
     }
 
     let active = true;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
+    const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 3800 : 2500);
 
     const tmdbType = mediaType === 'series' ? 'tv' : 'movie';
+    const absEp = isAnimeSeries
+      ? computeAbsoluteEpisodeNumber(
+          mediaDetails.seasons,
+          selectedSeason,
+          selectedEpisode
+        )
+      : selectedEpisode;
+
     const params = new URLSearchParams({
       id: mediaId,
       type: tmdbType,
       season: String(selectedSeason),
       episode: String(selectedEpisode),
+      absEpisode: String(absEp),
+      animeAudio,
     });
-    if (mediaDetails?.tmdbId) {
+    if (isAnimeSeries) {
+      params.set('isAnime', '1');
+    }
+    if (mediaDetails.tmdbId) {
       params.set('tmdbId', String(mediaDetails.tmdbId));
     }
-    if (mediaDetails?.streamUrl) {
+    if (mediaDetails.title) {
+      params.set('title', mediaDetails.title);
+    }
+    if (mediaDetails.originalTitle) {
+      params.set('originalTitle', mediaDetails.originalTitle);
+    }
+    if (mediaDetails.year) {
+      params.set('year', mediaDetails.year);
+    }
+    if (mediaDetails.streamUrl) {
       params.set('url', mediaDetails.streamUrl);
     }
 
@@ -305,16 +343,39 @@ function WatchViewContent() {
       cache: 'no-store',
     })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { resolved?: boolean; streams?: StreamSource[] } | null) => {
-        if (!active) return;
-        if (data?.resolved && Array.isArray(data.streams) && data.streams.length > 0) {
-          setResolvedDirectSources(data.streams);
-        } else {
-          setResolvedDirectSources([]);
+      .then(
+        (
+          data: {
+            resolved?: boolean;
+            streams?: StreamSource[];
+            animeMeta?: AnimeResolutionMeta;
+          } | null
+        ) => {
+          if (!active) return;
+          if (data?.resolved && Array.isArray(data.streams) && data.streams.length > 0) {
+            setResolvedDirectSources(data.streams);
+          } else {
+            setResolvedDirectSources([]);
+          }
+
+          if (data?.animeMeta) {
+            setAnimeDubAvailable(data.animeMeta.dubAvailable);
+            if (!data.animeMeta.dubAvailable && animeAudio === 'dub') {
+              setAnimeAudioState('sub');
+              setAnimeAudioStatus(
+                data.animeMeta.dubFallbackReason || 'DUB unavailable · Playing SUB'
+              );
+            } else {
+              setAnimeAudioStatus(null);
+            }
+          }
         }
-      })
+      )
       .catch(() => {
-        if (active) setResolvedDirectSources([]);
+        if (active) {
+          setResolvedDirectSources([]);
+          setAnimeDubAvailable(null);
+        }
       })
       .finally(() => {
         clearTimeout(timeout);
@@ -331,8 +392,9 @@ function WatchViewContent() {
     mediaType,
     selectedSeason,
     selectedEpisode,
-    mediaDetails?.tmdbId,
-    mediaDetails?.streamUrl,
+    mediaDetails,
+    isAnimeSeries,
+    animeAudio,
   ]);
 
   // Fetch season episodes for series
@@ -374,21 +436,34 @@ function WatchViewContent() {
     [mediaId, rawType, router]
   );
 
-  const handleAnimeAudioChange = useCallback((mode: 'sub' | 'dub') => {
-    setAnimeAudioState(mode);
-    setAnimeAudioMode(mode);
-  }, []);
+  const handleAnimeAudioChange = useCallback(
+    (mode: 'sub' | 'dub') => {
+      if (mode === 'dub') {
+        const hasDubStream =
+          resolvedDirectSources.some(
+            (s) => s.audioSupport?.dub || s.audioTrack === 'dub'
+          ) || animeDubAvailable === true;
 
-  const isAnimeSeries = useMemo(() => {
-    if (!mediaDetails) return false;
-    return (
-      mediaDetails.originalLanguage === 'ja' ||
-      Boolean(
-        mediaDetails.genres?.some((g) => g.toLowerCase() === 'animation') &&
-          (rawType === 'tv' || mediaDetails.originalLanguage === 'ja')
-      )
-    );
-  }, [mediaDetails, rawType]);
+        if (animeDubAvailable === false || (!hasDubStream && resolvedDirectSources.length > 0)) {
+          setAnimeAudioState('sub');
+          setAnimeAudioMode('sub');
+          setAnimeAudioStatus('DUB unavailable · Playing SUB');
+          return;
+        }
+      }
+
+      setAnimeAudioStatus(null);
+      setAnimeAudioState(mode);
+      setAnimeAudioMode(mode);
+    },
+    [resolvedDirectSources, animeDubAvailable]
+  );
+
+  const handleFailoverAudioToSub = useCallback(() => {
+    setAnimeAudioState('sub');
+    setAnimeAudioMode('sub');
+    setAnimeAudioStatus('DUB unavailable · Playing SUB');
+  }, []);
 
   const nextEpisodeTarget = useMemo<{
     season: number;
@@ -509,6 +584,7 @@ function WatchViewContent() {
         resolvedDirectSources,
         preferredResolverId: getPreferredVodResolver(),
         isAnime: isAnimeSeries,
+        animeAudio,
       });
       return [...combined, ...vod];
     }
@@ -526,6 +602,7 @@ function WatchViewContent() {
     selectedSeason,
     selectedEpisode,
     isAnimeSeries,
+    animeAudio,
   ]);
 
   const displayTitle = activeChannel
@@ -657,6 +734,8 @@ function WatchViewContent() {
               isAnime={isAnimeSeries}
               animeAudio={animeAudio}
               onAnimeAudioChange={handleAnimeAudioChange}
+              animeAudioStatus={animeAudioStatus}
+              onFailoverAudioToSub={handleFailoverAudioToSub}
               minimizeBackHref={backTarget}
             />
 
