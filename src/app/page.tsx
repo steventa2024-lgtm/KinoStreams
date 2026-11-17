@@ -10,6 +10,7 @@ import { MatchCard } from '@/components/MatchCard';
 import { MatchupArtwork } from '@/components/MatchupArtwork';
 import { MediaRow } from '@/components/MediaRow';
 import { PosterCard } from '@/components/PosterCard';
+import { StreamingPlatformsRow } from '@/components/StreamingPlatformsRow';
 import { TopBar } from '@/components/TopBar';
 import { formatDuration } from '@/lib/utils';
 import {
@@ -192,6 +193,9 @@ export default function HomePage() {
             <MatchCard key={match.id} match={match} />
           ))}
         </MediaRow>
+
+        {/* Browse by Streaming App (Netflix, Disney+, Prime Video, Paramount+, Peacock, Max, Hulu, Apple TV+) */}
+        <StreamingPlatformsRow />
 
         {/* Tonight's Feature Broadcasts (All Live TV + 24/7 Sports Channels) */}
         <MediaRow

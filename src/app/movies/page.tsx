@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Clapperboard, Loader2 } from 'lucide-react';
 import { DropdownPill } from '@/components/DropdownPill';
 import { PosterCard } from '@/components/PosterCard';
+import { StreamingPlatformsRow } from '@/components/StreamingPlatformsRow';
 import { TopBar } from '@/components/TopBar';
 import { FALLBACK_GENRES, FALLBACK_MOVIES, FALLBACK_SERIES } from '@/config/fallback-streams';
 import { cn } from '@/lib/utils';
@@ -185,6 +186,9 @@ function MoviesCatalogContent() {
             />
           </div>
         </div>
+
+        {/* Streaming Platform Hubs */}
+        <StreamingPlatformsRow compact />
 
         {/* Poster Grid */}
         {loading && items.length === 0 ? (
