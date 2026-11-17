@@ -152,6 +152,9 @@ export function withEmbedAutoplayParams(
     if (!url.searchParams.has('autoPlay')) {
       url.searchParams.set('autoPlay', 'true');
     }
+    if (!url.searchParams.has('autostart')) {
+      url.searchParams.set('autostart', '1');
+    }
     if (!url.searchParams.has('playsinline')) {
       url.searchParams.set('playsinline', '1');
     }
@@ -175,6 +178,6 @@ export function withEmbedAutoplayParams(
       hasExplicitLang && cleanLang
         ? `&lang=${encodeURIComponent(cleanLang)}&ds_lang=${encodeURIComponent(cleanLang)}&audio=${encodeURIComponent(cleanLang)}`
         : '';
-    return `${rawUrl}${sep}autoplay=1&autoPlay=true&playsinline=1${muteParams}${langParams}`;
+    return `${rawUrl}${sep}autoplay=1&autoPlay=true&autostart=1&playsinline=1${muteParams}${langParams}`;
   }
 }

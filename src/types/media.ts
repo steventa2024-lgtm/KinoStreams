@@ -130,6 +130,13 @@ export interface MediaItem {
 
 export type SportsMatchTier = 'direct_match' | 'broadcaster_match' | 'league_slot';
 
+export interface SubtitleTrack {
+  url: string;
+  lang: string;
+  label: string;
+  isDefault?: boolean;
+}
+
 export interface StreamSource {
   id: string;
   name: string;
@@ -147,6 +154,7 @@ export interface StreamSource {
   url: string;
   referrer?: string;
   headers?: Record<string, string>;
+  subtitles?: SubtitleTrack[];
   isDefault?: boolean;
 }
 

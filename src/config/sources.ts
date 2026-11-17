@@ -118,12 +118,21 @@ export function resolveVodSources(params: {
   }
 
   if (directUrl && !sources.some((s) => s.url === directUrl)) {
+    const directFormat: 'hls' | 'mp4' = directUrl.toLowerCase().includes('.mp4')
+      ? 'mp4'
+      : 'hls';
     sources.push({
-      id: 'user-direct',
-      name: 'Direct Stream',
-      label: 'Direct HLS / MP4',
-      quality: 'Adaptive',
-      format: directUrl.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
+      id: sources.length === 0 ? 'direct-autoplay-hd' : 'user-direct',
+      name:
+        sources.length === 0
+          ? 'Server I · Direct Auto-Play HD'
+          : 'Direct Auto-Play Stream',
+      label:
+        directFormat === 'hls'
+          ? 'Native HLS · Zero Popups'
+          : 'Direct MP4 · Zero Popups',
+      quality: 'Auto HD',
+      format: directFormat,
       url: directUrl,
       isDefault: sources.length === 0,
     });
@@ -138,16 +147,34 @@ export function resolveVodSources(params: {
   ].find((item) => item.id === id || (tmdbId !== undefined && item.tmdbId === tmdbId));
 
   if (fallbackMatch?.streamUrl && !sources.some((s) => s.url === fallbackMatch.streamUrl)) {
+    const directFormat: 'hls' | 'mp4' = fallbackMatch.streamUrl
+      .toLowerCase()
+      .includes('.mp4')
+      ? 'mp4'
+      : 'hls';
     sources.push({
-      id: 'open-archive-master',
-      name: 'Open Archive Master',
-      label: `${fallbackMatch.quality || 'HD'} Direct`,
+      id: sources.length === 0 ? 'direct-autoplay-hd' : 'open-archive-master',
+      name:
+        sources.length === 0
+          ? 'Server I · Direct Auto-Play HD'
+          : 'Open Archive Master',
+      label: `${fallbackMatch.quality || 'HD'} Direct · Zero Popups`,
       quality: fallbackMatch.quality || 'HD',
-      format: fallbackMatch.streamUrl.toLowerCase().includes('.mp4') ? 'mp4' : 'hls',
+      format: directFormat,
       url: fallbackMatch.streamUrl,
       isDefault: sources.length === 0,
     });
   }
+
+  const hasDirectPrimary = sources.some(
+    (s) => s.format === 'hls' || s.format === 'mp4'
+  );
+  const directShiftedLabels: Record<string, string> = {
+    'vidsrc-me': 'Server II - Mirror HD',
+    'vidlink-pro': 'Server III - VidLink HD',
+    'twoembed-cc': 'Server IV - Backup Embed',
+    multiembed: 'Server V - Legacy Fallback',
+  };
 
   const numericId = tmdbId || (/^\d+$/.test(id) ? Number(id) : undefined);
   if (numericId) {
@@ -156,10 +183,14 @@ export function resolveVodSources(params: {
         type === 'movie'
           ? resolver.buildMovieUrl(numericId)
           : resolver.buildSeriesUrl(numericId, season, episode);
+      const displayName =
+        hasDirectPrimary && !params.isAnime
+          ? directShiftedLabels[resolver.id] || resolver.name
+          : resolver.name;
       sources.push({
         id: resolver.id,
-        name: resolver.name,
-        label: resolver.name,
+        name: displayName,
+        label: displayName,
         quality: 'Auto HD',
         audioTrack: 'sub',
         audioSupport: { sub: true, dub: false },

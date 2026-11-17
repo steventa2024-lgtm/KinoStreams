@@ -632,11 +632,11 @@ export function VideoPlayer({
     return () => clearTimeout(t);
   }, [failoverToast]);
 
-  // Fast health/readiness timeout (5s for Cinema/Sports, 4.5s for Anime) for automatic server failover
+  // Fast health/readiness timeout (4s for Cinema Server I Direct Auto-Play & embeds, 4.5s for Anime, 5s for Live/Sports)
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
     const timeoutMs =
-      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 5000;
+      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 4000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -1473,7 +1473,24 @@ export function VideoPlayer({
                 }
               }}
               className="h-full w-full cursor-pointer object-contain bg-black"
-            />
+            >
+              {activeSource?.subtitles?.map((track) => {
+                const trackSrc = buildStreamProxyUrl(track.url, {
+                  referrer: activeSource.referrer || referrer,
+                  userAgent,
+                });
+                return (
+                  <track
+                    key={`${track.lang}:${track.url}`}
+                    kind="subtitles"
+                    src={trackSrc}
+                    srcLang={track.lang}
+                    label={track.label}
+                    default={Boolean(track.isDefault)}
+                  />
+                );
+              })}
+            </video>
 
             {/* Buffering Spinner */}
             {buffering && !errorMsg && (

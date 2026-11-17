@@ -12,7 +12,8 @@ import {
   assertSafeExternalUrl,
   safeFetchExternal,
 } from '@/lib/ssrf';
-import type { StreamSource } from '@/types/media';
+import { resolveCinemaDirectStreams } from '@/lib/vod-extractor';
+import type { StreamSource, SubtitleTrack } from '@/types/media';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -49,10 +50,31 @@ async function extractDirectStreamsFromBody(
 ): Promise<StreamSource[]> {
   const candidates = new Set<string>();
   const urlPattern = /https?:\/\/[^\s"'<>\\`]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>\\`]*)?/gi;
+  const vttPattern = /https?:\/\/[^\s"'<>\\`]+?\.vtt(?:\?[^\s"'<>\\`]*)?/gi;
   let match: RegExpExecArray | null;
 
   while ((match = urlPattern.exec(bodyText)) !== null && candidates.size < 5) {
     candidates.add(match[0]);
+  }
+
+  const subtitles: SubtitleTrack[] = [];
+  const seenSubs = new Set<string>();
+  let subMatch: RegExpExecArray | null;
+  while ((subMatch = vttPattern.exec(bodyText)) !== null && subtitles.length < 6) {
+    try {
+      const safeSub = await assertSafeExternalUrl(subMatch[0]);
+      const subUrl = safeSub.toString();
+      if (seenSubs.has(subUrl)) continue;
+      seenSubs.add(subUrl);
+      subtitles.push({
+        url: subUrl,
+        lang: 'en',
+        label: subtitles.length === 0 ? 'English / Auto' : `Subtitle ${subtitles.length + 1}`,
+        isDefault: subtitles.length === 0,
+      });
+    } catch {
+      // Ignore unsafe subtitle URLs
+    }
   }
 
   const verified: StreamSource[] = [];
@@ -64,15 +86,21 @@ async function extractDirectStreamsFromBody(
       const format = /\.mp4(\?|$)/i.test(safeUrl.pathname) ? 'mp4' : 'hls';
       idx += 1;
       verified.push({
-        id: `resolved-direct-${idx}`,
-        name: format === 'hls' ? 'Direct HLS Master' : 'Direct MP4 Stream',
-        label: format === 'hls' ? 'Native HLS · No Popups' : 'Direct MP4 · No Popups',
-        quality: 'Adaptive HD',
+        id: idx === 1 ? 'direct-autoplay-hd' : `resolved-direct-${idx}`,
+        name:
+          idx === 1
+            ? 'Server I · Direct Auto-Play HD'
+            : format === 'hls'
+            ? 'Direct HLS Master'
+            : 'Direct MP4 Stream',
+        label: format === 'hls' ? 'Native HLS · Zero Popups' : 'Direct MP4 · Zero Popups',
+        quality: 'Auto HD',
         audioTrack: 'both',
         audioSupport: { sub: true, dub: true },
         format,
         url: safeUrl.toString(),
         referrer: referer,
+        subtitles: subtitles.length > 0 ? subtitles : undefined,
         isDefault: idx === 1,
       });
     } catch {
@@ -95,6 +123,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
   const id = searchParams.get('id')?.trim() || '';
   const tmdbIdRaw = searchParams.get('tmdbId')?.trim() || '';
+  const imdbId = searchParams.get('imdbId')?.trim() || undefined;
   const mediaTypeParam = searchParams.get('type')?.trim() || 'movie';
   const type: 'movie' | 'series' =
     mediaTypeParam === 'tv' || mediaTypeParam === 'series' ? 'series' : 'movie';
@@ -138,12 +167,12 @@ export async function GET(request: NextRequest) {
       ? 'mp4'
       : 'hls';
     const stream: StreamSource = {
-      id: 'open-archive-master',
-      name: 'Open Archive Master',
-      label: `${catalogMatch.quality || 'HD'} Direct`,
+      id: 'direct-autoplay-hd',
+      name: 'Server I · Direct Auto-Play HD',
+      label: `${catalogMatch.quality || 'HD'} Direct · Zero Popups`,
       quality: catalogMatch.quality || 'HD',
-      audioTrack: 'sub',
-      audioSupport: { sub: true, dub: false },
+      audioTrack: 'both',
+      audioSupport: { sub: true, dub: true },
       format,
       url: catalogMatch.streamUrl,
       isDefault: true,
@@ -203,10 +232,13 @@ export async function GET(request: NextRequest) {
 
         if (directFormat) {
           const stream: StreamSource = {
-            id: 'resolved-direct-1',
-            name: directFormat === 'hls' ? 'Direct HLS Master' : 'Direct MP4 Stream',
-            label: directFormat === 'hls' ? 'Native HLS · No Popups' : 'Direct MP4 · No Popups',
-            quality: 'Adaptive HD',
+            id: 'direct-autoplay-hd',
+            name: 'Server I · Direct Auto-Play HD',
+            label:
+              directFormat === 'hls'
+                ? 'Native HLS · Zero Popups'
+                : 'Direct MP4 · Zero Popups',
+            quality: 'Auto HD',
             audioTrack: 'both',
             audioSupport: { sub: true, dub: true },
             format: directFormat,
@@ -271,6 +303,34 @@ export async function GET(request: NextRequest) {
       });
     } catch {
       // Graceful fallback to TMDB embed servers if anime resolver times out
+    }
+  }
+
+  // 4. Cinema Direct Native HLS/MP4 & Subtitle Extraction (Movies & TV Episodes)
+  if (!isAnime && (numericTmdbId || imdbId || title)) {
+    try {
+      const directStreams = await resolveCinemaDirectStreams({
+        id,
+        tmdbId: numericTmdbId,
+        imdbId,
+        type,
+        season,
+        episode,
+        title,
+        year,
+      });
+
+      if (directStreams.length > 0) {
+        return NextResponse.json({
+          resolved: true,
+          url: directStreams[0].url,
+          format: directStreams[0].format,
+          streams: directStreams,
+          source: 'direct-extractor',
+        });
+      }
+    } catch {
+      // Fallback gracefully to embed chain
     }
   }
 

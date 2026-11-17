@@ -100,6 +100,7 @@ function WatchViewContent() {
   const [showTrailer, setShowTrailer] = useState(false);
   const [pastedSources, setPastedSources] = useState<StreamSource[]>([]);
   const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
+  const [resolvingDirectStream, setResolvingDirectStream] = useState(false);
   const [providerChannels, setProviderChannels] = useState<Channel[]>([]);
   const [refreshingFeeds, setRefreshingFeeds] = useState(false);
   const [showImportedPicker, setShowImportedPicker] = useState(false);
@@ -126,6 +127,7 @@ function WatchViewContent() {
     setSelectedMatchedFeedId(null);
     setShowImportedPicker(false);
     setImportedSearch('');
+    setResolvingDirectStream(false);
     fetchedDetailsKeyRef.current = null;
     fetchedResolveKeyRef.current = null;
   }, [mediaId, mediaType]);
@@ -409,8 +411,9 @@ function WatchViewContent() {
 
     let active = true;
     let completed = false;
+    setResolvingDirectStream(true);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 3800 : 2500);
+    const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 3800 : 2200);
 
     const tmdbType = mediaType === 'series' ? 'tv' : 'movie';
     const absEp = isAnimeSeries
@@ -434,6 +437,9 @@ function WatchViewContent() {
     }
     if (mediaDetails.tmdbId) {
       params.set('tmdbId', String(mediaDetails.tmdbId));
+    }
+    if (mediaDetails.imdbId) {
+      params.set('imdbId', mediaDetails.imdbId);
     }
     if (mediaDetails.title) {
       params.set('title', mediaDetails.title);
@@ -491,6 +497,7 @@ function WatchViewContent() {
       })
       .finally(() => {
         clearTimeout(timeout);
+        if (active) setResolvingDirectStream(false);
       });
 
     return () => {
@@ -783,9 +790,20 @@ function WatchViewContent() {
       <TopBar showBack backHref={backTarget} title={displayTitle} solid />
 
       <div className="mx-auto max-w-[1440px] space-y-8 px-4 sm:px-6 lg:px-10">
-        {loadingDetails || (isChannelType && channelsLoading && !activeChannel && !sportsMatch) ? (
-          <div className="flex aspect-video w-full items-center justify-center rounded-2xl border border-white/[0.08] bg-[#121215]">
+        {loadingDetails ||
+        (isChannelType && channelsLoading && !activeChannel && !sportsMatch) ||
+        (!isChannelType &&
+          !isAnimeSeries &&
+          mediaDetails &&
+          resolvingDirectStream &&
+          resolvedDirectSources.length === 0) ? (
+          <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-[#121215]">
             <Loader2 className="h-9 w-9 animate-spin text-[#D4AF37]" />
+            {!loadingDetails && resolvingDirectStream && (
+              <p className="text-xs font-medium text-[#A1A1AA]">
+                Connecting Server I · Direct Auto-Play HD...
+              </p>
+            )}
           </div>
         ) : !hasResolvedContent ? (
           <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
