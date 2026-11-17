@@ -22,6 +22,7 @@ import { siteConfig } from '@/config/site';
 import { VOD_RESOLVERS } from '@/config/sources';
 import { cn, formatDuration } from '@/lib/utils';
 import {
+  DEFAULT_CINEMA_SERVER_ID,
   clearWatchHistory,
   getCustomSources,
   getPreferredVodResolver,
@@ -45,7 +46,7 @@ export default function LibraryPage() {
   } = useKino();
 
   const [sources, setSources] = useState<CustomSourceConfig[]>([]);
-  const [preferredResolver, setPreferredResolverState] = useState<string>('vidlink-pro');
+  const [preferredResolver, setPreferredResolverState] = useState<string>(DEFAULT_CINEMA_SERVER_ID);
 
   useEffect(() => {
     setSources(getCustomSources());

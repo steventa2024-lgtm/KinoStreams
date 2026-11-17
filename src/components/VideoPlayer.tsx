@@ -28,8 +28,9 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { isCinemaVodResolverId } from '@/config/sources';
 import { registerGlobalPlaybackStopper } from '@/lib/playback-cleanup';
-import { updateWatchHistory } from '@/lib/storage';
+import { setPreferredCinemaServer, updateWatchHistory } from '@/lib/storage';
 import {
   buildStreamProxyUrl,
   cn,
@@ -144,6 +145,7 @@ export function VideoPlayer({
   const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
   const [clickGuardActive, setClickGuardActive] = useState<boolean>(true);
   const [clearFrame, setClearFrame] = useState<boolean>(false);
+  const [interactSecondsLeft, setInteractSecondsLeft] = useState<number | null>(null);
   const [embedMutedAutoplay, setEmbedMutedAutoplay] = useState<boolean>(false);
   const [embedNonce, setEmbedNonce] = useState<number>(0);
   const [autoplayMutedBanner, setAutoplayMutedBanner] = useState<boolean>(false);
@@ -188,9 +190,56 @@ export function VideoPlayer({
     setShowSwitchPrompt(false);
     setAutoNextSeconds(null);
     setAutoNextDismissed(false);
+    setClearFrame(false);
+    setClickGuardActive(true);
+    setInteractSecondsLeft(null);
     appliedInitialSeekRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType, season, episode, sourcesSignature]);
+
+  const persistPreferredCinemaServer = useCallback(
+    (sourceId?: string) => {
+      if (
+        !isAnime &&
+        (mediaType === 'movie' || mediaType === 'series') &&
+        isCinemaVodResolverId(sourceId)
+      ) {
+        setPreferredCinemaServer(sourceId!);
+      }
+    },
+    [isAnime, mediaType]
+  );
+
+  const rearmRedirectShield = useCallback(() => {
+    setClearFrame(false);
+    setClickGuardActive(true);
+    setInteractSecondsLeft(null);
+  }, []);
+
+  const unlockFrameForInteract = useCallback(() => {
+    setClearFrame(true);
+    setClickGuardActive(false);
+    setShieldNotice(null);
+    setInteractSecondsLeft(4);
+  }, []);
+
+  // Automatically re-arm Redirect Shield after the 4-second Interact window expires
+  useEffect(() => {
+    if (interactSecondsLeft === null) return;
+    if (interactSecondsLeft <= 0) {
+      rearmRedirectShield();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setInteractSecondsLeft((prev) => (prev !== null ? prev - 1 : null));
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [interactSecondsLeft, rearmRedirectShield]);
+
+  // Ensure Redirect Shield re-arms whenever active embed source switches
+  useEffect(() => {
+    rearmRedirectShield();
+  }, [activeSource?.id, rearmRedirectShield]);
 
   // Detect iOS / Mobile Safari on client mount so cross-origin embeds initiate muted autoplay gracefully
   useEffect(() => {
@@ -280,9 +329,31 @@ export function VideoPlayer({
     return true;
   }, [activeSource, triedSourceIds, sources, isAnime, animeAudio, onFailoverAudioToSub]);
 
-  // Protect parent window from embed popup focus-stealing & top-level hijack when Ad-Shield is ON
+  // Protect parent window from embed popup focus-stealing, window.open pop-ups & top-level hijack while player is mounted
   useEffect(() => {
-    if (!adShield || activeSource?.format !== 'embed') return;
+    if (!adShield) return;
+    if (
+      activeSource?.format !== 'embed' &&
+      mediaType !== 'movie' &&
+      mediaType !== 'series'
+    ) {
+      return;
+    }
+
+    const originalWindowOpen = window.open;
+    try {
+      Object.defineProperty(window, 'open', {
+        configurable: true,
+        writable: true,
+        value: () => null,
+      });
+    } catch {
+      try {
+        window.open = () => null;
+      } catch {
+        // Ignore if host browser disallows overriding window.open
+      }
+    }
 
     const handleBlur = () => {
       setTimeout(() => {
@@ -300,10 +371,23 @@ export function VideoPlayer({
     window.addEventListener('blur', handleBlur);
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
+      try {
+        Object.defineProperty(window, 'open', {
+          configurable: true,
+          writable: true,
+          value: originalWindowOpen,
+        });
+      } catch {
+        try {
+          window.open = originalWindowOpen;
+        } catch {
+          // Ignore restore failure
+        }
+      }
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [adShield, activeSource?.format]);
+  }, [adShield, activeSource?.format, mediaType]);
 
   // Auto-dismiss failover toast
   useEffect(() => {
@@ -312,11 +396,11 @@ export function VideoPlayer({
     return () => clearTimeout(t);
   }, [failoverToast]);
 
-  // Fast health/readiness timeout (4.5s for Anime, 8s general) for automatic server failover
+  // Fast health/readiness timeout (5s for Cinema/Sports, 4.5s for Anime) for automatic server failover
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
     const timeoutMs =
-      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 8000;
+      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 5000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -326,7 +410,14 @@ export function VideoPlayer({
       }
     }, timeoutMs);
     return () => clearTimeout(timer);
-  }, [activeSource, sourceReady, errorMsg, isAnime, failoverToNextSource]);
+  }, [activeSource, sourceReady, errorMsg, isAnime, mediaType, isLive, failoverToNextSource]);
+
+  // Remember the last working Cinema server selection once loaded cleanly
+  useEffect(() => {
+    if (sourceReady && activeSource?.id) {
+      persistPreferredCinemaServer(activeSource.id);
+    }
+  }, [sourceReady, activeSource?.id, persistPreferredCinemaServer]);
 
   // Auto-next 10s countdown tick
   useEffect(() => {
@@ -726,13 +817,14 @@ export function VideoPlayer({
     const nextSrc = sources[(curIdx + 1) % sources.length];
     if (nextSrc) {
       setSelectedSourceId(nextSrc.id);
+      persistPreferredCinemaServer(nextSrc.id);
       setSourceReady(false);
       setErrorMsg(null);
       setBuffering(true);
       setShowSwitchPrompt(false);
       setFailoverToast(`Switched to ${nextSrc.name}`);
     }
-  }, [activeSource, sources]);
+  }, [activeSource, sources, persistPreferredCinemaServer]);
 
   const unmuteActivePlayer = useCallback(() => {
     if (hasEmbedSources) {
@@ -874,14 +966,14 @@ export function VideoPlayer({
               className="h-full w-full border-0"
             />
 
-            {/* Transparent Anti-Redirect Shield (dropped completely when Clear Frame is active) */}
+            {/* Transparent Anti-Redirect Shield (auto-re-arms after 4s Interact window) */}
             <div
               role="presentation"
               onClick={
                 shieldCurrentlyBlocking
                   ? () =>
                       setShieldNotice(
-                        'Redirect blocked · Tap Clear Frame below to click native X / Skip'
+                        'Redirect blocked · Tap Interact below to click Play (4s window)'
                       )
                   : undefined
               }
@@ -1235,43 +1327,30 @@ export function VideoPlayer({
                     </button>
                   )}
 
-                  {adShield && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (shieldCurrentlyBlocking) {
-                          setClearFrame(true);
-                          setShieldNotice(null);
-                        } else {
-                          setClearFrame(false);
-                          setClickGuardActive(true);
-                        }
-                      }}
-                      title={
-                        shieldCurrentlyBlocking
-                          ? 'Drop overlay so native Close (X) and Skip buttons inside the embed are 100% clickable'
-                          : 'Re-enable Redirect Shield over the embed surface'
-                      }
-                      className={cn(
-                        'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-semibold transition',
-                        shieldCurrentlyBlocking
-                          ? 'border-[#D4AF37]/45 bg-[#09090B] text-[#E2C275] hover:bg-[#D4AF37] hover:text-[#09090B]'
-                          : 'border-emerald-500/45 bg-emerald-500/15 text-emerald-300 hover:border-[#D4AF37]/50'
-                      )}
-                    >
-                      {shieldCurrentlyBlocking ? (
-                        <>
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Clear Frame</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          <span>Enable Shield</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                  {adShield &&
+                    (shieldCurrentlyBlocking ? (
+                      <button
+                        type="button"
+                        onClick={unlockFrameForInteract}
+                        title="Unlock iframe for 4 seconds to click Play or native controls, then automatically re-arm Redirect Shield"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>Interact</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={rearmRedirectShield}
+                        title="Click to re-arm Redirect Shield immediately"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37] bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        <span className="tabular-nums">
+                          Frame Unlocked · {interactSecondsLeft ?? 4}s
+                        </span>
+                      </button>
+                    ))}
                 </>
               )}
 
@@ -1419,6 +1498,7 @@ export function VideoPlayer({
                     type="button"
                     onClick={() => {
                       setSelectedSourceId(src.id);
+                      persistPreferredCinemaServer(src.id);
                       setSourceReady(false);
                       setErrorMsg(null);
                       setBuffering(true);
@@ -1464,8 +1544,17 @@ export function VideoPlayer({
                   <button
                     type="button"
                     onClick={() => {
-                      setAdShield((prev) => !prev);
-                      setClickGuardActive(false);
+                      setAdShield((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          setClearFrame(false);
+                          setClickGuardActive(true);
+                          setInteractSecondsLeft(null);
+                        } else {
+                          setInteractSecondsLeft(null);
+                        }
+                        return next;
+                      });
                     }}
                     title="Toggle no-referrer & popup/redirect protection"
                     className={cn(
@@ -1489,22 +1578,22 @@ export function VideoPlayer({
                         type="button"
                         onClick={() => {
                           if (shieldCurrentlyBlocking) {
-                            setClearFrame(true);
-                            setShieldNotice(null);
+                            unlockFrameForInteract();
                           } else {
-                            setClearFrame(false);
-                            setClickGuardActive(true);
+                            rearmRedirectShield();
                           }
                         }}
-                        title="Toggle transparent popup / redirect shield overlay"
+                        title="Unlock iframe for 4s to interact, then auto-re-arm Redirect Shield"
                         className={cn(
                           'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
                           shieldCurrentlyBlocking
                             ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
-                            : 'border-white/[0.08] text-[#71717A] hover:text-[#FAFAFA]'
+                            : 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#E2C275]'
                         )}
                       >
-                        {shieldCurrentlyBlocking ? 'Popup Shield: ON' : 'Popup Shield: OFF'}
+                        {shieldCurrentlyBlocking
+                          ? 'Popup Shield: ON'
+                          : `Frame Unlocked · ${interactSecondsLeft ?? 4}s`}
                       </button>
 
                       <button

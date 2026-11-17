@@ -17,35 +17,35 @@ export interface VodResolverDefinition {
 }
 
 const VIDLINK_THEME_PARAMS =
-  'autoplay=true&primaryColor=f59e0b&secondaryColor=18181b&iconColor=ffffff';
+  'autoplay=1&autoPlay=true&primaryColor=f59e0b&secondaryColor=18181b&iconColor=ffffff';
 
 /**
  * Modular VOD stream & embed resolver registry.
- * VidLink HD is Cinema Server I (default) for Movies, Series, and Anime;
- * popup-heavy legacy embed providers sit in lower fallback slots.
+ * Mirror HD (vidsrc.sh) is Cinema Server I (default) for Movies & Series;
+ * aggressive pop-under providers sit at the bottom of the fallback chain.
  */
 export const VOD_RESOLVERS: VodResolverDefinition[] = [
   {
-    id: 'vidlink-pro',
-    name: 'Cinema Server I - VidLink HD',
-    description: 'Primary low-popup autoplay adaptive player',
-    format: 'embed',
-    enabledByDefault: true,
-    buildMovieUrl: (tmdbId) =>
-      `https://vidlink.pro/movie/${tmdbId}?${VIDLINK_THEME_PARAMS}`,
-    buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?${VIDLINK_THEME_PARAMS}`,
-  },
-  {
     id: 'vidsrc-me',
-    name: 'Cinema Server II - Mirror HD',
-    description: 'High-availability multi-CDN autoplay mirror',
+    name: 'Cinema Server I - Mirror HD',
+    description: 'Primary high-availability multi-CDN autoplay player',
     format: 'embed',
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
       `https://vidsrc.sh/embed/movie?tmdb=${tmdbId}&autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
       `https://vidsrc.sh/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1&autoPlay=true`,
+  },
+  {
+    id: 'vidlink-pro',
+    name: 'Cinema Server II - VidLink HD',
+    description: 'Low-popup adaptive autoplay mirror',
+    format: 'embed',
+    enabledByDefault: true,
+    buildMovieUrl: (tmdbId) =>
+      `https://vidlink.pro/movie/${tmdbId}?${VIDLINK_THEME_PARAMS}`,
+    buildSeriesUrl: (tmdbId, season, episode) =>
+      `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?${VIDLINK_THEME_PARAMS}`,
   },
   {
     id: 'twoembed-cc',
@@ -56,23 +56,12 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
     buildMovieUrl: (tmdbId) =>
       `https://www.2embed.cc/embed/${tmdbId}?autoplay=1&autoPlay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://www.2embed.cc/embedtv/${tmdbId}&s=${season}&e=${episode}?autoplay=1&autoPlay=true`,
-  },
-  {
-    id: 'vidsrc-to',
-    name: 'Cinema Server IV - Fallback',
-    description: 'Secondary legacy fallback embed server',
-    format: 'embed',
-    enabledByDefault: true,
-    buildMovieUrl: (tmdbId) =>
-      `https://vidsrc.to/embed/movie/${tmdbId}?autoplay=1&autoPlay=true`,
-    buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}?autoplay=1&autoPlay=true`,
+      `https://www.2embed.cc/embedtv/${tmdbId}?s=${season}&e=${episode}&autoplay=1&autoPlay=true`,
   },
   {
     id: 'multiembed',
-    name: 'Cinema Server V - Backup',
-    description: 'Tertiary backup embed server',
+    name: 'Cinema Server IV - Fallback',
+    description: 'Last-resort backup embed server',
     format: 'embed',
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
@@ -81,6 +70,11 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
       `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&autoplay=1&autoPlay=true`,
   },
 ];
+
+export function isCinemaVodResolverId(id?: string | null): boolean {
+  if (!id) return false;
+  return VOD_RESOLVERS.some((r) => r.id === id);
+}
 
 export function resolveVodSources(params: {
   id: string;
@@ -176,7 +170,7 @@ export function resolveVodSources(params: {
     }
   }
 
-  // Select default source: direct native HLS/MP4 wins when present; otherwise VidLink HD (Cinema Server I)
+  // Select default source: direct native HLS/MP4 wins when present; otherwise preferred Cinema server or Mirror HD (Server I)
   if (sources.length > 0 && !sources.some((s) => s.isDefault)) {
     const preferred =
       preferredResolverId && preferredResolverId !== 'vidsrc-to'
@@ -185,9 +179,9 @@ export function resolveVodSources(params: {
     if (preferred) {
       preferred.isDefault = true;
     } else {
-      const vidlink = sources.find((s) => s.id === 'vidlink-pro');
-      if (vidlink) {
-        vidlink.isDefault = true;
+      const mirrorHd = sources.find((s) => s.id === 'vidsrc-me');
+      if (mirrorHd) {
+        mirrorHd.isDefault = true;
       } else {
         sources[0].isDefault = true;
       }
