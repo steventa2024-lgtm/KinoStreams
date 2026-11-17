@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
 import { requireApiSession } from '@/lib/auth-crypto';
+import {
+  normalizeSportsMatch,
+  resolveEffectiveMatchState,
+} from '@/lib/sports-networks';
 import type { SportsCompetitor, SportsLeague, SportsMatch } from '@/types/media';
 
 export const runtime = 'nodejs';
@@ -224,16 +228,25 @@ async function fetchLeagueMatches(league: SportsLeague): Promise<{
         competitors.find((c) => c.homeAway === 'home') || competitors[0];
 
       const statusObj = comp?.status?.type || ev.status?.type;
-      const statusState: 'pre' | 'in' | 'post' = statusObj?.state || 'pre';
-      const statusText = formatStatusText(
-        statusState,
-        statusObj?.shortDetail || statusObj?.detail,
-        ev.date
-      );
+      const rawStatusState: 'pre' | 'in' | 'post' = statusObj?.state || 'pre';
+      const statusState = resolveEffectiveMatchState(rawStatusState, ev.date);
+      const rawDetail =
+        rawStatusState === 'pre' && statusState === 'in'
+          ? 'LIVE · In Progress'
+          : statusObj?.shortDetail || statusObj?.detail;
+      const statusText = formatStatusText(statusState, rawDetail, ev.date);
+
+      const allBroadcastNames = Array.from(
+        new Set([
+          ...(comp?.broadcasts || []).flatMap((b) => b.names || []),
+          ...(comp?.geoBroadcasts || [])
+            .map((g) => g.media?.shortName)
+            .filter((n): n is string => Boolean(n)),
+        ])
+      ).filter(Boolean);
 
       const broadcast =
-        comp?.broadcasts?.[0]?.names?.[0] ||
-        comp?.geoBroadcasts?.[0]?.media?.shortName ||
+        allBroadcastNames.join(' / ') ||
         (league === 'UFC' ? 'ESPN+ PPV' : undefined);
 
       // Extract highlight video, thumbnail & storyline/leaders
@@ -301,15 +314,19 @@ async function fetchLeagueMatches(league: SportsLeague): Promise<{
 
     if (mapped.length === 0) {
       return {
-        matches: FALLBACK_SPORTS_MATCHES.filter((m) => m.league === league),
+        matches: FALLBACK_SPORTS_MATCHES.filter((m) => m.league === league).map(
+          normalizeSportsMatch
+        ),
         fromFallback: true,
       };
     }
 
-    return { matches: mapped, fromFallback: false };
+    return { matches: mapped.map(normalizeSportsMatch), fromFallback: false };
   } catch {
     return {
-      matches: FALLBACK_SPORTS_MATCHES.filter((m) => m.league === league),
+      matches: FALLBACK_SPORTS_MATCHES.filter((m) => m.league === league).map(
+        normalizeSportsMatch
+      ),
       fromFallback: true,
     };
   } finally {
@@ -355,9 +372,10 @@ export async function GET(request: NextRequest) {
     });
 
   if (gameId) {
+    const rawFallback = FALLBACK_SPORTS_MATCHES.find((m) => m.id === gameId);
     const found =
       allMatches.find((m) => m.id === gameId) ||
-      FALLBACK_SPORTS_MATCHES.find((m) => m.id === gameId);
+      (rawFallback ? normalizeSportsMatch(rawFallback) : undefined);
     if (!found) {
       return NextResponse.json({ error: 'Match not found' }, { status: 404 });
     }

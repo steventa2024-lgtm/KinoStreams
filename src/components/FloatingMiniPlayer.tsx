@@ -5,7 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import Hls from 'hls.js';
 import { Maximize2, Pause, Play, Radio, Volume2, VolumeX, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
-import { buildStreamProxyUrl, withEmbedAutoplayParams } from '@/lib/utils';
+import { registerGlobalPlaybackStopper } from '@/lib/playback-cleanup';
+import {
+  buildStreamProxyUrl,
+  shouldProxyStreamUrl,
+  withEmbedAutoplayParams,
+} from '@/lib/utils';
 
 export function FloatingMiniPlayer() {
   const { miniPlayer, closeMiniPlayer, updateMiniPlayer } = useKino();
@@ -20,11 +25,10 @@ export function FloatingMiniPlayer() {
     miniPlayer?.sources.find((s) => s.id === miniPlayer.selectedSourceId) ||
     miniPlayer?.sources[0];
 
-  const needsMixedContentProxy =
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    Boolean(activeSource?.url?.startsWith('http://'));
-  const shouldProxy = Boolean(miniPlayer?.useProxy || needsMixedContentProxy);
+  const shouldProxy = shouldProxyStreamUrl(
+    activeSource?.url,
+    Boolean(miniPlayer?.useProxy)
+  );
 
   const isOnSameWatchRoute = Boolean(
     miniPlayer &&
@@ -45,7 +49,13 @@ export function FloatingMiniPlayer() {
     }
 
     if (hlsRef.current) {
-      hlsRef.current.destroy();
+      try {
+        hlsRef.current.stopLoad();
+        hlsRef.current.detachMedia();
+        hlsRef.current.destroy();
+      } catch {
+        // Ignore already-destroyed Hls instance
+      }
       hlsRef.current = null;
     }
 
@@ -105,11 +115,31 @@ export function FloatingMiniPlayer() {
       void tryMiniAutoplay();
     }
 
-    return () => {
+    const teardownMini = () => {
       if (hlsRef.current) {
-        hlsRef.current.destroy();
+        try {
+          hlsRef.current.stopLoad();
+          hlsRef.current.detachMedia();
+          hlsRef.current.destroy();
+        } catch {
+          // Ignore already-destroyed Hls instance
+        }
         hlsRef.current = null;
       }
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore teardown errors
+      }
+    };
+
+    const unregisterStopper = registerGlobalPlaybackStopper(teardownMini);
+
+    return () => {
+      unregisterStopper();
+      teardownMini();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [miniPlayer?.mediaId, activeSource?.url, miniPlayer?.useProxy, isOnSameWatchRoute]);

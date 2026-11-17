@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { stopGlobalPlayback } from '@/lib/playback-cleanup';
 import { usePathname } from 'next/navigation';
 import {
   Bookmark,
@@ -45,6 +46,7 @@ export function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClickCapture={stopGlobalPlayback}
                 className={cn(
                   'flex flex-col items-center justify-center gap-1 py-1.5 transition-colors',
                   active ? 'text-[#D4AF37]' : 'text-[#71717A] hover:text-[#FAFAFA]'
@@ -70,6 +72,7 @@ export function BottomNav() {
       >
         <Link
           href="/"
+          onClickCapture={stopGlobalPlayback}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-[#121215] font-serif text-sm font-bold text-[#D4AF37] transition hover:border-[#D4AF37] hover:shadow-[0_0_18px_rgba(212,175,55,0.28)]"
           title="KinoStream Home"
         >
@@ -84,6 +87,7 @@ export function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClickCapture={stopGlobalPlayback}
                 title={item.label}
                 className={cn(
                   'group relative flex h-12 w-12 flex-col items-center justify-center rounded-2xl transition-all',

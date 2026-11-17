@@ -29,6 +29,7 @@ import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/an
 import {
   buildChannelStreamSources,
   matchBroadcastChannelsForMatch,
+  normalizeSportsMatch,
   resolveSportsMatchStreamSources,
 } from '@/lib/sports-networks';
 import {
@@ -145,7 +146,7 @@ function WatchViewContent() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { match?: SportsMatch } | null) => {
         if (!active) return;
-        setSportsMatch(data?.match || null);
+        setSportsMatch(data?.match ? normalizeSportsMatch(data.match) : null);
       })
       .catch(() => {
         if (active) setSportsMatch(null);
@@ -158,6 +159,15 @@ function WatchViewContent() {
       active = false;
     };
   }, [mediaType, activeChannel, mediaId, isChannelType]);
+
+  // Automatically promote a pre-game matchup to LIVE once UTC kickoff/tip-off passes
+  useEffect(() => {
+    if (!sportsMatch || sportsMatch.statusState !== 'pre') return;
+    const interval = setInterval(() => {
+      setSportsMatch((prev) => (prev ? normalizeSportsMatch(prev) : null));
+    }, 15_000);
+    return () => clearInterval(interval);
+  }, [sportsMatch]);
 
   const matchedMatchFeeds = useMemo(() => {
     if (!sportsMatch) return [];

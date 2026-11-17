@@ -3,6 +3,7 @@ import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
 import { requireApiSession } from '@/lib/auth-crypto';
 import {
   MAJOR_NETWORK_CHANNELS,
+  normalizeSportsMatch,
   resolveSportsMatchStreamSources,
 } from '@/lib/sports-networks';
 import type { Channel, SportsLeague, SportsMatch } from '@/types/media';
@@ -16,7 +17,7 @@ async function findMatchById(
   cookieHeader: string | null
 ): Promise<SportsMatch | null> {
   const localMatch = FALLBACK_SPORTS_MATCHES.find((m) => m.id === gameId);
-  if (localMatch) return localMatch;
+  if (localMatch) return normalizeSportsMatch(localMatch);
 
   const prefixLeague = gameId.split('-')[0]?.toUpperCase() as SportsLeague;
   const leagueQuery =

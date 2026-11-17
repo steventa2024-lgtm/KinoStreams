@@ -17,6 +17,44 @@ export function buildStreamProxyUrl(
   return `/api/stream?${params.toString()}`;
 }
 
+const CORS_RESTRICTED_HLS_HOSTS = [
+  'jmp2.uk',
+  'pluto.tv',
+  'd4whmvwm0rdvi.cloudfront.net',
+  'd368vp0qqzvkid.cloudfront.net',
+  'aegis-cloudfront-1.tubi.video',
+  'nhl-firetv.amagi.tv',
+];
+
+/**
+ * Returns true when an HLS/media stream must flow through `/api/stream` to avoid
+ * HTTPS mixed-content blocks or upstream CDNs missing CORS `Access-Control-Allow-Origin`.
+ */
+export function shouldProxyStreamUrl(
+  rawUrl?: string | null,
+  explicitProxy?: boolean
+): boolean {
+  if (explicitProxy) return true;
+  if (!rawUrl) return false;
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    rawUrl.startsWith('http://')
+  ) {
+    return true;
+  }
+
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return CORS_RESTRICTED_HLS_HOSTS.some(
+      (restricted) => host === restricted || host.endsWith(`.${restricted}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function formatDuration(seconds?: number): string {
   if (!seconds || !Number.isFinite(seconds) || seconds <= 0) return '0:00';
   const total = Math.floor(seconds);

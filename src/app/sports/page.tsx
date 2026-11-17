@@ -21,6 +21,7 @@ import {
   NETWORK_FILTER_PILLS,
   channelMatchesNetworkFilter,
   matchMatchesNetworkFilter,
+  normalizeSportsMatch,
 } from '@/lib/sports-networks';
 import { cn, getInitials } from '@/lib/utils';
 import type { NetworkCategoryFilter, SportsLeague, SportsMatch } from '@/types/media';
@@ -69,8 +70,13 @@ export default function SportsPage() {
     return () => clearInterval(interval);
   }, [loadScoreboard]);
 
+  const normalizedMatches = useMemo(
+    () => matches.map(normalizeSportsMatch),
+    [matches]
+  );
+
   const filteredMatches = useMemo(() => {
-    return matches.filter((m) => {
+    return normalizedMatches.filter((m) => {
       if (selectedLeague !== 'ALL' && m.league !== selectedLeague) return false;
       if (statusFilter === 'live' && m.statusState !== 'in') return false;
       if (statusFilter === 'highlights' && !m.highlightVideoUrl) return false;
@@ -79,7 +85,7 @@ export default function SportsPage() {
       if (!matchMatchesNetworkFilter(m, networkFilter)) return false;
       return true;
     });
-  }, [matches, selectedLeague, statusFilter, networkFilter]);
+  }, [normalizedMatches, selectedLeague, statusFilter, networkFilter]);
 
   const filteredNetworks = useMemo(() => {
     return channels.filter(
@@ -88,7 +94,7 @@ export default function SportsPage() {
   }, [channels, networkFilter]);
 
   const spotlight = filteredMatches[0];
-  const liveCount = matches.filter((m) => m.statusState === 'in').length;
+  const liveCount = normalizedMatches.filter((m) => m.statusState === 'in').length;
 
   const spotlightStatusLabel = useMemo(() => {
     if (!spotlight) return '';

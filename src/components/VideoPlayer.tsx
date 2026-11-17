@@ -27,11 +27,13 @@ import {
   VolumeX,
 } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { registerGlobalPlaybackStopper } from '@/lib/playback-cleanup';
 import { updateWatchHistory } from '@/lib/storage';
 import {
   buildStreamProxyUrl,
   cn,
   formatDuration,
+  shouldProxyStreamUrl,
   withEmbedAutoplayParams,
 } from '@/lib/utils';
 import type {
@@ -113,6 +115,10 @@ export function VideoPlayer({
   const hlsRef = useRef<Hls | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedInitialSeekRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentTimeRef = useRef(initialTime || 0);
+  const durationRef = useRef(0);
+  const lastTimeSyncMsRef = useRef(0);
 
   const defaultSource =
     sources.find((s) => s.isDefault) || sources[0] || null;
@@ -123,7 +129,9 @@ export function VideoPlayer({
     sources.find((s) => s.id === selectedSourceId) || defaultSource;
 
   const [useProxy, setUseProxy] = useState<boolean>(
-    globalProxyMode === 'always' || Boolean(referrer || activeSource?.referrer)
+    globalProxyMode === 'always' ||
+      Boolean(referrer || defaultSource?.referrer) ||
+      (globalProxyMode !== 'direct' && shouldProxyStreamUrl(defaultSource?.url))
   );
   const [adShield, setAdShield] = useState<boolean>(true);
   const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
@@ -196,16 +204,52 @@ export function VideoPlayer({
   }, [shieldNotice]);
 
   useEffect(() => {
-    const needsMixedContentProxy =
-      typeof window !== 'undefined' &&
-      window.location.protocol === 'https:' &&
-      Boolean(activeSource?.url?.startsWith('http://'));
+    const needsAutoProxy = shouldProxyStreamUrl(activeSource?.url);
     setUseProxy(
       globalProxyMode === 'always' ||
         Boolean(referrer || activeSource?.referrer) ||
-        (globalProxyMode !== 'direct' && needsMixedContentProxy)
+        (globalProxyMode !== 'direct' && needsAutoProxy)
     );
   }, [globalProxyMode, referrer, activeSource?.referrer, activeSource?.url]);
+
+  const teardownPlayback = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    if (hlsRef.current) {
+      try {
+        hlsRef.current.stopLoad();
+        hlsRef.current.detachMedia();
+        hlsRef.current.destroy();
+      } catch {
+        // Ignore already-destroyed Hls instance
+      }
+      hlsRef.current = null;
+    }
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore cleanup errors during unmount
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const unregister = registerGlobalPlaybackStopper(teardownPlayback);
+    return () => {
+      unregister();
+      teardownPlayback();
+    };
+  }, [teardownPlayback]);
 
   const failoverToNextSource = useCallback(() => {
     if (!activeSource) return false;
@@ -264,7 +308,8 @@ export function VideoPlayer({
   // Fast health/readiness timeout (4.5s for Anime, 8s general) for automatic server failover
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
-    const timeoutMs = isAnime ? 4500 : 8000;
+    const timeoutMs =
+      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 8000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -337,6 +382,10 @@ export function VideoPlayer({
     }
 
     let cancelled = false;
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setErrorMsg(null);
     setBuffering(true);
     setSourceReady(false);
@@ -345,7 +394,13 @@ export function VideoPlayer({
     setActiveQuality(-1);
 
     if (hlsRef.current) {
-      hlsRef.current.destroy();
+      try {
+        hlsRef.current.stopLoad();
+        hlsRef.current.detachMedia();
+        hlsRef.current.destroy();
+      } catch {
+        // Ignore already-destroyed Hls instance
+      }
       hlsRef.current = null;
     }
 
@@ -373,6 +428,14 @@ export function VideoPlayer({
       void attemptAutoplay(video);
       return () => {
         cancelled = true;
+        controller.abort();
+        try {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        } catch {
+          // Ignore teardown errors
+        }
       };
     }
 
@@ -428,9 +491,23 @@ export function VideoPlayer({
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (hlsRef.current) {
-        hlsRef.current.destroy();
+        try {
+          hlsRef.current.stopLoad();
+          hlsRef.current.detachMedia();
+          hlsRef.current.destroy();
+        } catch {
+          // Ignore already-destroyed Hls instance
+        }
         hlsRef.current = null;
+      }
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore cleanup errors
       }
     };
   }, [
@@ -444,9 +521,11 @@ export function VideoPlayer({
     attemptAutoplay,
   ]);
 
-  // Persist Continue Watching progress (including exact season, episode, timestamp & matchup)
+  // Persist Continue Watching progress (reads ref timestamps so timeupdate never re-triggers saves)
   const persistProgress = useCallback(() => {
     if (!activeSource) return;
+    const latestTime = currentTimeRef.current;
+    const latestDuration = durationRef.current;
     updateWatchHistory({
       id: mediaId,
       type: mediaType,
@@ -456,13 +535,13 @@ export function VideoPlayer({
       backdrop,
       progress: isLive
         ? 100
-        : duration > 0
-        ? Math.min(100, Math.round((currentTime / duration) * 100))
+        : latestDuration > 0
+        ? Math.min(100, Math.round((latestTime / latestDuration) * 100))
         : mediaType === 'series'
         ? 25
         : 10,
-      currentTime: isLive ? undefined : Math.floor(currentTime),
-      duration: isLive ? undefined : duration || undefined,
+      currentTime: isLive ? undefined : Math.floor(latestTime),
+      duration: isLive ? undefined : latestDuration || undefined,
       season,
       episode,
       streamUrl: activeSource.url,
@@ -477,8 +556,6 @@ export function VideoPlayer({
     poster,
     backdrop,
     isLive,
-    currentTime,
-    duration,
     season,
     episode,
     matchup,
@@ -597,6 +674,8 @@ export function VideoPlayer({
   const handleMinimize = () => {
     if (!activeSource) return;
     persistProgress();
+    const savedTime = videoRef.current?.currentTime || currentTimeRef.current;
+    teardownPlayback();
     const query =
       mediaType === 'series' && season && episode
         ? `?season=${season}&episode=${episode}`
@@ -613,7 +692,7 @@ export function VideoPlayer({
       isLive,
       season,
       episode,
-      currentTime: videoRef.current?.currentTime || currentTime,
+      currentTime: savedTime,
       muted,
       referrer,
       userAgent,
@@ -789,7 +868,18 @@ export function VideoPlayer({
               onTimeUpdate={(e) => {
                 const t = e.currentTarget.currentTime;
                 const d = e.currentTarget.duration;
-                setCurrentTime(t);
+                currentTimeRef.current = t;
+                if (Number.isFinite(d) && d > 0) {
+                  durationRef.current = d;
+                }
+                const now = performance.now();
+                if (now - lastTimeSyncMsRef.current >= 1000) {
+                  lastTimeSyncMsRef.current = now;
+                  setCurrentTime(t);
+                  if (Number.isFinite(d) && d > 0) {
+                    setDuration(d);
+                  }
+                }
                 if (
                   !isLive &&
                   hasNextEpisode &&

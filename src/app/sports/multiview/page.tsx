@@ -15,7 +15,13 @@ import {
 } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
 import { TopBar } from '@/components/TopBar';
-import { buildStreamProxyUrl, cn, getInitials } from '@/lib/utils';
+import { registerGlobalPlaybackStopper } from '@/lib/playback-cleanup';
+import {
+  buildStreamProxyUrl,
+  cn,
+  getInitials,
+  shouldProxyStreamUrl,
+} from '@/lib/utils';
 import type { Channel } from '@/types/media';
 
 interface MultiViewSlot {
@@ -39,27 +45,19 @@ function MultiViewSlotPlayer({
   const { proxyMode } = useKino();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const needsHttpsProxy =
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    Boolean(channel?.url?.startsWith('http://'));
   const [useProxy, setUseProxy] = useState(
     proxyMode === 'always' ||
       Boolean(channel?.referrer) ||
-      (proxyMode !== 'direct' && needsHttpsProxy)
+      (proxyMode !== 'direct' && shouldProxyStreamUrl(channel?.url))
   );
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const httpOnHttps =
-      typeof window !== 'undefined' &&
-      window.location.protocol === 'https:' &&
-      Boolean(channel?.url?.startsWith('http://'));
     setUseProxy(
       proxyMode === 'always' ||
         Boolean(channel?.referrer) ||
-        (proxyMode !== 'direct' && httpOnHttps)
+        (proxyMode !== 'direct' && shouldProxyStreamUrl(channel?.url))
     );
     setErrorMsg(null);
   }, [channel?.id, channel?.referrer, channel?.url, proxyMode]);
@@ -139,12 +137,32 @@ function MultiViewSlotPlayer({
       setErrorMsg('HLS unsupported');
     }
 
-    return () => {
-      cancelled = true;
+    const teardownSlot = () => {
       if (hlsRef.current) {
-        hlsRef.current.destroy();
+        try {
+          hlsRef.current.stopLoad();
+          hlsRef.current.detachMedia();
+          hlsRef.current.destroy();
+        } catch {
+          // Ignore already-destroyed Hls instance
+        }
         hlsRef.current = null;
       }
+      try {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      } catch {
+        // Ignore teardown errors
+      }
+    };
+
+    const unregister = registerGlobalPlaybackStopper(teardownSlot);
+
+    return () => {
+      cancelled = true;
+      unregister();
+      teardownSlot();
     };
   }, [channel, useProxy, proxyMode, isAudioActive]);
 

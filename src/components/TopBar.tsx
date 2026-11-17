@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { stopGlobalPlayback } from '@/lib/playback-cleanup';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Settings } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
@@ -57,6 +58,7 @@ export function TopBar({
   const pills = filterPills || (showBack ? [] : defaultPills);
 
   const handleBack = () => {
+    stopGlobalPlayback();
     if (backHref) {
       router.push(backHref);
     } else if (window.history.length > 1) {
@@ -81,6 +83,7 @@ export function TopBar({
           {showBack ? (
             <button
               type="button"
+              onClickCapture={stopGlobalPlayback}
               onClick={handleBack}
               className="flex items-center gap-2.5 rounded-full border border-white/[0.08] bg-[#121215]/75 px-3.5 py-1.5 text-sm font-medium text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/40 hover:text-[#E2C275]"
             >
@@ -92,6 +95,7 @@ export function TopBar({
           ) : (
             <Link
               href="/"
+              onClickCapture={stopGlobalPlayback}
               className="flex shrink-0 items-center gap-2.5 group"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-[#121215] text-[11px] font-serif font-bold text-[#D4AF37] transition group-hover:border-[#D4AF37]">
@@ -119,7 +123,12 @@ export function TopBar({
                 );
                 if (pill.href) {
                   return (
-                    <Link key={pill.label} href={pill.href} className={classes}>
+                    <Link
+                      key={pill.label}
+                      href={pill.href}
+                      onClickCapture={stopGlobalPlayback}
+                      className={classes}
+                    >
                       {pill.label}
                     </Link>
                   );

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Film, Play, Sparkles, Tv } from 'lucide-react';
 import { MatchupArtwork } from '@/components/MatchupArtwork';
+import { normalizeSportsMatch } from '@/lib/sports-networks';
 import { cn, formatDuration, getInitials } from '@/lib/utils';
 import type { SportsCompetitor, SportsMatch } from '@/types/media';
 
@@ -55,7 +56,8 @@ function SmallCompetitorIcon({
   );
 }
 
-export function MatchCard({ match, fullWidth = false }: MatchCardProps) {
+export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps) {
+  const match = normalizeSportsMatch(rawMatch);
   const isLive = match.statusState === 'in';
   const isFinal = match.statusState === 'post';
   const isUpcoming = match.statusState === 'pre';
