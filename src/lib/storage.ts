@@ -247,3 +247,54 @@ export function getAnimeAudioMode(): 'sub' | 'dub' {
 export function setAnimeAudioMode(mode: 'sub' | 'dub'): void {
   writeJson(BASE_KEYS.ANIME_AUDIO, mode);
 }
+
+export const PREFERRED_AUDIO_LANG_KEY = 'kino:preferredAudioLang';
+
+export interface AudioLanguageOption {
+  code: string;
+  label: string;
+  shortCode: string;
+  matchKeywords: string[];
+}
+
+export const AUDIO_LANGUAGE_OPTIONS: AudioLanguageOption[] = [
+  { code: 'original', label: 'Original', shortCode: 'ORIG', matchKeywords: ['original', 'orig'] },
+  { code: 'en', label: 'English (EN)', shortCode: 'EN', matchKeywords: ['en', 'eng', 'english'] },
+  { code: 'es', label: 'Español (ES)', shortCode: 'ES', matchKeywords: ['es', 'spa', 'esp', 'espanol', 'español', 'spanish'] },
+  { code: 'fr', label: 'Français (FR)', shortCode: 'FR', matchKeywords: ['fr', 'fra', 'fre', 'francais', 'français', 'french'] },
+  { code: 'de', label: 'Deutsch (DE)', shortCode: 'DE', matchKeywords: ['de', 'deu', 'ger', 'deutsch', 'german'] },
+  { code: 'pt', label: 'Português (PT)', shortCode: 'PT', matchKeywords: ['pt', 'por', 'portugues', 'português', 'portuguese'] },
+  { code: 'it', label: 'Italiano (IT)', shortCode: 'IT', matchKeywords: ['it', 'ita', 'italiano', 'italian'] },
+  { code: 'ja', label: '日本語 · Japanese (JA)', shortCode: 'JA', matchKeywords: ['ja', 'jpn', 'jp', 'japanese', '日本語'] },
+  { code: 'ko', label: '한국어 · Korean (KO)', shortCode: 'KO', matchKeywords: ['ko', 'kor', 'korean', '한국어'] },
+  { code: 'hi', label: 'हिन्दी · Hindi (HI)', shortCode: 'HI', matchKeywords: ['hi', 'hin', 'hindi', 'हिन्दी'] },
+  { code: 'ar', label: 'العربية · Arabic (AR)', shortCode: 'AR', matchKeywords: ['ar', 'ara', 'arabic', 'العربية'] },
+  { code: 'zh', label: '中文 · Mandarin (ZH)', shortCode: 'ZH', matchKeywords: ['zh', 'zho', 'chi', 'cmn', 'mandarin', 'chinese', '中文'] },
+  { code: 'ru', label: 'Русский · Russian (RU)', shortCode: 'RU', matchKeywords: ['ru', 'rus', 'russian', 'русский'] },
+];
+
+export function getPreferredAudioLang(): string {
+  if (!isBrowser()) return 'original';
+  try {
+    const raw = window.localStorage.getItem(PREFERRED_AUDIO_LANG_KEY)?.trim().toLowerCase();
+    if (raw && AUDIO_LANGUAGE_OPTIONS.some((opt) => opt.code === raw)) {
+      return raw;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return 'original';
+}
+
+export function setPreferredAudioLang(langCode: string): void {
+  if (!isBrowser()) return;
+  const normalized = (langCode || 'original').trim().toLowerCase();
+  const valid = AUDIO_LANGUAGE_OPTIONS.some((opt) => opt.code === normalized)
+    ? normalized
+    : 'original';
+  try {
+    window.localStorage.setItem(PREFERRED_AUDIO_LANG_KEY, valid);
+  } catch {
+    // Ignore storage quota errors gracefully
+  }
+}

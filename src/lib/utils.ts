@@ -134,13 +134,16 @@ export function sanitizeMediaUrl(raw?: string | null): string | undefined {
 }
 
 /**
- * Append explicit autoplay (and optional mute) parameters to any third-party
- * embed URL without stripping existing theme/player parameters.
+ * Append explicit autoplay (and optional mute & audio language) parameters to any
+ * third-party embed URL without stripping existing theme/player parameters.
  */
 export function withEmbedAutoplayParams(
   rawUrl: string,
-  options?: { muted?: boolean }
+  options?: { muted?: boolean; lang?: string }
 ): string {
+  const cleanLang = options?.lang?.trim().toLowerCase();
+  const hasExplicitLang = Boolean(cleanLang && cleanLang !== 'original');
+
   try {
     const url = new URL(rawUrl);
     if (!url.searchParams.has('autoplay')) {
@@ -159,10 +162,19 @@ export function withEmbedAutoplayParams(
       url.searchParams.set('mute', '0');
       url.searchParams.set('muted', 'false');
     }
+    if (hasExplicitLang && cleanLang) {
+      url.searchParams.set('lang', cleanLang);
+      url.searchParams.set('ds_lang', cleanLang);
+      url.searchParams.set('audio', cleanLang);
+    }
     return url.toString();
   } catch {
     const sep = rawUrl.includes('?') ? '&' : '?';
     const muteParams = options?.muted ? '&mute=1&muted=true' : '';
-    return `${rawUrl}${sep}autoplay=1&autoPlay=true&playsinline=1${muteParams}`;
+    const langParams =
+      hasExplicitLang && cleanLang
+        ? `&lang=${encodeURIComponent(cleanLang)}&ds_lang=${encodeURIComponent(cleanLang)}&audio=${encodeURIComponent(cleanLang)}`
+        : '';
+    return `${rawUrl}${sep}autoplay=1&autoPlay=true&playsinline=1${muteParams}${langParams}`;
   }
 }

@@ -6,8 +6,10 @@ import Hls from 'hls.js';
 import {
   Airplay,
   AlertCircle,
+  Check,
   ChevronDown,
   Eye,
+  Languages,
   Link2,
   Loader2,
   Maximize,
@@ -30,7 +32,13 @@ import {
 import { useKino } from '@/components/KinoProvider';
 import { isCinemaVodResolverId } from '@/config/sources';
 import { registerGlobalPlaybackStopper } from '@/lib/playback-cleanup';
-import { setPreferredCinemaServer, updateWatchHistory } from '@/lib/storage';
+import {
+  AUDIO_LANGUAGE_OPTIONS,
+  getPreferredAudioLang,
+  setPreferredAudioLang,
+  setPreferredCinemaServer,
+  updateWatchHistory,
+} from '@/lib/storage';
 import {
   buildStreamProxyUrl,
   cn,
@@ -45,13 +53,61 @@ import type {
   StreamSource,
 } from '@/types/media';
 
+interface NativeAudioTrack {
+  id?: string;
+  kind?: string;
+  label?: string;
+  language?: string;
+  enabled: boolean;
+}
+
+interface NativeAudioTrackList {
+  length: number;
+  [index: number]: NativeAudioTrack;
+  addEventListener?: (type: string, listener: () => void) => void;
+  removeEventListener?: (type: string, listener: () => void) => void;
+}
+
 interface WebKitVideoElement extends HTMLVideoElement {
   webkitShowPlaybackTargetPicker?: () => void;
+  audioTracks?: NativeAudioTrackList;
 }
 
 interface QualityLevel {
   index: number;
   label: string;
+}
+
+interface DetectedAudioTrack {
+  index: number;
+  kind: 'hls' | 'native';
+  label: string;
+  lang: string;
+  active: boolean;
+}
+
+function findMatchingAudioTrackIndex(
+  tracks: Array<{ lang: string; label: string }>,
+  targetLangCode: string
+): number {
+  const cleanCode = targetLangCode.trim().toLowerCase();
+  if (!cleanCode || cleanCode === 'original') return -1;
+  const opt = AUDIO_LANGUAGE_OPTIONS.find((o) => o.code === cleanCode);
+  const keywords = opt ? opt.matchKeywords : [cleanCode];
+
+  return tracks.findIndex((t) => {
+    const langLower = t.lang.trim().toLowerCase();
+    const labelLower = t.label.trim().toLowerCase();
+    return keywords.some(
+      (kw) =>
+        langLower === kw ||
+        langLower.startsWith(`${kw}-`) ||
+        langLower.startsWith(`${kw}_`) ||
+        new RegExp(`\\b${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(
+          labelLower
+        )
+    );
+  });
 }
 
 interface VideoPlayerProps {
@@ -171,6 +227,12 @@ export function VideoPlayer({
   const [qualities, setQualities] = useState<QualityLevel[]>([]);
   const [activeQuality, setActiveQuality] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [audioLang, setAudioLang] = useState<string>('original');
+  const audioLangRef = useRef(audioLang);
+  audioLangRef.current = audioLang;
+  const [detectedAudioTracks, setDetectedAudioTracks] = useState<DetectedAudioTrack[]>([]);
+  const [showAudioMenu, setShowAudioMenu] = useState(false);
+  const audioMenuRef = useRef<HTMLDivElement>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [airplayAvailable, setAirplayAvailable] = useState(false);
   const [pipAvailable, setPipAvailable] = useState(false);
@@ -245,8 +307,9 @@ export function VideoPlayer({
     rearmRedirectShield();
   }, [activeSource?.id, rearmRedirectShield]);
 
-  // Detect iOS / Mobile Safari on client mount so cross-origin embeds initiate muted autoplay gracefully
+  // Detect iOS / Mobile Safari on client mount & restore saved audio language preference
   useEffect(() => {
+    setAudioLang(getPreferredAudioLang());
     if (typeof navigator === 'undefined') return;
     const ua = navigator.userAgent || '';
     const isIos =
@@ -256,6 +319,108 @@ export function VideoPlayer({
       setEmbedMutedAutoplay(true);
     }
   }, []);
+
+  // Close audio language popover on outside click or Escape
+  useEffect(() => {
+    if (!showAudioMenu) return;
+    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+      if (audioMenuRef.current && !audioMenuRef.current.contains(e.target as Node)) {
+        setShowAudioMenu(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowAudioMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [showAudioMenu]);
+
+  const applyNativeTrackSelection = useCallback((trackIndex: number) => {
+    const video = videoRef.current;
+    const nativeTracks = video?.audioTracks;
+    if (!nativeTracks || nativeTracks.length === 0) return;
+    for (let i = 0; i < nativeTracks.length; i++) {
+      nativeTracks[i].enabled = i === trackIndex;
+    }
+    setDetectedAudioTracks((prev) =>
+      prev.map((t) => ({ ...t, active: t.index === trackIndex }))
+    );
+  }, []);
+
+  const handleSelectEmbeddedTrack = useCallback(
+    (track: DetectedAudioTrack) => {
+      if (track.kind === 'hls' && hlsRef.current) {
+        hlsRef.current.audioTrack = track.index;
+        setDetectedAudioTracks((prev) =>
+          prev.map((t) => ({ ...t, active: t.index === track.index }))
+        );
+      } else if (track.kind === 'native') {
+        applyNativeTrackSelection(track.index);
+      }
+
+      if (track.lang) {
+        const matchedOpt = AUDIO_LANGUAGE_OPTIONS.find((opt) =>
+          opt.matchKeywords.some(
+            (kw) =>
+              track.lang.toLowerCase() === kw ||
+              track.lang.toLowerCase().startsWith(`${kw}-`) ||
+              track.lang.toLowerCase().startsWith(`${kw}_`)
+          )
+        );
+        if (matchedOpt) {
+          setAudioLang(matchedOpt.code);
+          setPreferredAudioLang(matchedOpt.code);
+        }
+      }
+      setShowAudioMenu(false);
+    },
+    [applyNativeTrackSelection]
+  );
+
+  const handleSelectAudioLanguage = useCallback(
+    (code: string) => {
+      setAudioLang(code);
+      setPreferredAudioLang(code);
+      setShowAudioMenu(false);
+
+      // Sync Anime SUB / DUB toggle cleanly
+      if (isAnime && onAnimeAudioChange) {
+        if (code === 'ja') {
+          onAnimeAudioChange('sub');
+        } else if (code === 'en') {
+          onAnimeAudioChange('dub');
+        }
+      }
+
+      // Switch embedded HLS or native audio track in real time without restarting playback
+      if (detectedAudioTracks.length > 0) {
+        const targetIdx =
+          code === 'original'
+            ? 0
+            : findMatchingAudioTrackIndex(detectedAudioTracks, code);
+        if (targetIdx >= 0) {
+          const targetTrack = detectedAudioTracks[targetIdx];
+          if (targetTrack?.kind === 'hls' && hlsRef.current) {
+            hlsRef.current.audioTrack = targetTrack.index;
+            setDetectedAudioTracks((prev) =>
+              prev.map((t) => ({ ...t, active: t.index === targetTrack.index }))
+            );
+          } else if (targetTrack?.kind === 'native') {
+            applyNativeTrackSelection(targetTrack.index);
+          }
+        }
+      }
+    },
+    [isAnime, onAnimeAudioChange, detectedAudioTracks, applyNativeTrackSelection]
+  );
 
   useEffect(() => {
     if (!shieldNotice) return;
@@ -479,6 +644,7 @@ export function VideoPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!activeSource || activeSource.format === 'embed' || !video) {
+      setDetectedAudioTracks([]);
       setBuffering(false);
       return;
     }
@@ -494,6 +660,7 @@ export function VideoPlayer({
     setAutoplayMutedBanner(false);
     setQualities([]);
     setActiveQuality(-1);
+    setDetectedAudioTracks([]);
 
     if (hlsRef.current) {
       try {
@@ -522,6 +689,40 @@ export function VideoPlayer({
       return false;
     };
 
+    const syncNativeAudioTracks = (autoApplyPreferred = false) => {
+      if (cancelled) return;
+      const nativeTracks = video.audioTracks;
+      if (!nativeTracks || nativeTracks.length === 0) return;
+
+      const mapped: DetectedAudioTrack[] = [];
+      for (let i = 0; i < nativeTracks.length; i++) {
+        const t = nativeTracks[i];
+        mapped.push({
+          index: i,
+          kind: 'native',
+          label: t.label || t.language?.toUpperCase() || `Track ${i + 1}`,
+          lang: (t.language || '').toLowerCase(),
+          active: Boolean(t.enabled),
+        });
+      }
+
+      if (autoApplyPreferred && audioLangRef.current !== 'original') {
+        const matchIdx = findMatchingAudioTrackIndex(mapped, audioLangRef.current);
+        if (matchIdx >= 0) {
+          for (let i = 0; i < nativeTracks.length; i++) {
+            nativeTracks[i].enabled = i === matchIdx;
+            mapped[i].active = i === matchIdx;
+          }
+        }
+      }
+      setDetectedAudioTracks(mapped);
+    };
+
+    const onNativeMetadata = () => syncNativeAudioTracks(true);
+    const onNativeTrackChange = () => syncNativeAudioTracks(false);
+    video.addEventListener('loadedmetadata', onNativeMetadata);
+    video.audioTracks?.addEventListener?.('change', onNativeTrackChange);
+
     const isMp4 =
       activeSource.format === 'mp4' || /\.mp4(\?|$)/i.test(activeSource.url);
 
@@ -531,6 +732,8 @@ export function VideoPlayer({
       return () => {
         cancelled = true;
         controller.abort();
+        video.removeEventListener('loadedmetadata', onNativeMetadata);
+        video.audioTracks?.removeEventListener?.('change', onNativeTrackChange);
         try {
           video.pause();
           video.removeAttribute('src');
@@ -551,6 +754,34 @@ export function VideoPlayer({
       hls.loadSource(playbackUrl);
       hls.attachMedia(video);
 
+      const syncHlsAudioTracks = (autoApplyPreferred = false) => {
+        if (cancelled) return;
+        const rawTracks = hls.audioTracks || [];
+        if (rawTracks.length === 0) {
+          setDetectedAudioTracks([]);
+          return;
+        }
+        let mapped: DetectedAudioTrack[] = rawTracks.map((t, idx) => ({
+          index: idx,
+          kind: 'hls',
+          label: t.name || t.lang?.toUpperCase() || `Track ${idx + 1}`,
+          lang: (t.lang || '').toLowerCase(),
+          active: hls.audioTrack === idx,
+        }));
+
+        if (autoApplyPreferred && audioLangRef.current !== 'original') {
+          const matchIdx = findMatchingAudioTrackIndex(mapped, audioLangRef.current);
+          if (matchIdx >= 0 && hls.audioTrack !== matchIdx) {
+            hls.audioTrack = matchIdx;
+            mapped = mapped.map((item) => ({
+              ...item,
+              active: item.index === matchIdx,
+            }));
+          }
+        }
+        setDetectedAudioTracks(mapped);
+      };
+
       hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
         if (cancelled) return;
         const levels: QualityLevel[] = data.levels.map((lvl, idx) => ({
@@ -558,9 +789,18 @@ export function VideoPlayer({
           label: lvl.height ? `${lvl.height}p` : `Level ${idx + 1}`,
         }));
         setQualities(levels);
+        syncHlsAudioTracks(true);
         setSourceReady(true);
         setBuffering(false);
         void attemptAutoplay(video);
+      });
+
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+        syncHlsAudioTracks(true);
+      });
+
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+        syncHlsAudioTracks(false);
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -594,6 +834,8 @@ export function VideoPlayer({
     return () => {
       cancelled = true;
       controller.abort();
+      video.removeEventListener('loadedmetadata', onNativeMetadata);
+      video.audioTracks?.removeEventListener?.('change', onNativeTrackChange);
       if (hlsRef.current) {
         try {
           hlsRef.current.stopLoad();
@@ -857,6 +1099,20 @@ export function VideoPlayer({
     hasEmbedSources && adShield && clickGuardActive && !clearFrame
   );
 
+  const effectiveAudioLang = isAnime
+    ? animeAudio === 'dub'
+      ? 'en'
+      : audioLang === 'en'
+      ? 'ja'
+      : audioLang
+    : audioLang;
+
+  const selectedAudioOption =
+    AUDIO_LANGUAGE_OPTIONS.find((opt) => opt.code === effectiveAudioLang) ||
+    AUDIO_LANGUAGE_OPTIONS[0];
+
+  const activeEmbeddedTrack = detectedAudioTracks.find((t) => t.active);
+
   return (
     <div className="w-full">
       <div
@@ -864,15 +1120,17 @@ export function VideoPlayer({
         onMouseMove={scheduleHideControls}
         onTouchStart={scheduleHideControls}
         className={cn(
-          'overflow-hidden rounded-2xl border border-white/[0.08] bg-[#09090B] shadow-2xl',
+          'rounded-2xl border border-white/[0.08] bg-[#09090B] shadow-2xl',
           isFullscreen && 'flex flex-col justify-between bg-black'
         )}
       >
         {/* 16:9 Media Viewport — All 4 Corners Kept 100% Unobstructed */}
         <div
           className={cn(
-            'relative w-full bg-black',
-            isFullscreen ? 'min-h-0 flex-1' : 'aspect-video'
+            'relative w-full overflow-hidden bg-black',
+            isFullscreen
+              ? 'min-h-0 flex-1'
+              : cn('aspect-video', sources.length > 0 ? 'rounded-t-2xl' : 'rounded-2xl')
           )}
         >
         {sources.length === 0 ? (
@@ -954,9 +1212,10 @@ export function VideoPlayer({
         ) : activeSource?.format === 'embed' ? (
           <div className="relative h-full w-full">
             <iframe
-              key={`${activeSource.id}-${activeSource.url}-${embedMutedAutoplay ? 'muted' : 'audio'}-${embedNonce}-${adShield ? 'shield' : 'std'}-${strictSandbox ? 'sbx' : 'nosbx'}-${animeAudio}`}
+              key={`${activeSource.id}-${activeSource.url}-${embedMutedAutoplay ? 'muted' : 'audio'}-${embedNonce}-${adShield ? 'shield' : 'std'}-${strictSandbox ? 'sbx' : 'nosbx'}-${animeAudio}-${effectiveAudioLang}`}
               src={withEmbedAutoplayParams(activeSource.url, {
                 muted: embedMutedAutoplay,
+                lang: effectiveAudioLang,
               })}
               title={title}
               allowFullScreen
@@ -1299,7 +1558,7 @@ export function VideoPlayer({
 
         {/* External Obsidian-and-Gold Control Strip (Below 16:9 Frame — Zero Corner Overlap) */}
         {sources.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.08] bg-[#121215]/95 px-3 py-2.5 sm:px-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-b-2xl border-t border-white/[0.08] bg-[#121215]/95 px-3 py-2.5 sm:px-4">
             <div className="flex flex-wrap items-center gap-1.5">
               {showTapToUnmute && (
                 <button
@@ -1383,6 +1642,113 @@ export function VideoPlayer({
                   <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
                   <span>{showSwitchPrompt ? 'Switch Server' : 'Next Server'}</span>
                 </button>
+              )}
+
+              {/* Multi-Language Audio Switcher (Docked Outside 16:9 Frame) */}
+              <div ref={audioMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAudioMenu((open) => !open)}
+                  aria-haspopup="menu"
+                  aria-expanded={showAudioMenu}
+                  aria-label="Audio Language"
+                  title="Select Audio Language or Stream Audio Track"
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
+                    showAudioMenu || effectiveAudioLang !== 'original' || detectedAudioTracks.length > 0
+                      ? 'border-[#f59e0b]/55 bg-[#09090b] text-[#f59e0b] hover:border-[#f59e0b]'
+                      : 'border-white/15 bg-[#09090b] text-[#E2C275] hover:border-[#f59e0b]/50'
+                  )}
+                >
+                  <Languages className="h-3.5 w-3.5 text-[#f59e0b]" />
+                  <span className="hidden sm:inline">
+                    {activeEmbeddedTrack
+                      ? `Audio: ${activeEmbeddedTrack.label}`
+                      : `Audio: ${selectedAudioOption.shortCode}`}
+                  </span>
+                  <span className="sm:hidden">{selectedAudioOption.shortCode}</span>
+                  <ChevronDown
+                    className={cn(
+                      'h-3.5 w-3.5 transition-transform',
+                      showAudioMenu && 'rotate-180'
+                    )}
+                  />
+                </button>
+
+                {showAudioMenu && (
+                  <div
+                    role="menu"
+                    aria-label="Audio Language Options"
+                    className={cn(
+                      'absolute left-0 z-30 max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#f59e0b]/35 bg-[#09090b]/98 p-2 shadow-2xl backdrop-blur-xl',
+                      isFullscreen ? 'bottom-12' : 'top-12'
+                    )}
+                  >
+                    {detectedAudioTracks.length > 0 && (
+                      <div className="mb-2 border-b border-white/[0.08] pb-2">
+                        <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#f59e0b] uppercase">
+                          Embedded Stream Tracks
+                        </p>
+                        <div className="space-y-1">
+                          {detectedAudioTracks.map((track) => (
+                            <button
+                              key={`${track.kind}-${track.index}`}
+                              type="button"
+                              role="menuitem"
+                              onClick={() => handleSelectEmbeddedTrack(track)}
+                              className={cn(
+                                'flex min-h-[38px] w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition',
+                                track.active
+                                  ? 'border border-[#f59e0b]/45 bg-[#f59e0b]/15 font-semibold text-[#f59e0b]'
+                                  : 'text-[#FAFAFA] hover:bg-white/[0.06]'
+                              )}
+                            >
+                              <span className="truncate">
+                                {track.label}
+                                {track.lang ? ` (${track.lang.toUpperCase()})` : ''}
+                              </span>
+                              {track.active && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#A1A1AA] uppercase">
+                      Audio Language
+                    </p>
+                    <div className="space-y-1">
+                      {AUDIO_LANGUAGE_OPTIONS.map((opt) => {
+                        const isSelected = effectiveAudioLang === opt.code;
+                        return (
+                          <button
+                            key={opt.code}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => handleSelectAudioLanguage(opt.code)}
+                            className={cn(
+                              'flex min-h-[38px] w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition',
+                              isSelected
+                                ? 'border border-[#f59e0b]/45 bg-[#f59e0b]/15 font-semibold text-[#f59e0b]'
+                                : 'text-[#A1A1AA] hover:bg-white/[0.06] hover:text-[#FAFAFA]'
+                            )}
+                          >
+                            <span className="truncate">{opt.label}</span>
+                            {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {hasEmbedSources && (
+                <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090b] px-3 text-[11px] font-medium text-[#E2C275]">
+                  {effectiveAudioLang !== 'original'
+                    ? `Audio: ${selectedAudioOption.shortCode}`
+                    : 'In-Player Audio'}
+                </span>
               )}
 
               {animeAudioStatus && (
