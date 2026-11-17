@@ -128,10 +128,14 @@ export interface MediaItem {
   matchPreview?: SportsMatch;
 }
 
+export type SportsMatchTier = 'direct_match' | 'broadcaster_match' | 'league_slot';
+
 export interface StreamSource {
   id: string;
   name: string;
   label: string;
+  tier?: SportsMatchTier;
+  tierLabel?: string;
   quality?: string;
   language?: string;
   audioTrack?: 'sub' | 'dub' | 'both';

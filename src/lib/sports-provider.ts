@@ -282,7 +282,7 @@ export async function fetchConfiguredSportsEventFeeds(
       });
     }
 
-    return channels.slice(0, 12);
+    return channels.slice(0, 24);
   } catch {
     return [];
   }

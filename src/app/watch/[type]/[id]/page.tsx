@@ -14,10 +14,13 @@ import {
   Plus,
   Radio,
   RefreshCw,
+  Search,
+  Server,
   Star,
   Trophy,
   Tv,
   Users,
+  X,
 } from 'lucide-react';
 import { ChannelCard } from '@/components/ChannelCard';
 import { DropdownPill } from '@/components/DropdownPill';
@@ -98,11 +101,22 @@ function WatchViewContent() {
   const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
   const [providerChannels, setProviderChannels] = useState<Channel[]>([]);
   const [refreshingFeeds, setRefreshingFeeds] = useState(false);
+  const [showImportedPicker, setShowImportedPicker] = useState(false);
+  const [importedSearch, setImportedSearch] = useState('');
+  const [manualImportedChannel, setManualImportedChannel] = useState<Channel | null>(null);
   const [animeDubAvailable, setAnimeDubAvailable] = useState<boolean | null>(null);
   const [animeAudioStatus, setAnimeAudioStatus] = useState<string | null>(null);
 
   const sportsMatchRef = useRef<SportsMatch | null>(null);
   sportsMatchRef.current = sportsMatch;
+  const importedPickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setManualImportedChannel(null);
+    setSelectedMatchedFeedId(null);
+    setShowImportedPicker(false);
+    setImportedSearch('');
+  }, [mediaId]);
 
   // Restore saved season/episode/timestamp & anime SUB/DUB preference
   useEffect(() => {
@@ -276,6 +290,25 @@ function WatchViewContent() {
     if (!sportsMatch) return [];
     return matchBroadcastChannelsForMatch(sportsMatch, eventCandidateChannels, epgSchedules);
   }, [sportsMatch, eventCandidateChannels, epgSchedules]);
+
+  const filteredImportedChannels = useMemo(() => {
+    const q = importedSearch.trim().toLowerCase();
+    if (!q) return eventCandidateChannels;
+    return eventCandidateChannels.filter(
+      (ch) =>
+        ch.name.toLowerCase().includes(q) ||
+        (ch.tvgName || '').toLowerCase().includes(q) ||
+        ch.group.toLowerCase().includes(q) ||
+        (ch.sourceName || '').toLowerCase().includes(q)
+    );
+  }, [eventCandidateChannels, importedSearch]);
+
+  const handleBrowseImportedFeeds = useCallback(() => {
+    setShowImportedPicker(true);
+    setTimeout(() => {
+      importedPickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 60);
+  }, []);
 
   // Only show related 24/7 channels when watching a 24/7 Live TV or Sports Network channel (never on individual game pages)
   const relatedChannels = useMemo(() => {
@@ -572,10 +605,33 @@ function WatchViewContent() {
         epgSchedules,
         selectedFeedChannelId: selectedMatchedFeedId,
       });
-      if (combined.length > 0) {
+
+      const manualSource: StreamSource[] = manualImportedChannel
+        ? [
+            {
+              id: `match-manual-${manualImportedChannel.id}`,
+              name: `Server I · ${manualImportedChannel.name}`,
+              label: manualImportedChannel.group || 'Imported Feed',
+              tierLabel: 'Imported Feed',
+              quality: manualImportedChannel.quality || 'Live HD',
+              format: manualImportedChannel.url.toLowerCase().includes('.mp4')
+                ? 'mp4'
+                : 'hls',
+              url: manualImportedChannel.url,
+              referrer: manualImportedChannel.referrer,
+              isDefault: combined.length === 0,
+            },
+          ]
+        : [];
+
+      const mergedLeading = [...combined, ...manualSource];
+      if (mergedLeading.length > 0) {
+        const leadingUrls = new Set(mergedLeading.map((s) => s.url));
         return [
-          ...combined,
-          ...resolvedSports.map((s) => ({ ...s, isDefault: false })),
+          ...mergedLeading,
+          ...resolvedSports
+            .filter((s) => !leadingUrls.has(s.url))
+            .map((s) => ({ ...s, isDefault: false })),
         ];
       }
       return resolvedSports;
@@ -606,6 +662,7 @@ function WatchViewContent() {
     eventCandidateChannels,
     epgSchedules,
     selectedMatchedFeedId,
+    manualImportedChannel,
     mediaDetails,
     mediaType,
     selectedSeason,
@@ -797,13 +854,23 @@ function WatchViewContent() {
                     }
                   : undefined
               }
-              referrer={activeChannel?.referrer || matchedMatchFeeds[0]?.channel.referrer}
-              userAgent={activeChannel?.userAgent || matchedMatchFeeds[0]?.channel.userAgent}
+              referrer={
+                activeChannel?.referrer ||
+                manualImportedChannel?.referrer ||
+                matchedMatchFeeds[0]?.channel.referrer
+              }
+              userAgent={
+                activeChannel?.userAgent ||
+                manualImportedChannel?.userAgent ||
+                matchedMatchFeeds[0]?.channel.userAgent
+              }
               allowCustomUrlInput={isChannelType}
               onAddCustomStreamUrl={isChannelType ? handleAddCustomStreamUrl : undefined}
               onOpenSources={sportsMatch ? openSources : undefined}
               onRefreshFeeds={sportsMatch ? handleRefreshFeeds : undefined}
               refreshingFeeds={refreshingFeeds}
+              importedFeedsCount={sportsMatch ? eventCandidateChannels.length : 0}
+              onBrowseImportedFeeds={sportsMatch ? handleBrowseImportedFeeds : undefined}
               hasNextEpisode={Boolean(nextEpisodeTarget)}
               nextEpisodeLabel={nextEpisodeTarget?.label}
               onNextEpisode={handleNextEpisode}
@@ -825,10 +892,22 @@ function WatchViewContent() {
                       Matching Live Feeds
                     </h2>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
-                      Matched strictly by team names and event ID across your custom M3U playlists and configured sports feed provider.
+                      3-tier matching across your imported M3U playlists and event feed provider (Match Feed → RSN / Network → League Pass Slot).
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        showImportedPicker
+                          ? setShowImportedPicker(false)
+                          : handleBrowseImportedFeeds()
+                      }
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#f59e0b]/55 bg-[#09090b] px-4 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
+                    >
+                      <Server className="h-3.5 w-3.5" />
+                      Browse Imported Feeds ({eventCandidateChannels.length})
+                    </button>
                     <button
                       type="button"
                       onClick={() => void handleRefreshFeeds()}
@@ -863,12 +942,16 @@ function WatchViewContent() {
                 {matchedMatchFeeds.length > 0 ? (
                   <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {matchedMatchFeeds.map((feed) => {
-                      const active = selectedMatchedFeedId === feed.channel.id;
+                      const activeFeedId = manualImportedChannel
+                        ? null
+                        : selectedMatchedFeedId || matchedMatchFeeds[0]?.channel.id || null;
+                      const active = activeFeedId === feed.channel.id;
                       return (
                         <button
                           key={feed.channel.id}
                           type="button"
                           onClick={() => {
+                            setManualImportedChannel(null);
                             setSelectedMatchedFeedId(feed.channel.id);
                           }}
                           className={cn(
@@ -901,6 +984,18 @@ function WatchViewContent() {
                                 {feed.nowTitle || feed.channel.group}
                               </p>
                               <div className="mt-1 flex flex-wrap gap-1">
+                                <span
+                                  className={cn(
+                                    'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                    feed.tier === 'direct_match'
+                                      ? 'border-[#D4AF37]/50 bg-[#D4AF37]/20 text-[#E2C275]'
+                                      : feed.tier === 'broadcaster_match'
+                                      ? 'border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[#f59e0b]'
+                                      : 'border-white/15 bg-[#121215] text-[#A1A1AA]'
+                                  )}
+                                >
+                                  {feed.tierLabel}
+                                </span>
                                 {feed.reasons.map((r) => (
                                   <span
                                     key={r}
@@ -922,10 +1017,126 @@ function WatchViewContent() {
                   </div>
                 ) : (
                   <p className="mt-4 rounded-2xl border border-white/[0.06] bg-[#09090B]/60 p-4 text-xs text-[#A1A1AA]">
-                    No team-matched event streams found for {sportsMatch.awayTeam.shortName} vs.{' '}
-                    {sportsMatch.homeTeam.shortName}. Connect an M3U playlist containing an event feed (e.g. &ldquo;
-                    {sportsMatch.league}: {sportsMatch.awayTeam.name} vs {sportsMatch.homeTeam.name}&rdquo;) or paste a direct `.m3u8` URL in the source bar above.
+                    No automatic Match, RSN, or League Pass feeds matched {sportsMatch.awayTeam.shortName} vs.{' '}
+                    {sportsMatch.homeTeam.shortName}.
+                    {eventCandidateChannels.length > 0
+                      ? ' Tap Browse Imported Feeds to pick an unlabeled channel from your playlist, or paste a direct .m3u8 URL above.'
+                      : ' Connect an M3U playlist via Custom M3U or paste a direct .m3u8 URL in the source bar above.'}
                   </p>
+                )}
+
+                {/* Compact Searchable Imported M3U Feeds Picker */}
+                {showImportedPicker && (
+                  <div
+                    ref={importedPickerRef}
+                    className="mt-4 rounded-2xl border border-[#f59e0b]/35 bg-[#09090b] p-4"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                      <div className="flex items-center gap-2">
+                        <Server className="h-4 w-4 text-[#f59e0b]" />
+                        <h3 className="font-serif text-sm font-medium text-[#FAFAFA] sm:text-base">
+                          Imported M3U &amp; Event Channels ({filteredImportedChannels.length})
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowImportedPicker(false)}
+                        aria-label="Close imported feeds picker"
+                        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-white/10 bg-[#121215] text-[#A1A1AA] hover:text-[#FAFAFA]"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {eventCandidateChannels.length === 0 ? (
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#121215] p-3.5 text-xs text-[#A1A1AA]">
+                        <span>No custom M3U playlist imported yet.</span>
+                        <button
+                          type="button"
+                          onClick={openSources}
+                          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-[#f59e0b] px-3.5 text-xs font-semibold text-[#09090b]"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add M3U Playlist
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative mt-3">
+                          <Search className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-[#71717A]" />
+                          <input
+                            type="text"
+                            value={importedSearch}
+                            onChange={(e) => setImportedSearch(e.target.value)}
+                            placeholder="Search imported feeds (e.g. NBA 04, VIP Sports 12, US: Arena 4, RSN)..."
+                            className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#121215] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+                          {filteredImportedChannels.length === 0 ? (
+                            <p className="py-6 text-center text-xs text-[#71717A]">
+                              No imported channels match &ldquo;{importedSearch}&rdquo;.
+                            </p>
+                          ) : (
+                            filteredImportedChannels.slice(0, 150).map((ch) => {
+                              const isManualPlaying = manualImportedChannel?.id === ch.id;
+                              return (
+                                <button
+                                  key={ch.id}
+                                  type="button"
+                                  onClick={() => setManualImportedChannel(ch)}
+                                  className={cn(
+                                    'flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition',
+                                    isManualPlaying
+                                      ? 'border-[#f59e0b] bg-[#f59e0b]/15'
+                                      : 'border-white/[0.06] bg-[#121215]/80 hover:border-[#f59e0b]/45'
+                                  )}
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/[0.08] bg-[#09090b]">
+                                      {ch.logo ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
+                                          src={ch.logo}
+                                          alt={ch.name}
+                                          className="h-full w-full object-contain p-0.5"
+                                        />
+                                      ) : (
+                                        <span className="font-serif text-[11px] font-bold text-[#f59e0b]">
+                                          {getInitials(ch.name)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="truncate text-xs font-medium text-[#FAFAFA] sm:text-sm">
+                                        {ch.name}
+                                      </p>
+                                      <p className="truncate text-[11px] text-[#71717A]">
+                                        {ch.group}
+                                        {ch.sourceName ? ` · ${ch.sourceName}` : ''}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={cn(
+                                      'inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold',
+                                      isManualPlaying
+                                        ? 'bg-[#f59e0b] text-[#09090b]'
+                                        : 'border border-[#f59e0b]/40 bg-[#09090b] text-[#f59e0b]'
+                                    )}
+                                  >
+                                    <Play className="h-3 w-3 fill-current" />
+                                    {isManualPlaying ? 'Playing' : 'Play'}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </section>
             )}
