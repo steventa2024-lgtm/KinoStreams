@@ -111,13 +111,24 @@ function WatchViewContent() {
   const sportsMatchRef = useRef<SportsMatch | null>(null);
   sportsMatchRef.current = sportsMatch;
   const importedPickerRef = useRef<HTMLDivElement>(null);
+  const fetchedDetailsKeyRef = useRef<string | null>(null);
+  const fetchedResolveKeyRef = useRef<string | null>(null);
+
+  const initialPreferredResolver = useMemo(
+    () => getPreferredVodResolver(),
+    // Capture once per watched title so focus/tab return or background saves never reshuffle active server order
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mediaId, mediaType]
+  );
 
   useEffect(() => {
     setManualImportedChannel(null);
     setSelectedMatchedFeedId(null);
     setShowImportedPicker(false);
     setImportedSearch('');
-  }, [mediaId]);
+    fetchedDetailsKeyRef.current = null;
+    fetchedResolveKeyRef.current = null;
+  }, [mediaId, mediaType]);
 
   // Restore saved season/episode/timestamp & anime SUB/DUB preference
   useEffect(() => {
@@ -325,13 +336,19 @@ function WatchViewContent() {
       .slice(0, 8);
   }, [isChannelType, activeChannel, channels, mediaType]);
 
-  // Fetch movie/series details
+  // Fetch movie/series details (never re-fetched on window focus or visibilitychange)
   useEffect(() => {
     if (isChannelType || !mediaId) {
       return;
     }
 
+    const detailsKey = `${mediaType}:${mediaId}`;
+    if (fetchedDetailsKeyRef.current === detailsKey) {
+      return;
+    }
+
     let active = true;
+    let completed = false;
     setLoadingDetails(true);
 
     const tmdbType = mediaType === 'series' ? 'tv' : 'movie';
@@ -339,6 +356,8 @@ function WatchViewContent() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { item?: MediaItem; recommendations?: MediaItem[] } | null) => {
         if (!active) return;
+        completed = true;
+        fetchedDetailsKeyRef.current = detailsKey;
         if (data?.item) {
           setMediaDetails(data.item);
           setRecommendations(data.recommendations || []);
@@ -355,6 +374,9 @@ function WatchViewContent() {
 
     return () => {
       active = false;
+      if (!completed && fetchedDetailsKeyRef.current === detailsKey) {
+        fetchedDetailsKeyRef.current = null;
+      }
     };
   }, [isChannelType, mediaId, mediaType]);
 
@@ -370,15 +392,23 @@ function WatchViewContent() {
     );
   }, [mediaDetails, isChannelType]);
 
-  // Probe server-side direct HLS/MP4 & Anime MAL/AniList resolver in background (never blocks embed playback)
+  // Probe server-side direct HLS/MP4 & Anime MAL/AniList resolver in background (never blocks embed playback or refetches on tab return)
   useEffect(() => {
     if (isChannelType || !mediaId || !mediaDetails) {
-      setResolvedDirectSources([]);
-      setAnimeDubAvailable(null);
+      if (isChannelType || !mediaId) {
+        setResolvedDirectSources([]);
+        setAnimeDubAvailable(null);
+      }
+      return;
+    }
+
+    const resolveKey = `${mediaType}:${mediaId}:${mediaDetails.id}:${selectedSeason}:${selectedEpisode}:${isAnimeSeries ? animeAudio : 'cinema'}`;
+    if (fetchedResolveKeyRef.current === resolveKey) {
       return;
     }
 
     let active = true;
+    let completed = false;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 3800 : 2500);
 
@@ -432,6 +462,8 @@ function WatchViewContent() {
           } | null
         ) => {
           if (!active) return;
+          completed = true;
+          fetchedResolveKeyRef.current = resolveKey;
           if (data?.resolved && Array.isArray(data.streams) && data.streams.length > 0) {
             setResolvedDirectSources(data.streams);
           } else {
@@ -465,6 +497,9 @@ function WatchViewContent() {
       active = false;
       clearTimeout(timeout);
       controller.abort();
+      if (!completed && fetchedResolveKeyRef.current === resolveKey) {
+        fetchedResolveKeyRef.current = null;
+      }
     };
   }, [
     isChannelType,
@@ -648,7 +683,7 @@ function WatchViewContent() {
         episode: selectedEpisode,
         directUrl: mediaDetails.streamUrl,
         resolvedDirectSources,
-        preferredResolverId: getPreferredVodResolver(),
+        preferredResolverId: initialPreferredResolver,
         isAnime: isAnimeSeries,
         animeAudio,
       });
@@ -669,6 +704,7 @@ function WatchViewContent() {
     mediaType,
     selectedSeason,
     selectedEpisode,
+    initialPreferredResolver,
     isAnimeSeries,
     animeAudio,
   ]);

@@ -38,7 +38,7 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
   },
   {
     id: 'vidlink-pro',
-    name: 'Cinema Server II - VidLink HD',
+    name: 'Cinema Server II - Mirror HD (VidLink)',
     description: 'Low-popup adaptive autoplay mirror',
     format: 'embed',
     enabledByDefault: true,
@@ -49,8 +49,8 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
   },
   {
     id: 'twoembed-cc',
-    name: 'Cinema Server III - Anime & TV',
-    description: 'Dedicated multi-season anime & TV mirror',
+    name: 'Cinema Server III - Backup Embed',
+    description: 'Secondary multi-season TV & anime fallback',
     format: 'embed',
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
@@ -60,7 +60,7 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
   },
   {
     id: 'multiembed',
-    name: 'Cinema Server IV - Fallback',
+    name: 'Cinema Server IV - Legacy Fallback',
     description: 'Last-resort backup embed server',
     format: 'embed',
     enabledByDefault: true,
@@ -170,10 +170,11 @@ export function resolveVodSources(params: {
     }
   }
 
-  // Select default source: direct native HLS/MP4 wins when present; otherwise preferred Cinema server or Mirror HD (Server I)
+  // Select default source: direct native HLS/MP4 wins when present; otherwise clean primary Mirror HD Server I/II
   if (sources.length > 0 && !sources.some((s) => s.isDefault)) {
+    const cleanPrimaryIds = new Set(['vidsrc-me', 'vidlink-pro']);
     const preferred =
-      preferredResolverId && preferredResolverId !== 'vidsrc-to'
+      preferredResolverId && cleanPrimaryIds.has(preferredResolverId)
         ? sources.find((s) => s.id === preferredResolverId)
         : undefined;
     if (preferred) {

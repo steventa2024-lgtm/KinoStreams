@@ -200,13 +200,14 @@ export function setProxyMode(mode: ProxyMode): void {
 
 export const PREFERRED_CINEMA_SERVER_KEY = 'kino:preferredCinemaServer';
 export const DEFAULT_CINEMA_SERVER_ID = 'vidsrc-me';
+const CLEAN_CINEMA_SERVER_IDS = new Set(['vidsrc-me', 'vidlink-pro']);
 
 // Preferred Cinema / VOD Server
 export function getPreferredCinemaServer(): string {
   if (isBrowser()) {
     try {
       const direct = window.localStorage.getItem(PREFERRED_CINEMA_SERVER_KEY)?.trim();
-      if (direct && direct !== 'vidsrc-to') {
+      if (direct && CLEAN_CINEMA_SERVER_IDS.has(direct)) {
         return direct;
       }
     } catch {
@@ -214,11 +215,11 @@ export function getPreferredCinemaServer(): string {
     }
   }
   const scoped = readJson<string>(BASE_KEYS.VOD_RESOLVER, DEFAULT_CINEMA_SERVER_ID);
-  return scoped && scoped !== 'vidsrc-to' ? scoped : DEFAULT_CINEMA_SERVER_ID;
+  return scoped && CLEAN_CINEMA_SERVER_IDS.has(scoped) ? scoped : DEFAULT_CINEMA_SERVER_ID;
 }
 
 export function setPreferredCinemaServer(serverId: string): void {
-  if (!serverId || serverId === 'vidsrc-to') return;
+  if (!serverId || !CLEAN_CINEMA_SERVER_IDS.has(serverId)) return;
   if (isBrowser()) {
     try {
       window.localStorage.setItem(PREFERRED_CINEMA_SERVER_KEY, serverId);

@@ -179,6 +179,7 @@ export function VideoPlayer({
   const router = useRouter();
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<WebKitVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -187,6 +188,10 @@ export function VideoPlayer({
   const currentTimeRef = useRef(initialTime || 0);
   const durationRef = useRef(0);
   const lastTimeSyncMsRef = useRef(0);
+  const interactMaxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const interactBlurHandlerRef = useRef<(() => void) | null>(null);
 
   const defaultSource =
     sources.find((s) => s.isDefault) || sources[0] || null;
@@ -202,12 +207,11 @@ export function VideoPlayer({
       (globalProxyMode !== 'direct' && shouldProxyStreamUrl(defaultSource?.url))
   );
   const [adShield, setAdShield] = useState<boolean>(true);
-  const [strictSandbox, setStrictSandbox] = useState<boolean>(false);
-  const [clickGuardActive, setClickGuardActive] = useState<boolean>(true);
-  const [clearFrame, setClearFrame] = useState<boolean>(false);
-  const [interactSecondsLeft, setInteractSecondsLeft] = useState<number | null>(null);
+  const [shieldLocked, setShieldLocked] = useState<boolean>(true);
+  const shieldLockedRef = useRef<boolean>(true);
+  shieldLockedRef.current = shieldLocked;
+  const [interactTimer, setInteractTimer] = useState<number | null>(null);
   const [embedMutedAutoplay, setEmbedMutedAutoplay] = useState<boolean>(false);
-  const [embedNonce, setEmbedNonce] = useState<number>(0);
   const [autoplayMutedBanner, setAutoplayMutedBanner] = useState<boolean>(false);
   const [shieldNotice, setShieldNotice] = useState<string | null>(null);
   const [showSwitchPrompt, setShowSwitchPrompt] = useState<boolean>(false);
@@ -222,7 +226,9 @@ export function VideoPlayer({
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(initialTime || 0);
   const [duration, setDuration] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
+  const [isTheaterFullscreen, setIsTheaterFullscreen] = useState(false);
+  const isFullscreen = isNativeFullscreen || isTheaterFullscreen;
   const [showControls, setShowControls] = useState(true);
   const [qualities, setQualities] = useState<QualityLevel[]>([]);
   const [activeQuality, setActiveQuality] = useState<number>(-1);
@@ -243,26 +249,6 @@ export function VideoPlayer({
   const [autoNextSeconds, setAutoNextSeconds] = useState<number | null>(null);
   const [autoNextDismissed, setAutoNextDismissed] = useState(false);
 
-  // Reset source selection & failover history when media or episode changes
-  const sourcesSignature = sources.map((s) => `${s.id}:${s.url}`).join('|');
-  useEffect(() => {
-    const nextDefault = sources.find((s) => s.isDefault) || sources[0];
-    setSelectedSourceId(nextDefault?.id || '');
-    setTriedSourceIds([]);
-    setSourceReady(false);
-    setErrorMsg(null);
-    setAutoplayMutedBanner(false);
-    setShieldNotice(null);
-    setShowSwitchPrompt(false);
-    setAutoNextSeconds(null);
-    setAutoNextDismissed(false);
-    setClearFrame(false);
-    setClickGuardActive(true);
-    setInteractSecondsLeft(null);
-    appliedInitialSeekRef.current = false;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mediaId, mediaType, season, episode, sourcesSignature]);
-
   const persistPreferredCinemaServer = useCallback(
     (sourceId?: string) => {
       if (
@@ -276,31 +262,111 @@ export function VideoPlayer({
     [isAnime, mediaType]
   );
 
-  const rearmRedirectShield = useCallback(() => {
-    setClearFrame(false);
-    setClickGuardActive(true);
-    setInteractSecondsLeft(null);
+  const cleanupInteractWindow = useCallback(() => {
+    if (interactMaxTimerRef.current) {
+      clearTimeout(interactMaxTimerRef.current);
+      interactMaxTimerRef.current = null;
+    }
+    if (interactLockTimerRef.current) {
+      clearTimeout(interactLockTimerRef.current);
+      interactLockTimerRef.current = null;
+    }
+    if (interactTickRef.current) {
+      clearInterval(interactTickRef.current);
+      interactTickRef.current = null;
+    }
+    if (interactBlurHandlerRef.current && typeof window !== 'undefined') {
+      window.removeEventListener('blur', interactBlurHandlerRef.current);
+      interactBlurHandlerRef.current = null;
+    }
   }, []);
+
+  const rearmRedirectShield = useCallback(() => {
+    cleanupInteractWindow();
+    shieldLockedRef.current = true;
+    setShieldLocked(true);
+    setInteractTimer(null);
+    if (
+      typeof document !== 'undefined' &&
+      document.activeElement?.tagName === 'IFRAME'
+    ) {
+      try {
+        window.focus();
+      } catch {
+        // Ignore focus restoration errors
+      }
+    }
+  }, [cleanupInteractWindow]);
 
   const unlockFrameForInteract = useCallback(() => {
-    setClearFrame(true);
-    setClickGuardActive(false);
+    cleanupInteractWindow();
+    shieldLockedRef.current = false;
+    setShieldLocked(false);
     setShieldNotice(null);
-    setInteractSecondsLeft(4);
-  }, []);
+    setInteractTimer(2.5);
 
-  // Automatically re-arm Redirect Shield after the 4-second Interact window expires
-  useEffect(() => {
-    if (interactSecondsLeft === null) return;
-    if (interactSecondsLeft <= 0) {
-      rearmRedirectShield();
-      return;
+    interactTickRef.current = setInterval(() => {
+      setInteractTimer((prev) => {
+        if (prev === null) return null;
+        const next = Number(Math.max(0, prev - 0.25).toFixed(2));
+        return next;
+      });
+    }, 250);
+
+    const handleSingleTapBlur = () => {
+      interactBlurHandlerRef.current = null;
+      if (interactMaxTimerRef.current) {
+        clearTimeout(interactMaxTimerRef.current);
+        interactMaxTimerRef.current = null;
+      }
+      interactLockTimerRef.current = setTimeout(() => {
+        rearmRedirectShield();
+      }, 350);
+    };
+
+    if (typeof window !== 'undefined') {
+      interactBlurHandlerRef.current = handleSingleTapBlur;
+      window.addEventListener('blur', handleSingleTapBlur, { once: true });
     }
-    const timer = setTimeout(() => {
-      setInteractSecondsLeft((prev) => (prev !== null ? prev - 1 : null));
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [interactSecondsLeft, rearmRedirectShield]);
+
+    interactMaxTimerRef.current = setTimeout(() => {
+      rearmRedirectShield();
+    }, 2500);
+  }, [cleanupInteractWindow, rearmRedirectShield]);
+
+  useEffect(() => {
+    return () => {
+      cleanupInteractWindow();
+    };
+  }, [cleanupInteractWindow]);
+
+  // Reset source selection & failover history ONLY when media identity or episode changes
+  useEffect(() => {
+    const nextDefault = sources.find((s) => s.isDefault) || sources[0];
+    setSelectedSourceId(nextDefault?.id || '');
+    setTriedSourceIds([]);
+    setSourceReady(false);
+    setErrorMsg(null);
+    setAutoplayMutedBanner(false);
+    setShieldNotice(null);
+    setShowSwitchPrompt(false);
+    setAutoNextSeconds(null);
+    setAutoNextDismissed(false);
+    rearmRedirectShield();
+    appliedInitialSeekRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaId, mediaType, season, episode]);
+
+  // Ensure selectedSourceId falls back gracefully only if the active source disappears
+  const sourcesSignature = sources.map((s) => `${s.id}:${s.url}`).join('|');
+  useEffect(() => {
+    if (sources.length === 0) return;
+    if (!selectedSourceId || !sources.some((s) => s.id === selectedSourceId)) {
+      const nextDefault = sources.find((s) => s.isDefault) || sources[0];
+      setSelectedSourceId(nextDefault?.id || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourcesSignature]);
 
   // Ensure Redirect Shield re-arms whenever active embed source switches
   useEffect(() => {
@@ -525,8 +591,9 @@ export function VideoPlayer({
     }
 
     const handleBlur = () => {
+      if (!shieldLockedRef.current) return;
       setTimeout(() => {
-        if (document.activeElement?.tagName === 'IFRAME') {
+        if (shieldLockedRef.current && document.activeElement?.tagName === 'IFRAME') {
           window.focus();
         }
       }, 60);
@@ -581,9 +648,12 @@ export function VideoPlayer({
     return () => clearTimeout(timer);
   }, [activeSource, sourceReady, errorMsg, isAnime, mediaType, isLive, failoverToNextSource]);
 
-  // Remember the last working Cinema server selection once loaded cleanly
+  // Remember the last clean primary Cinema server selection once loaded cleanly
   useEffect(() => {
-    if (sourceReady && activeSource?.id) {
+    if (
+      sourceReady &&
+      (activeSource?.id === 'vidsrc-me' || activeSource?.id === 'vidlink-pro')
+    ) {
       persistPreferredCinemaServer(activeSource.id);
     }
   }, [sourceReady, activeSource?.id, persistPreferredCinemaServer]);
@@ -918,12 +988,33 @@ export function VideoPlayer({
   }, [playing, activeSource?.format, persistProgress]);
 
   useEffect(() => {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
     const onFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      setIsNativeFullscreen(Boolean(doc.fullscreenElement || doc.webkitFullscreenElement));
     };
     document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
+    };
   }, []);
+
+  useEffect(() => {
+    if (!isTheaterFullscreen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsTheaterFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isTheaterFullscreen]);
 
   const togglePlay = () => {
     const video = videoRef.current;
@@ -972,22 +1063,49 @@ export function VideoPlayer({
   };
 
   const toggleFullscreen = async () => {
-    const container = containerRef.current;
-    const video = videoRef.current as
-      | (WebKitVideoElement & { webkitEnterFullscreen?: () => void })
+    const container = containerRef.current as
+      | (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void })
       | null;
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
     if (!container) return;
+
+    if (isTheaterFullscreen) {
+      setIsTheaterFullscreen(false);
+      return;
+    }
+
+    const activeFs = doc.fullscreenElement || doc.webkitFullscreenElement;
+    if (activeFs) {
+      try {
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        }
+      } catch {
+        setIsNativeFullscreen(false);
+      }
+      return;
+    }
+
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else if (container.requestFullscreen) {
+      if (container.requestFullscreen) {
         await container.requestFullscreen();
-      } else if (video?.webkitEnterFullscreen) {
-        video.webkitEnterFullscreen();
+        return;
+      }
+      if (container.webkitRequestFullscreen) {
+        await container.webkitRequestFullscreen();
+        setIsNativeFullscreen(true);
+        return;
       }
     } catch {
-      // Ignore fullscreen rejection
+      // Unsupported or rejected (e.g., mobile/iOS Safari) -> fall through to full-viewport theater mode
     }
+
+    setIsTheaterFullscreen(true);
   };
 
   const togglePip = async () => {
@@ -1075,7 +1193,6 @@ export function VideoPlayer({
   const unmuteActivePlayer = useCallback(() => {
     if (hasEmbedSources) {
       setEmbedMutedAutoplay(false);
-      setEmbedNonce((n) => n + 1);
       return;
     }
     const v = videoRef.current;
@@ -1096,7 +1213,7 @@ export function VideoPlayer({
     : (autoplayMutedBanner || muted) && !errorMsg;
 
   const shieldCurrentlyBlocking = Boolean(
-    hasEmbedSources && adShield && clickGuardActive && !clearFrame
+    hasEmbedSources && adShield && shieldLocked
   );
 
   const effectiveAudioLang = isAnime
@@ -1106,6 +1223,22 @@ export function VideoPlayer({
       ? 'ja'
       : audioLang
     : audioLang;
+
+  const resolvedEmbedSrc =
+    hasEmbedSources && activeSource?.url
+      ? withEmbedAutoplayParams(activeSource.url, {
+          muted: embedMutedAutoplay,
+          lang: effectiveAudioLang,
+        })
+      : '';
+
+  const replayEmbed = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !resolvedEmbedSrc) return;
+    setSourceReady(false);
+    setBuffering(true);
+    iframe.src = resolvedEmbedSrc;
+  }, [resolvedEmbedSrc]);
 
   const selectedAudioOption =
     AUDIO_LANGUAGE_OPTIONS.find((opt) => opt.code === effectiveAudioLang) ||
@@ -1120,8 +1253,13 @@ export function VideoPlayer({
         onMouseMove={scheduleHideControls}
         onTouchStart={scheduleHideControls}
         className={cn(
-          'rounded-2xl border border-white/[0.08] bg-[#09090B] shadow-2xl',
-          isFullscreen && 'flex flex-col justify-between bg-black'
+          'bg-[#09090B] shadow-2xl',
+          isTheaterFullscreen
+            ? 'fixed inset-0 z-50 flex flex-col justify-between rounded-none border-0 bg-[#09090b]'
+            : cn(
+                'rounded-2xl border border-white/[0.08]',
+                isNativeFullscreen && 'flex flex-col justify-between bg-[#09090b]'
+              )
         )}
       >
         {/* 16:9 Media Viewport — All 4 Corners Kept 100% Unobstructed */}
@@ -1212,20 +1350,13 @@ export function VideoPlayer({
         ) : activeSource?.format === 'embed' ? (
           <div className="relative h-full w-full">
             <iframe
-              key={`${activeSource.id}-${activeSource.url}-${embedMutedAutoplay ? 'muted' : 'audio'}-${embedNonce}-${adShield ? 'shield' : 'std'}-${strictSandbox ? 'sbx' : 'nosbx'}-${animeAudio}-${effectiveAudioLang}`}
-              src={withEmbedAutoplayParams(activeSource.url, {
-                muted: embedMutedAutoplay,
-                lang: effectiveAudioLang,
-              })}
+              ref={iframeRef}
+              key={`${activeSource.id}:${resolvedEmbedSrc}`}
+              src={resolvedEmbedSrc}
               title={title}
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               referrerPolicy="no-referrer"
-              sandbox={
-                strictSandbox
-                  ? 'allow-scripts allow-same-origin allow-forms allow-presentation'
-                  : undefined
-              }
               onLoad={() => {
                 setSourceReady(true);
                 setBuffering(false);
@@ -1239,14 +1370,14 @@ export function VideoPlayer({
               className="h-full w-full border-0"
             />
 
-            {/* Transparent Anti-Redirect Shield (auto-re-arms after 4s Interact window) */}
+            {/* Transparent Anti-Redirect Shield (single-tap auto-locks 350ms after iframe blur, or 2.5s max) */}
             <div
               role="presentation"
               onClick={
                 shieldCurrentlyBlocking
                   ? () =>
                       setShieldNotice(
-                        'Redirect blocked · Tap Interact below to click Play (4s window)'
+                        'Redirect blocked · Tap Interact below for single-tap Play access'
                       )
                   : undefined
               }
@@ -1575,7 +1706,7 @@ export function VideoPlayer({
                 <>
                   <button
                     type="button"
-                    onClick={() => setEmbedNonce((n) => n + 1)}
+                    onClick={replayEmbed}
                     aria-label="Replay / Autoplay embed stream"
                     title="Restart Autoplay"
                     className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#D4AF37] px-3 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
@@ -1587,10 +1718,7 @@ export function VideoPlayer({
                   {!showTapToUnmute && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setEmbedMutedAutoplay((m) => !m);
-                        setEmbedNonce((n) => n + 1);
-                      }}
+                      onClick={() => setEmbedMutedAutoplay((m) => !m)}
                       aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
                       title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
                       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
@@ -1605,7 +1733,7 @@ export function VideoPlayer({
                       <button
                         type="button"
                         onClick={unlockFrameForInteract}
-                        title="Unlock iframe for 4 seconds to click Play or native controls, then automatically re-arm Redirect Shield"
+                        title="Unlock iframe for a single tap (auto-locks 350ms after clicking player, or 2.5s max)"
                         className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
                       >
                         <Eye className="h-3.5 w-3.5" />
@@ -1615,12 +1743,12 @@ export function VideoPlayer({
                       <button
                         type="button"
                         onClick={rearmRedirectShield}
-                        title="Click to re-arm Redirect Shield immediately"
+                        title="Tap player once or click here to lock Redirect Shield immediately"
                         className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37] bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
                       >
                         <ShieldCheck className="h-3.5 w-3.5" />
                         <span className="tabular-nums">
-                          Frame Unlocked · {interactSecondsLeft ?? 4}s
+                          Tap Player · {(interactTimer ?? 2.5).toFixed(1)}s
                         </span>
                       </button>
                     ))}
@@ -1817,18 +1945,29 @@ export function VideoPlayer({
                 <span className="hidden sm:inline">Minimize</span>
               </button>
 
-              {hasEmbedSources && (
+              {(hasEmbedSources || isFullscreen) && (
                 <button
                   type="button"
                   onClick={toggleFullscreen}
                   aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                   title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275]"
+                  className={cn(
+                    'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border text-xs transition',
+                    isFullscreen
+                      ? 'border-[#f59e0b] bg-[#f59e0b] px-3.5 font-semibold text-[#09090b] shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:bg-[#fbbf24]'
+                      : 'min-w-[44px] border-white/15 bg-[#09090B] px-3 text-[#FAFAFA] hover:border-[#D4AF37]/60 hover:text-[#E2C275]'
+                  )}
                 >
                   {isFullscreen ? (
-                    <Minimize className="h-4 w-4" />
+                    <>
+                      <Minimize className="h-4 w-4" />
+                      <span>Exit Fullscreen</span>
+                    </>
                   ) : (
-                    <Maximize className="h-4 w-4" />
+                    <>
+                      <Maximize className="h-4 w-4" />
+                      <span className="hidden sm:inline">Fullscreen</span>
+                    </>
                   )}
                 </button>
               )}
@@ -1934,7 +2073,7 @@ export function VideoPlayer({
                 </div>
               )}
 
-              {/* Ad-Shield & Optional Sandbox Toggles for Embed Streams */}
+              {/* Ad-Shield & Single-Tap Shield Status Toggles for Embed Streams */}
               {hasEmbedSources && (
                 <>
                   <button
@@ -1943,11 +2082,10 @@ export function VideoPlayer({
                       setAdShield((prev) => {
                         const next = !prev;
                         if (next) {
-                          setClearFrame(false);
-                          setClickGuardActive(true);
-                          setInteractSecondsLeft(null);
+                          rearmRedirectShield();
                         } else {
-                          setInteractSecondsLeft(null);
+                          cleanupInteractWindow();
+                          setInteractTimer(null);
                         }
                         return next;
                       });
@@ -1969,43 +2107,27 @@ export function VideoPlayer({
                   </button>
 
                   {adShield && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (shieldCurrentlyBlocking) {
-                            unlockFrameForInteract();
-                          } else {
-                            rearmRedirectShield();
-                          }
-                        }}
-                        title="Unlock iframe for 4s to interact, then auto-re-arm Redirect Shield"
-                        className={cn(
-                          'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
-                          shieldCurrentlyBlocking
-                            ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
-                            : 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#E2C275]'
-                        )}
-                      >
-                        {shieldCurrentlyBlocking
-                          ? 'Popup Shield: ON'
-                          : `Frame Unlocked · ${interactSecondsLeft ?? 4}s`}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setStrictSandbox((s) => !s)}
-                        title="Toggle strict iframe sandbox (many embed players block sandboxed frames)"
-                        className={cn(
-                          'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
-                          strictSandbox
-                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                            : 'border-white/[0.08] text-[#71717A] hover:text-[#FAFAFA]'
-                        )}
-                      >
-                        {strictSandbox ? 'Strict Sandbox: On' : 'Strict Sandbox: Off'}
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (shieldCurrentlyBlocking) {
+                          unlockFrameForInteract();
+                        } else {
+                          rearmRedirectShield();
+                        }
+                      }}
+                      title="Unlock iframe for a single tap, then auto-re-arm Redirect Shield"
+                      className={cn(
+                        'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
+                        shieldCurrentlyBlocking
+                          ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
+                          : 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#E2C275]'
+                      )}
+                    >
+                      {shieldCurrentlyBlocking
+                        ? 'Popup Shield: ON'
+                        : `Tap Player · ${(interactTimer ?? 2.5).toFixed(1)}s`}
+                    </button>
                   )}
                 </>
               )}
