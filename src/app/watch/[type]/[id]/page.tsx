@@ -30,6 +30,7 @@ import { TopBar } from '@/components/TopBar';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVodSources } from '@/config/sources';
 import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/anime';
+import { resolveRecommendedChannelById } from '@/lib/live-guide';
 import {
   buildChannelStreamSources,
   matchBroadcastChannelsForMatch,
@@ -141,10 +142,11 @@ function WatchViewContent() {
     }
   }, [mediaId, mediaType, seasonParam, episodeParam]);
 
-  // Resolve live/sports channel from context (exact ID match takes priority)
+  // Resolve live/sports channel from context (curated Recommended channel merge or exact ID match)
   const activeChannel = useMemo(() => {
     if (!isChannelType) return undefined;
     return (
+      resolveRecommendedChannelById(mediaId, channels) ||
       channels.find((c) => c.id === mediaId) ||
       channels.find((c) => c.tvgId === mediaId)
     );
