@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
   Play,
   Plus,
   Radio,
+  RefreshCw,
   Star,
   Trophy,
   Tv,
@@ -40,6 +41,7 @@ import {
 } from '@/lib/storage';
 import { cn, formatClockTime, getInitials } from '@/lib/utils';
 import type {
+  Channel,
   EpisodeItem,
   MediaCategory,
   MediaItem,
@@ -72,6 +74,7 @@ function WatchViewContent() {
     toggleSaved,
     channelsLoading,
     openSources,
+    refreshChannels,
   } = useKino();
 
   const seasonParam = searchParams.get('season');
@@ -93,8 +96,13 @@ function WatchViewContent() {
   const [showTrailer, setShowTrailer] = useState(false);
   const [pastedSources, setPastedSources] = useState<StreamSource[]>([]);
   const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
+  const [providerChannels, setProviderChannels] = useState<Channel[]>([]);
+  const [refreshingFeeds, setRefreshingFeeds] = useState(false);
   const [animeDubAvailable, setAnimeDubAvailable] = useState<boolean | null>(null);
   const [animeAudioStatus, setAnimeAudioStatus] = useState<string | null>(null);
+
+  const sportsMatchRef = useRef<SportsMatch | null>(null);
+  sportsMatchRef.current = sportsMatch;
 
   // Restore saved season/episode/timestamp & anime SUB/DUB preference
   useEffect(() => {
@@ -132,10 +140,56 @@ function WatchViewContent() {
     ? epgSchedules[activeChannel.tvgId || activeChannel.id]
     : undefined;
 
+  const fetchSportsMatch = useCallback(
+    async (silent = false) => {
+      if (mediaType !== 'sports' || activeChannel || !mediaId) return null;
+      if (!silent) setLoadingDetails(true);
+      try {
+        const res = await fetch(`/api/sports?gameId=${encodeURIComponent(mediaId)}`, {
+          cache: 'no-store',
+        });
+        if (!res.ok) {
+          if (!silent) setSportsMatch(null);
+          return null;
+        }
+        const data = (await res.json()) as { match?: SportsMatch } | null;
+        const normalized = data?.match ? normalizeSportsMatch(data.match) : null;
+        setSportsMatch(normalized);
+        return normalized;
+      } catch {
+        if (!silent) setSportsMatch(null);
+        return null;
+      } finally {
+        if (!silent) setLoadingDetails(false);
+      }
+    },
+    [mediaType, activeChannel, mediaId]
+  );
+
+  const fetchProviderFeeds = useCallback(async (match: SportsMatch) => {
+    try {
+      const res = await fetch('/api/sports/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ match }),
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        setProviderChannels([]);
+        return;
+      }
+      const data = (await res.json()) as { providerFeeds?: Channel[] } | null;
+      setProviderChannels(Array.isArray(data?.providerFeeds) ? data.providerFeeds : []);
+    } catch {
+      setProviderChannels([]);
+    }
+  }, []);
+
   // Resolve SportsMatch if mediaType === 'sports' and not a direct Channel
   useEffect(() => {
     if (mediaType !== 'sports' || activeChannel || !mediaId) {
       setSportsMatch(null);
+      setProviderChannels([]);
       if (isChannelType) setLoadingDetails(false);
       return;
     }
@@ -146,10 +200,19 @@ function WatchViewContent() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { match?: SportsMatch } | null) => {
         if (!active) return;
-        setSportsMatch(data?.match ? normalizeSportsMatch(data.match) : null);
+        const normalized = data?.match ? normalizeSportsMatch(data.match) : null;
+        setSportsMatch(normalized);
+        if (normalized) {
+          void fetchProviderFeeds(normalized);
+        } else {
+          setProviderChannels([]);
+        }
       })
       .catch(() => {
-        if (active) setSportsMatch(null);
+        if (active) {
+          setSportsMatch(null);
+          setProviderChannels([]);
+        }
       })
       .finally(() => {
         if (active) setLoadingDetails(false);
@@ -158,33 +221,74 @@ function WatchViewContent() {
     return () => {
       active = false;
     };
-  }, [mediaType, activeChannel, mediaId, isChannelType]);
+  }, [mediaType, activeChannel, mediaId, isChannelType, fetchProviderFeeds]);
 
-  // Automatically promote a pre-game matchup to LIVE once UTC kickoff/tip-off passes
+  // Keep live scoreboard (quarter, scores, clock) updating in real time
+  const matchId = sportsMatch?.id;
+  const matchStatusState = sportsMatch?.statusState;
   useEffect(() => {
-    if (!sportsMatch || sportsMatch.statusState !== 'pre') return;
-    const interval = setInterval(() => {
-      setSportsMatch((prev) => (prev ? normalizeSportsMatch(prev) : null));
-    }, 15_000);
-    return () => clearInterval(interval);
-  }, [sportsMatch]);
+    if (!matchId || matchStatusState === 'post') return;
+
+    const scorePoll = setInterval(() => {
+      void fetchSportsMatch(true);
+    }, 20_000);
+
+    const stateCheck =
+      matchStatusState === 'pre'
+        ? setInterval(() => {
+            setSportsMatch((prev) => (prev ? normalizeSportsMatch(prev) : null));
+          }, 15_000)
+        : null;
+
+    return () => {
+      clearInterval(scorePoll);
+      if (stateCheck) clearInterval(stateCheck);
+    };
+  }, [matchId, matchStatusState, fetchSportsMatch]);
+
+  const handleRefreshFeeds = useCallback(async () => {
+    if (refreshingFeeds) return;
+    setRefreshingFeeds(true);
+    try {
+      const currentMatch = sportsMatchRef.current;
+      await Promise.allSettled([
+        refreshChannels(),
+        fetchSportsMatch(true),
+        currentMatch ? fetchProviderFeeds(currentMatch) : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshingFeeds(false);
+    }
+  }, [refreshingFeeds, refreshChannels, fetchSportsMatch, fetchProviderFeeds]);
+
+  const eventCandidateChannels = useMemo(() => {
+    const seenUrls = new Set<string>();
+    const combined: Channel[] = [];
+    for (const ch of [...providerChannels, ...channels]) {
+      if (!ch.sourceId || seenUrls.has(ch.url)) continue;
+      seenUrls.add(ch.url);
+      combined.push(ch);
+    }
+    return combined;
+  }, [providerChannels, channels]);
 
   const matchedMatchFeeds = useMemo(() => {
     if (!sportsMatch) return [];
-    return matchBroadcastChannelsForMatch(sportsMatch, channels, epgSchedules);
-  }, [sportsMatch, channels, epgSchedules]);
+    return matchBroadcastChannelsForMatch(sportsMatch, eventCandidateChannels, epgSchedules);
+  }, [sportsMatch, eventCandidateChannels, epgSchedules]);
 
+  // Only show related 24/7 channels when watching a 24/7 Live TV or Sports Network channel (never on individual game pages)
   const relatedChannels = useMemo(() => {
-    if (!isChannelType) return [];
+    if (!isChannelType || !activeChannel) return [];
     return channels
       .filter(
         (c) =>
           !c.excludeFromMatchRouting &&
-          c.id !== activeChannel?.id &&
+          c.id !== activeChannel.id &&
           c.category === mediaType
       )
       .slice(0, 8);
-  }, [isChannelType, channels, activeChannel?.id, mediaType]);
+  }, [isChannelType, activeChannel, channels, mediaType]);
 
   // Fetch movie/series details
   useEffect(() => {
@@ -464,7 +568,7 @@ function WatchViewContent() {
     if (sportsMatch) {
       const { streams: resolvedSports } = resolveSportsMatchStreamSources({
         match: sportsMatch,
-        channels,
+        channels: eventCandidateChannels,
         epgSchedules,
         selectedFeedChannelId: selectedMatchedFeedId,
       });
@@ -499,7 +603,7 @@ function WatchViewContent() {
     resolvedDirectSources,
     activeChannel,
     sportsMatch,
-    channels,
+    eventCandidateChannels,
     epgSchedules,
     selectedMatchedFeedId,
     mediaDetails,
@@ -697,6 +801,9 @@ function WatchViewContent() {
               userAgent={activeChannel?.userAgent || matchedMatchFeeds[0]?.channel.userAgent}
               allowCustomUrlInput={isChannelType}
               onAddCustomStreamUrl={isChannelType ? handleAddCustomStreamUrl : undefined}
+              onOpenSources={sportsMatch ? openSources : undefined}
+              onRefreshFeeds={sportsMatch ? handleRefreshFeeds : undefined}
+              refreshingFeeds={refreshingFeeds}
               hasNextEpisode={Boolean(nextEpisodeTarget)}
               nextEpisodeLabel={nextEpisodeTarget?.label}
               onNextEpisode={handleNextEpisode}
@@ -718,19 +825,39 @@ function WatchViewContent() {
                       Matching Live Feeds
                     </h2>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
-                      Fuzzy-matched across your M3U, Xtream &amp; EPG schedules for{' '}
-                      <span className="text-[#E2C275]">
-                        {sportsMatch.broadcast || sportsMatch.league}
-                      </span>{' '}
-                      and team/event keywords.
+                      Matched strictly by team names and event ID across your custom M3U playlists and configured sports feed provider.
                     </p>
                   </div>
-                  <Link
-                    href="/sports/multiview"
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
-                  >
-                    Open Multi-View
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void handleRefreshFeeds()}
+                      disabled={refreshingFeeds}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#09090B] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/45 disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          'h-3.5 w-3.5 text-[#D4AF37]',
+                          refreshingFeeds && 'animate-spin'
+                        )}
+                      />
+                      Refresh Feeds
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openSources}
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Custom M3U
+                    </button>
+                    <Link
+                      href="/sports/multiview"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#09090B] px-4 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#D4AF37]/40 hover:text-[#E2C275]"
+                    >
+                      Open Multi-View
+                    </Link>
+                  </div>
                 </div>
 
                 {matchedMatchFeeds.length > 0 ? (
@@ -795,7 +922,9 @@ function WatchViewContent() {
                   </div>
                 ) : (
                   <p className="mt-4 rounded-2xl border border-white/[0.06] bg-[#09090B]/60 p-4 text-xs text-[#A1A1AA]">
-                    No M3U/Xtream channels matched &ldquo;{sportsMatch.broadcast || sportsMatch.league}&rdquo; yet. Add your M3U playlist in Library or paste a direct `.m3u8` feed above.
+                    No team-matched event streams found for {sportsMatch.awayTeam.shortName} vs.{' '}
+                    {sportsMatch.homeTeam.shortName}. Connect an M3U playlist containing an event feed (e.g. &ldquo;
+                    {sportsMatch.league}: {sportsMatch.awayTeam.name} vs {sportsMatch.homeTeam.name}&rdquo;) or paste a direct `.m3u8` URL in the source bar above.
                   </p>
                 )}
               </section>
@@ -887,8 +1016,8 @@ function WatchViewContent() {
                     : sportsMatch
                     ? `${sportsMatch.name}${sportsMatch.venue ? ` at ${sportsMatch.venue}` : ''}. ${
                         matchedMatchFeeds.length > 0
-                          ? `Matched ${matchedMatchFeeds.length} live broadcast feed(s) from your library.`
-                          : 'Tap Matching Live Feeds or paste a direct .m3u8 feed in the source bar above.'
+                          ? `Connected ${matchedMatchFeeds.length} team-matched event feed(s).`
+                          : 'No event stream connected yet. Add an event M3U playlist or paste a direct .m3u8 feed.'
                       }`
                     : mediaDetails?.overview}
                 </p>

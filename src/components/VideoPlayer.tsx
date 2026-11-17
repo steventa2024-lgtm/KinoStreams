@@ -15,6 +15,7 @@ import {
   Pause,
   PictureInPicture2,
   Play,
+  Plus,
   Radio,
   RefreshCw,
   Server,
@@ -69,6 +70,9 @@ interface VideoPlayerProps {
   userAgent?: string;
   allowCustomUrlInput?: boolean;
   onAddCustomStreamUrl?: (url: string) => void;
+  onOpenSources?: () => void;
+  onRefreshFeeds?: () => void;
+  refreshingFeeds?: boolean;
   hasNextEpisode?: boolean;
   nextEpisodeLabel?: string;
   onNextEpisode?: () => void;
@@ -97,6 +101,9 @@ export function VideoPlayer({
   userAgent,
   allowCustomUrlInput = false,
   onAddCustomStreamUrl,
+  onOpenSources,
+  onRefreshFeeds,
+  refreshingFeeds = false,
   hasNextEpisode = false,
   nextEpisodeLabel,
   onNextEpisode,
@@ -773,25 +780,71 @@ export function VideoPlayer({
           )}
         >
         {sources.length === 0 ? (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-[#09090B] px-6 text-center">
-            <Radio className="h-10 w-10 text-[#D4AF37]/70" />
-            <p className="mt-3 font-serif text-lg text-[#FAFAFA]">
-              No Active Broadcast Feed Matched
-            </p>
-            <p className="mt-1 max-w-md text-xs text-[#A1A1AA]">
-              Select a matching live feed below or paste a direct `.m3u8` stream URL to start watching.
-            </p>
-            {onAddCustomStreamUrl && (
-              <button
-                type="button"
-                onClick={() => setShowCustomInput(true)}
-                className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B]"
-              >
-                <Link2 className="h-3.5 w-3.5" />
-                Paste Direct .m3u8 Link
-              </button>
-            )}
-          </div>
+          matchup ? (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.12),#09090B_68%)] px-5 py-4 text-center sm:px-8">
+              <div className="flex max-w-xl flex-col items-center rounded-2xl border border-[#D4AF37]/25 bg-[#121215]/90 px-5 py-5 shadow-2xl backdrop-blur-md sm:px-8 sm:py-7">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-[10px] font-bold tracking-widest text-[#E2C275] uppercase">
+                  <Radio className="h-3 w-3 text-[#D4AF37]" />
+                  {matchup.league} · {matchup.awayTeam.abbreviation} vs {matchup.homeTeam.abbreviation}
+                </div>
+                <h2 className="mt-3 font-serif text-lg font-medium text-[#FAFAFA] sm:text-2xl">
+                  No Event Feed Connected for {matchup.awayTeam.shortName} vs.{' '}
+                  {matchup.homeTeam.shortName}
+                </h2>
+                <p className="mt-1.5 max-w-md text-xs leading-relaxed text-[#A1A1AA] sm:text-sm">
+                  Only team-matched event streams play on game pages. Connect an M3U event playlist or refresh to check for newly indexed feeds.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:mt-5">
+                  {onOpenSources && (
+                    <button
+                      type="button"
+                      onClick={onOpenSources}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275] active:scale-95"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Connect M3U / Event Feed
+                    </button>
+                  )}
+                  {onRefreshFeeds && (
+                    <button
+                      type="button"
+                      onClick={onRefreshFeeds}
+                      disabled={refreshingFeeds}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#09090B] px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        className={cn(
+                          'h-3.5 w-3.5 text-[#D4AF37]',
+                          refreshingFeeds && 'animate-spin'
+                        )}
+                      />
+                      {refreshingFeeds ? 'Refreshing Feeds...' : 'Refresh Feeds'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[#09090B] px-6 text-center">
+              <Radio className="h-10 w-10 text-[#D4AF37]/70" />
+              <p className="mt-3 font-serif text-lg text-[#FAFAFA]">
+                No Active Broadcast Feed Matched
+              </p>
+              <p className="mt-1 max-w-md text-xs text-[#A1A1AA]">
+                Select a matching live feed below or paste a direct `.m3u8` stream URL to start watching.
+              </p>
+              {onAddCustomStreamUrl && (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomInput(true)}
+                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B]"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Paste Direct .m3u8 Link
+                </button>
+              )}
+            </div>
+          )
         ) : activeSource?.format === 'embed' ? (
           <div className="relative h-full w-full">
             <iframe

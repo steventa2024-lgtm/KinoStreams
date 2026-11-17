@@ -142,7 +142,7 @@ async function resolveSources(
             defaultReferrer: src.referrer,
             defaultUserAgent: src.userAgent,
           });
-          customChannels.push(...parsed.slice(0, 500));
+          customChannels.push(...parsed.slice(0, 2000));
         } else if (src.type === 'xtream') {
           const parsed = await loadXtreamChannels(src);
           customChannels.push(...parsed);

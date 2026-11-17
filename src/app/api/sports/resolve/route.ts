@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
 import { requireApiSession } from '@/lib/auth-crypto';
 import {
-  MAJOR_NETWORK_CHANNELS,
   normalizeSportsMatch,
   resolveSportsMatchStreamSources,
 } from '@/lib/sports-networks';
+import { fetchConfiguredSportsEventFeeds } from '@/lib/sports-provider';
 import type { Channel, SportsLeague, SportsMatch } from '@/types/media';
 
 export const runtime = 'nodejs';
@@ -63,16 +63,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Match not found' }, { status: 404 });
   }
 
+  const providerChannels = await fetchConfiguredSportsEventFeeds(match);
+
   const { streams, matchedFeeds, matchSlug } = resolveSportsMatchStreamSources({
     match,
-    channels: MAJOR_NETWORK_CHANNELS,
+    channels: providerChannels,
   });
 
   return NextResponse.json({
     resolved: streams.length > 0,
     matchSlug,
     match,
-    matchedNetwork: matchedFeeds[0]?.channel.name || match.broadcast || null,
+    matchedNetwork: matchedFeeds[0]?.channel.name || null,
+    providerFeeds: providerChannels,
+    matchedFeeds,
     streams,
   });
 }
@@ -93,13 +97,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing match payload' }, { status: 400 });
     }
 
-    const combinedChannels =
-      Array.isArray(body.channels) && body.channels.length > 0
-        ? body.channels
-        : MAJOR_NETWORK_CHANNELS;
+    const normalizedMatch = normalizeSportsMatch(body.match);
+    const customChannels = Array.isArray(body.channels)
+      ? body.channels.filter((ch) => Boolean(ch?.sourceId))
+      : [];
+    const providerChannels = await fetchConfiguredSportsEventFeeds(normalizedMatch);
+
+    const seenUrls = new Set<string>();
+    const combinedChannels: Channel[] = [];
+    for (const ch of [...providerChannels, ...customChannels]) {
+      if (!ch?.url || seenUrls.has(ch.url)) continue;
+      seenUrls.add(ch.url);
+      combinedChannels.push(ch);
+    }
 
     const { streams, matchedFeeds, matchSlug } = resolveSportsMatchStreamSources({
-      match: body.match,
+      match: normalizedMatch,
       channels: combinedChannels,
       selectedFeedChannelId: body.selectedFeedChannelId,
     });
@@ -107,7 +120,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       resolved: streams.length > 0,
       matchSlug,
-      matchedNetwork: matchedFeeds[0]?.channel.name || body.match.broadcast || null,
+      matchedNetwork: matchedFeeds[0]?.channel.name || null,
+      providerFeeds: providerChannels,
+      matchedFeeds,
       streams,
     });
   } catch {

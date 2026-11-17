@@ -5,6 +5,9 @@ const SPORTS_KEYWORDS = [
   'sport',
   'football',
   'soccer',
+  'basketball',
+  'baseball',
+  'hockey',
   'premier league',
   'champions',
   'ucl',
@@ -35,6 +38,27 @@ const SPORTS_KEYWORDS = [
   'arena',
   'ppv',
 ];
+
+function splitExtInf(line: string): { metaPart: string; titlePart: string } {
+  let inSingle = false;
+  let inDouble = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"' && !inSingle) {
+      inDouble = !inDouble;
+    } else if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+    } else if (ch === ',' && !inSingle && !inDouble) {
+      return {
+        metaPart: line.slice(0, i),
+        titlePart: line.slice(i + 1).trim(),
+      };
+    }
+  }
+
+  return { metaPart: line, titlePart: '' };
+}
 
 function extractAttribute(line: string, attr: string): string | undefined {
   const quoted = new RegExp(`${attr}=["']([^"']*)["']`, 'i').exec(line);
@@ -127,9 +151,7 @@ export function parseM3uPlaylist(
     if (!line || line === '#EXTM3U') continue;
 
     if (line.startsWith('#EXTINF:')) {
-      const commaIdx = line.lastIndexOf(',');
-      const metaPart = commaIdx !== -1 ? line.slice(0, commaIdx) : line;
-      const titlePart = commaIdx !== -1 ? line.slice(commaIdx + 1).trim() : '';
+      const { metaPart, titlePart } = splitExtInf(line);
 
       const tvgId = extractAttribute(metaPart, 'tvg-id');
       const tvgName = extractAttribute(metaPart, 'tvg-name');

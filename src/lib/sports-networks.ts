@@ -2,7 +2,6 @@ import type {
   Channel,
   EpgChannelSchedule,
   NetworkCategoryFilter,
-  SportsLeague,
   SportsMatch,
   StreamSource,
 } from '@/types/media';
@@ -782,151 +781,178 @@ export interface MatchedLiveFeed {
   nowTitle?: string;
 }
 
-const LEAGUE_FALLBACK_ORDER: Record<SportsLeague, string[]> = {
-  NBA: ['net-nba-tv', 'net-espn', 'net-tnt', 'net-nbc-sports', 'net-espn2', 'net-trutv'],
-  NFL: ['net-nfl-network', 'net-cbs-sports', 'net-fs1', 'net-nbc-sports', 'net-espn', 'net-nfl-redzone'],
-  UFC: ['net-espn', 'net-espn2', 'net-cbs-sports', 'net-fs1'],
-  MLB: ['net-mlb-network', 'net-fs1', 'net-tbs', 'net-espn', 'net-fs2'],
-};
+const GENERIC_TEAM_STOP_WORDS = new Set(['away', 'home', 'tbd', 'team', 'the', 'club', 'fc']);
+
+export function normalizeMatchText(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function hasNormalizedPhrase(normalizedHaystack: string, phrase: string): boolean {
+  if (!normalizedHaystack || !phrase) return false;
+  const rx = new RegExp(`(?:^|\\s)${escapeRegExp(phrase)}(?:\\s|$)`);
+  return rx.test(normalizedHaystack);
+}
+
+export function buildCompetitorMatchTerms(competitor: SportsMatch['awayTeam']): string[] {
+  const fullName = normalizeMatchText(competitor.name || '');
+  const shortName = normalizeMatchText(competitor.shortName || '');
+  const abbreviation = normalizeMatchText(competitor.abbreviation || '');
+
+  let city = '';
+  if (fullName && shortName && fullName !== shortName && fullName.endsWith(` ${shortName}`)) {
+    city = fullName.slice(0, fullName.length - shortName.length).trim();
+  }
+
+  // Handle fighter names (e.g. "Jon Jones" -> "jones") when city extraction does not apply
+  const nameWords = fullName ? fullName.split(/\s+/) : [];
+  const lastWord = !city && nameWords.length >= 2 ? nameWords[nameWords.length - 1] : '';
+
+  const candidates = [
+    fullName,
+    shortName,
+    city,
+    abbreviation,
+    lastWord.length >= 4 ? lastWord : '',
+  ];
+
+  return Array.from(
+    new Set(
+      candidates.filter(
+        (term) => term.length >= 2 && !GENERIC_TEAM_STOP_WORDS.has(term)
+      )
+    )
+  );
+}
+
+export interface EventMatchEvaluation {
+  matched: boolean;
+  score: number;
+  reasons: string[];
+}
 
 /**
- * Per-match broadcast, matchup slug & team matcher. Strictly excludes local news
- * affiliates and demo FTA streams (`excludeFromMatchRouting` or local news URLs).
+ * Strictly checks whether a stream/channel's title & metadata explicitly match
+ * BOTH competing teams (normalized cities, full names, short names, or abbreviations)
+ * OR the exact match eventId.
+ */
+export function evaluateSportsEventMatch(
+  match: SportsMatch,
+  metadataText: string,
+  explicitEventId?: string
+): EventMatchEvaluation {
+  const normalizedHaystack = normalizeMatchText(metadataText);
+  const eventIdNorm = normalizeMatchText(match.id);
+  const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb)-/i, '').trim();
+  const rawEventIdNorm = normalizeMatchText(rawEventId);
+  const explicitNorm = explicitEventId ? normalizeMatchText(explicitEventId) : '';
+
+  const reasons: string[] = [];
+  let score = 0;
+
+  const exactEventIdMatched =
+    (explicitNorm &&
+      (explicitNorm === eventIdNorm ||
+        (rawEventIdNorm.length >= 5 && explicitNorm === rawEventIdNorm))) ||
+    (eventIdNorm.length >= 5 && hasNormalizedPhrase(normalizedHaystack, eventIdNorm)) ||
+    (rawEventIdNorm.length >= 5 &&
+      /^\d+$/.test(rawEventIdNorm) &&
+      hasNormalizedPhrase(normalizedHaystack, rawEventIdNorm));
+
+  if (exactEventIdMatched) {
+    score += 60;
+    reasons.push('Exact Event ID');
+  }
+
+  const rawAwayTerms = buildCompetitorMatchTerms(match.awayTeam);
+  const rawHomeTerms = buildCompetitorMatchTerms(match.homeTeam);
+
+  // Exclude shared city names (e.g. "los angeles" in Lakers vs. Clippers) so a single city cannot satisfy both teams
+  const sharedTerms = new Set(rawAwayTerms.filter((t) => rawHomeTerms.includes(t)));
+  const awayTerms = rawAwayTerms.filter((t) => !sharedTerms.has(t));
+  const homeTerms = rawHomeTerms.filter((t) => !sharedTerms.has(t));
+
+  const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
+  const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
+
+  if (awayHits.length > 0 && homeHits.length > 0) {
+    score += 40 + awayHits.length * 6 + homeHits.length * 6;
+    reasons.push(`${match.awayTeam.shortName} vs ${match.homeTeam.shortName}`);
+  }
+
+  return {
+    matched: exactEventIdMatched || (awayHits.length > 0 && homeHits.length > 0),
+    score,
+    reasons,
+  };
+}
+
+/**
+ * Per-match strict event matcher.
+ * Never matches static 24/7 Live TV channels (`!ch.sourceId`) or fuzzy broadcast network tags.
+ * Only user-imported M3U/Xtream event feeds or configured sports provider streams whose
+ * title/metadata explicitly matches BOTH teams or exact eventId are returned.
  */
 export function matchBroadcastChannelsForMatch(
   match: SportsMatch,
   channels: Channel[],
   epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): MatchedLiveFeed[] {
-  const stopWords = new Set(['hd', 'tv', 'plus', 'live', 'the', 'and', 'ind', 'usa', 'net', 'network', 'sports']);
-  const broadcastRaw = (match.broadcast || '').toLowerCase();
-  const broadcastTokens = broadcastRaw
-    .split(/[\s/,+&()]+/)
-    .filter((t) => t.length >= 2 && !stopWords.has(t));
-
-  const matchupAliases = buildMatchSlugAliases(match);
-
-  const competitorTokens = [
-    match.awayTeam.shortName,
-    match.homeTeam.shortName,
-    match.awayTeam.name,
-    match.homeTeam.name,
-    match.awayTeam.abbreviation,
-    match.homeTeam.abbreviation,
-  ]
-    .join(' ')
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length >= 3);
-
-  const leagueToken = match.league.toLowerCase();
-  const eventIdLower = match.id.toLowerCase();
-  const rawIdLower = eventIdLower.replace(/^(nba|nfl|ufc|mlb)-/i, '');
-  const leagueOrder = LEAGUE_FALLBACK_ORDER[match.league] || ['net-espn'];
   const scored: MatchedLiveFeed[] = [];
 
   for (const ch of channels) {
-    if (ch.excludeFromMatchRouting || isLocalNewsStreamUrl(ch.url)) continue;
+    // Keep built-in 24/7 TV channels strictly out of individual game pages
+    if (
+      !ch.sourceId ||
+      ch.excludeFromMatchRouting ||
+      ch.id.startsWith('net-') ||
+      ch.id.startsWith('fta-') ||
+      isLocalNewsStreamUrl(ch.url)
+    ) {
+      continue;
+    }
 
     const sched = epgSchedules[ch.tvgId || ch.id];
-    const epgText = `${sched?.now?.title || ''} ${sched?.now?.description || ''} ${
-      sched?.next?.title || ''
-    }`.toLowerCase();
-    const aliasText = (ch.aliases || []).join(' ').toLowerCase();
-    const channelText = `${ch.id} ${ch.name} ${ch.group} ${ch.league || ''} ${aliasText}`.toLowerCase();
-    const combined = `${channelText} ${epgText} ${ch.url.toLowerCase()}`;
-    const slugifiedCombined = combined.replace(/[^a-z0-9]+/g, '-');
+    const nowTitle = sched?.now?.title || '';
+    const metadataText = [
+      ch.name,
+      ch.tvgName,
+      ch.tvgId,
+      ch.group,
+      nowTitle,
+      ch.url,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
-    let score = 0;
-    const reasons: string[] = [];
-
-    // 1. Direct event ID or normalized matchup slug match (highest confidence)
-    if (
-      combined.includes(eventIdLower) ||
-      (rawIdLower.length >= 5 && combined.includes(rawIdLower)) ||
-      matchupAliases.some((slug) => slugifiedCombined.includes(slug))
-    ) {
-      score += 45;
-      reasons.push('Direct Matchup Slug');
+    const evaluation = evaluateSportsEventMatch(match, metadataText);
+    if (!evaluation.matched) {
+      continue;
     }
 
-    for (const token of competitorTokens) {
-      if (combined.includes(token)) {
-        score += epgText.includes(token) ? 18 : 16;
-        reasons.push(`Match: ${token.toUpperCase()}`);
-      }
+    const reasons = [...evaluation.reasons];
+    if (ch.sourceName) {
+      reasons.push(ch.sourceName);
     }
 
-    // 2. National / Regional Broadcast mapping (maps ABC -> ESPN Simulcast, NBC/NBCSN -> NBC Sports, etc.)
-    if (
-      /\b(abc|espn on abc|espn|espn\+|espn2|espnews|espnu)\b/.test(broadcastRaw) &&
-      (ch.id === 'net-espn' || ch.id === 'net-espn2')
-    ) {
-      score += ch.id === 'net-espn' ? 28 : 22;
-      reasons.push(
-        /\babc\b/.test(broadcastRaw) ? 'ESPN on ABC Feed' : `Network: ${ch.name}`
-      );
-    } else if (
-      /\b(nbc|nbcsn|nbcsb|nbc sports|peacock|usa)\b/.test(broadcastRaw) &&
-      ch.id === 'net-nbc-sports'
-    ) {
-      score += 28;
-      reasons.push(`Broadcast: ${match.broadcast || 'NBC Sports'}`);
-    } else if (
-      /\b(cbs|cbssn|cbs sports|paramount)\b/.test(broadcastRaw) &&
-      ch.id === 'net-cbs-sports'
-    ) {
-      score += 28;
-      reasons.push(`Broadcast: ${match.broadcast || 'CBS Sports'}`);
-    } else if (
-      /\b(fox|fs1|fs2|fox sports)\b/.test(broadcastRaw) &&
-      (ch.id === 'net-fs1' || ch.id === 'net-fs2')
-    ) {
-      score += ch.id === 'net-fs1' ? 28 : 22;
-      reasons.push(`Broadcast: ${match.broadcast || ch.name}`);
-    } else if (broadcastRaw && ch.aliases?.some((a) => broadcastRaw.includes(a.toLowerCase()))) {
-      score += 24;
-      reasons.push(`Network: ${ch.name}`);
-    } else {
-      for (const token of broadcastTokens) {
-        const rx = new RegExp(`\\b${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
-        if (rx.test(channelText)) {
-          score += 20;
-          reasons.push(`Network: ${token.toUpperCase()}`);
-        } else if (rx.test(epgText)) {
-          score += 10;
-          reasons.push(`EPG: ${token.toUpperCase()}`);
-        }
-      }
-    }
-
-    // 3. League network fallback & regional sports network coverage (DAZN, MNMT, YES, FanDuel, etc.)
-    const leagueRankIdx = leagueOrder.indexOf(ch.id);
-    if (leagueRankIdx !== -1) {
-      score += Math.max(8, 18 - leagueRankIdx * 2);
-      reasons.push(`${match.league} Live Feed`);
-    } else if (ch.category === 'sports' && leagueToken === 'nba' && ch.league?.toLowerCase().includes('nba')) {
-      score += 10;
-      reasons.push('NBA Live Coverage');
-    }
-
-    // Boost user-configured custom IPTV/M3U channels when matched
-    if (score > 0 && ch.sourceId) {
-      score += 6;
-    }
-
-    if (score > 0) {
-      scored.push({
-        channel: ch,
-        reasons: Array.from(new Set(reasons)).slice(0, 2),
-        score,
-        nowTitle: sched?.now?.title,
-      });
-    }
+    scored.push({
+      channel: ch,
+      reasons: Array.from(new Set(reasons)).slice(0, 2),
+      score: evaluation.score + (ch.sourceId === 'sports-stream-api' ? 4 : 6),
+      nowTitle: nowTitle || undefined,
+    });
   }
 
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 6);
+  return scored.slice(0, 8);
 }
 
 function classifyFormat(url: string): 'hls' | 'mp4' | 'embed' {
@@ -973,8 +999,9 @@ export function buildChannelStreamSources(channel: Channel): StreamSource[] {
 }
 
 /**
- * Resolve ordered Server I (Main Match Stream), Server II (Sports HD Mirror),
- * and Server III (Broadcast Network Feed) streams specifically for a SportsMatch.
+ * Resolve ordered event streams strictly for a SportsMatch.
+ * Returns zero streams for live/upcoming games when no team-matched event stream exists,
+ * never falling back to unrelated 24/7 TV channels.
  */
 export function resolveSportsMatchStreamSources(params: {
   match: SportsMatch;
@@ -998,9 +1025,9 @@ export function resolveSportsMatchStreamSources(params: {
   const seenUrls = new Set<string>();
 
   const slotNames = [
-    'Server I · Main Match Stream',
-    'Server II · Sports HD Mirror',
-    'Server III · Broadcast Network Feed',
+    'Server I · Main Event Feed',
+    'Server II · Event HD Mirror',
+    'Server III · Alternate Event Feed',
   ];
 
   const pushUnique = (source: StreamSource) => {
@@ -1033,14 +1060,13 @@ export function resolveSportsMatchStreamSources(params: {
 
   const matchupLabel = `${effectiveMatch.awayTeam.shortName} vs ${effectiveMatch.homeTeam.shortName}`;
 
-  // Pass 1: Use primary live feeds across matched sports networks for maximum diversity
   for (const feed of orderedFeeds) {
-    if (streams.length >= 3) break;
+    if (streams.length >= 6) break;
     const ch = feed.channel;
     if (seenUrls.has(ch.url) || isLocalNewsStreamUrl(ch.url)) continue;
 
     const slotIdx = streams.length;
-    const slotTitle = slotNames[slotIdx] || `Server ${slotIdx + 1} · Live Sports`;
+    const slotTitle = slotNames[slotIdx] || `Server ${slotIdx + 1} · Event Feed`;
     pushUnique({
       id: `match-ch-${ch.id}`,
       name: slotTitle,
@@ -1056,7 +1082,6 @@ export function resolveSportsMatchStreamSources(params: {
     });
   }
 
-  // Pass 2: Fill remaining slots up to 3 using non-news sports backups
   if (streams.length < 3) {
     for (const feed of orderedFeeds) {
       if (streams.length >= 3) break;
@@ -1067,7 +1092,7 @@ export function resolveSportsMatchStreamSources(params: {
         const slotIdx = streams.length;
         pushUnique({
           id: `match-ch-${ch.id}-bk-${slotIdx + 1}`,
-          name: slotNames[slotIdx] || `Server ${slotIdx + 1} · Sports Backup`,
+          name: slotNames[slotIdx] || `Server ${slotIdx + 1} · Event Backup`,
           label: `${ch.name} · ${backup.label}`,
           quality: 'Backup HD',
           format: classifyFormat(backup.url),
@@ -1079,25 +1104,9 @@ export function resolveSportsMatchStreamSources(params: {
     }
   }
 
-  if (effectiveMatch.statusState !== 'post' && effectiveMatch.highlightVideoUrl) {
-    pushUnique({
-      id: `match-hl-${effectiveMatch.id}`,
-      name: streams.length === 0 ? slotNames[0] : 'ESPN Match Highlights',
-      label: 'Highlights HD',
-      quality: 'HD',
-      format: effectiveMatch.highlightVideoUrl.includes('.m3u8') ? 'hls' : 'mp4',
-      url: effectiveMatch.highlightVideoUrl,
-      isDefault: streams.length === 0,
-    });
-  }
-
   return {
     streams,
     matchedFeeds,
     matchSlug,
   };
-}
-
-export function inferBroadcastChannelsForLeague(league: SportsLeague): string[] {
-  return LEAGUE_FALLBACK_ORDER[league] || ['net-espn'];
 }
