@@ -22,7 +22,7 @@
 .kino-details__ambient { position: absolute; z-index: -1; inset: -70px; background-size: cover; background-position: center; filter: blur(70px) saturate(.65); opacity: .34; pointer-events: none; }
 .kino-details__close { position: absolute; z-index: 3; right: 16px; top: 16px; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: #101112c9; color: white; backdrop-filter: blur(16px); transition: background 160ms, transform 160ms; }
 .kino-details__close:hover { background: #303237; transform: rotate(90deg); }
-.kino-details__hero { position: relative; aspect-ratio: 16/9; min-height: 270px; background: #151719; }
+.kino-details__hero { position: relative; width: 100%; min-width: 0; aspect-ratio: 16/9; min-height: 270px; background: #151719; }
 .kino-details__hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, #14191be6, #11131420 65%); }
 .kino-details__backdrop { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
 .kino-details__fallback { position: absolute; top: 30%; left: calc(50% - 30px); color: #666; }

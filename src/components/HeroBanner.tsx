@@ -107,7 +107,7 @@ export function HeroBanner({ items }: HeroBannerProps) {
         </div>
       )}
       <section
-        className="kino-hero"
+        className={`kino-hero${current.matchPreview ? ' kino-hero--sports' : ''}`}
         aria-label="Featured showcase"
         aria-roledescription="carousel"
         onMouseEnter={() => setHovered(true)}
