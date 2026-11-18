@@ -5,25 +5,35 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Check, ChevronDown, Film, Loader2, Play, Plus, Star, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { PlatformDetailsDialog } from '@/components/PlatformDetails';
 import type { EpisodeItem, MediaItem } from '@/types/media';
 
-type DetailsContextValue = { openDetails: (item: MediaItem) => void };
+type DetailsContextValue = { openDetails: (item: MediaItem) => void; openPlatform: (slug: string) => void };
 const DetailsContext = createContext<DetailsContextValue | null>(null);
 
 /** Presentation layer only: uses the existing catalog, history and watch routes. */
 export function MediaDetailsProvider({ children }: { children: React.ReactNode }) {
   const [selected, setSelected] = useState<MediaItem | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const previousPath = useRef(pathname);
 
   const openDetails = useCallback((item: MediaItem) => {
     returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelectedPlatform(null);
     setSelected(item);
+  }, []);
+
+  const openPlatform = useCallback((slug: string) => {
+    returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelected(null);
+    setSelectedPlatform(slug);
   }, []);
 
   const close = useCallback(() => {
     setSelected(null);
+    setSelectedPlatform(null);
     requestAnimationFrame(() => {
       if (returnFocus.current?.isConnected) returnFocus.current.focus({ preventScroll: true });
     });
@@ -32,12 +42,13 @@ export function MediaDetailsProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (previousPath.current !== pathname) {
       setSelected(null);
+      setSelectedPlatform(null);
       previousPath.current = pathname;
     }
   }, [pathname]);
 
   return (
-    <DetailsContext.Provider value={{ openDetails }}>
+    <DetailsContext.Provider value={{ openDetails, openPlatform }}>
       {children}
       {selected && (
         <MediaDetailsDialog
@@ -45,6 +56,14 @@ export function MediaDetailsProvider({ children }: { children: React.ReactNode }
           initialItem={selected}
           onClose={close}
           onSelect={setSelected}
+        />
+      )}
+      {!selected && selectedPlatform && (
+        <PlatformDetailsDialog
+          key={selectedPlatform}
+          slug={selectedPlatform}
+          onClose={close}
+          onSelect={(item) => { setSelectedPlatform(null); setSelected(item); }}
         />
       )}
     </DetailsContext.Provider>

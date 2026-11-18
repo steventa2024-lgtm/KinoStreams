@@ -2,6 +2,7 @@
 @import "../styles/cinema-shell.css";
 @import "../styles/catalog.css";
 @import "../styles/details.css";
+@import "../styles/platform-details.css";
 @import "../styles/pages.css";
 
 @theme inline {

@@ -162,7 +162,7 @@ export default function StreamingPlatformPage() {
                   key={p.slug}
                   href={`/platforms/${p.slug}`}
                   onClickCapture={stopGlobalPlayback}
-                  className="rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs font-medium text-zinc-200 hover:border-amber-500/60 hover:text-amber-300 transition"
+                  className="rounded-full border border-white/10 bg-black/40 px-4 py-2 text-xs font-medium text-zinc-200 hover:border-white/30 hover:text-white transition"
                 >
                   {p.name}
                 </Link>
@@ -199,13 +199,13 @@ export default function StreamingPlatformPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-black/60 text-base font-bold tracking-wider text-amber-300 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)]"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-black/60 text-base font-bold tracking-wider text-white shadow-sm"
                   style={{ boxShadow: `inset 0 0 0 1px ${platform.accentColor}40` }}
                 >
                   {platform.monogram}
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-amber-400">
+                  <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-[#e50935]">
                     <Sparkles className="h-3.5 w-3.5" />
                     <span>Streaming Catalog Hub · US Flatrate</span>
                   </div>
@@ -220,11 +220,11 @@ export default function StreamingPlatformPage() {
 
               <div className="flex items-center gap-2 text-xs text-zinc-400">
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5">
-                  <Film className="h-3.5 w-3.5 text-amber-400" />
+                  <Film className="h-3.5 w-3.5 text-[#e50935]" />
                   Movies
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5">
-                  <Tv className="h-3.5 w-3.5 text-amber-400" />
+                  <Tv className="h-3.5 w-3.5 text-[#e50935]" />
                   Series
                 </span>
               </div>
@@ -242,8 +242,8 @@ export default function StreamingPlatformPage() {
                     className={cn(
                       'inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition',
                       active
-                        ? 'border-amber-500 bg-amber-500/15 text-amber-300 shadow-[0_0_16px_-6px_rgba(245,158,11,0.55)]'
-                        : 'border-white/10 bg-black/35 text-zinc-300 hover:border-amber-500/40 hover:text-zinc-100'
+                        ? 'border-white/35 bg-white/10 text-white shadow-sm'
+                        : 'border-white/10 bg-black/35 text-zinc-300 hover:border-white/20 hover:text-zinc-100'
                     )}
                   >
                     <span className="text-[10px] font-bold tracking-wider opacity-80">
@@ -270,7 +270,7 @@ export default function StreamingPlatformPage() {
                   className={cn(
                     'rounded-full px-4 py-1.5 text-xs font-medium transition',
                     typeFilter === opt.value
-                      ? 'bg-amber-500 text-zinc-950 font-semibold'
+                      ? 'bg-white text-zinc-950 font-semibold'
                       : 'text-zinc-300 hover:text-white'
                   )}
                 >
@@ -289,7 +289,7 @@ export default function StreamingPlatformPage() {
                   className={cn(
                     'rounded-full border px-3.5 py-1.5 text-xs font-medium transition',
                     sortMode === opt.value
-                      ? 'border-amber-500/80 bg-amber-500/15 text-amber-300'
+                      ? 'border-white/40 bg-white/10 text-white'
                       : 'border-white/10 bg-black/35 text-zinc-300 hover:border-white/25 hover:text-white'
                   )}
                 >
@@ -309,7 +309,7 @@ export default function StreamingPlatformPage() {
                 className={cn(
                   'rounded-full border px-3.5 py-1 text-xs font-medium transition',
                   genreKey === opt.value
-                    ? 'border-amber-500/80 bg-amber-500/15 text-amber-300'
+                    ? 'border-white/40 bg-white/10 text-white'
                     : 'border-white/10 bg-black/35 text-zinc-400 hover:border-white/25 hover:text-zinc-200'
                 )}
               >
@@ -322,7 +322,7 @@ export default function StreamingPlatformPage() {
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-24 text-zinc-400 gap-3">
-            <Loader2 className="h-5 w-5 animate-spin text-amber-400" />
+            <Loader2 className="h-5 w-5 animate-spin text-[#e50935]" />
             <span className="text-sm">Loading {platform.name} catalog...</span>
           </div>
         ) : (
@@ -415,7 +415,7 @@ export default function StreamingPlatformPage() {
                     type="button"
                     disabled={loadingMore}
                     onClick={() => void fetchCatalog(page + 1, true)}
-                    className="inline-flex items-center gap-2 rounded-full border border-amber-500/60 bg-amber-500/15 px-6 py-2.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/25 disabled:opacity-50 transition"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-6 py-2.5 text-xs font-semibold text-white hover:bg-white/20 disabled:opacity-50 transition"
                   >
                     {loadingMore && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     <span>{loadingMore ? 'Loading...' : 'Load More Titles'}</span>

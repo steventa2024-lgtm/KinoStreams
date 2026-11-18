@@ -1,0 +1,70 @@
+.kino-platform-dialog { position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 58px 10px 28px; border: 0; background: transparent; color: white; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; animation: kino-platform-overlay-in 240ms ease both; }
+.kino-platform-dialog::backdrop { background: #000b; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); animation: kino-platform-overlay-in 240ms ease both; }
+.kino-platform-dialog__sheet { position: relative; isolation: isolate; margin-inline: auto; width: min(560px, 100%); min-height: 390px; border: 1px solid #ffffff24; border-radius: 11px; overflow: hidden; background: #202526eb; box-shadow: 0 24px 90px #0009; animation: kino-platform-sheet-in 280ms cubic-bezier(.2,.75,.25,1) both; }
+.kino-platform-dialog__ambient { position: absolute; z-index: -1; inset: -65px; background-size: cover; background-position: center; filter: blur(60px) saturate(.8); opacity: .42; pointer-events: none; }
+.kino-platform-dialog__close { position: absolute; z-index: 4; right: 12px; top: 12px; display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #ffffff15; border-radius: 50%; background: #111719b3; color: white; backdrop-filter: blur(12px); cursor: pointer; transition: background 160ms ease; }
+.kino-platform-dialog__close:hover { background: #3a3c3fc9; }
+.kino-platform-dialog__header { position: relative; height: 250px; overflow: hidden; background: #11161a70; }
+.kino-platform-dialog__header::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(0deg, #222728ed, #22272815 65%, #1113170d); }
+.kino-platform-dialog__collage { position: absolute; inset: -112px -15px 4px 56px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-content: start; gap: 7px; transform: rotate(-15deg) scale(1.08); opacity: .9; }
+.kino-platform-dialog__collage > img, .kino-platform-dialog__collage > span { display: block; width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 3px; box-shadow: 0 2px 8px #0006; }
+.kino-platform-dialog__collage > span { background: #272c32; }
+.kino-platform-dialog__identity { position: absolute; z-index: 1; left: 22px; right: 22px; bottom: 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+.kino-platform-dialog__wordmark { font-size: 42px; font-weight: 800; line-height: .95; letter-spacing: -.06em; text-shadow: 0 3px 15px #0007; }
+.kino-platform-dialog__wordmark--netflix { text-transform: uppercase; letter-spacing: -.05em; font-size: 38px; }
+.kino-platform-dialog__wordmark--max { text-transform: lowercase; font-weight: 850; font-size: 51px; }
+.kino-platform-dialog__wordmark--disney-plus, .kino-platform-dialog__wordmark--paramount-plus { font-family: Georgia, serif; font-style: italic; font-weight: 600; letter-spacing: -.055em; }
+.kino-platform-dialog__wordmark--paramount-plus { font-size: 36px; }
+.kino-platform-dialog__wordmark--hulu { font-weight: 850; font-size: 48px; }
+.kino-platform-dialog__wordmark--prime-video, .kino-platform-dialog__wordmark--apple-tv-plus { font-size: 36px; }
+.kino-platform-dialog__catalog-link { display: inline-flex; flex: none; align-items: center; gap: 3px; font-size: 10px; color: #ffffffb0; margin-bottom: 2px; border-radius: 15px; padding: 5px 8px; background: #ffffff0a; transition: color 160ms, background 160ms; }
+.kino-platform-dialog__catalog-link:hover { color: white; background: #ffffff1c; }
+.kino-platform-dialog__body { padding: 6px 22px 26px; }
+.kino-platform-dialog__row { margin-top: 18px; }
+.kino-platform-dialog__row-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
+.kino-platform-dialog__row-heading h3 { margin: 0; font-size: 13px; font-weight: 650; letter-spacing: -.02em; }
+.kino-platform-dialog__row-controls { display: flex; align-items: center; gap: 2px; }
+.kino-platform-dialog__row-controls button { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; color: #ffffffb0; background: #ffffff06; cursor: pointer; transition: color 160ms, background 160ms; }
+.kino-platform-dialog__row-controls button:hover { color: white; background: #ffffff20; }
+.kino-platform-dialog__track { display: flex; overflow-x: auto; gap: 9px; padding-block: 4px 8px; scroll-snap-type: x proximity; overscroll-behavior-x: contain; scrollbar-width: none; }
+.kino-platform-dialog__track::-webkit-scrollbar { display: none; }
+.kino-platform-dialog__track:focus-visible { outline: 1px solid #ffffff70; outline-offset: 2px; border-radius: 4px; }
+.kino-platform-dialog__poster { position: relative; min-width: 0; flex: 0 0 calc((100% - 18px) / 3.15); scroll-snap-align: start; }
+.kino-platform-dialog__poster-artwork { position: relative; aspect-ratio: 2/3; border-radius: 4px; background: #15181c; transition: transform 220ms cubic-bezier(.2,.75,.25,1), box-shadow 220ms; }
+.kino-platform-dialog__poster-artwork > button { display: block; width: 100%; height: 100%; border-radius: inherit; overflow: hidden; cursor: pointer; }
+.kino-platform-dialog__poster-artwork > button img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.kino-platform-dialog__poster-fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; padding: 14px; font-size: 11px; color: #9c9ca3; }
+.kino-platform-dialog__poster h4 { font-size: 10px; font-weight: 500; line-height: 1.5; margin-top: 6px; color: #ffffffa8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kino-platform-dialog__play { position: absolute; left: 8px; bottom: 8px; display: inline-flex; align-items: center; gap: 5px; min-height: 29px; padding: 5px 10px; border-radius: 20px; background: white; color: #141414; font-size: 10px; font-weight: 650; opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity 180ms, transform 180ms, background 180ms; }
+.kino-platform-dialog__poster:hover .kino-platform-dialog__play, .kino-platform-dialog__poster:focus-within .kino-platform-dialog__play { opacity: 1; transform: none; pointer-events: auto; }
+.kino-platform-dialog__play:hover { background: #dedede; }
+.kino-platform-dialog__loading { padding-top: 20px; }
+.kino-platform-dialog__loading > span { display: flex; gap: 7px; align-items: center; font-size: 11px; color: #ffffffa6; }
+.kino-platform-dialog__skeletons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 15px; }
+.kino-platform-dialog__skeletons > span { aspect-ratio: 2/3; border-radius: 4px; background: #15191b; animation: kino-platform-loading 1.6s ease-in-out infinite alternate; }
+.kino-platform-dialog__empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 30px 16px 36px; font-size: 12px; line-height: 1.6; text-align: center; color: #ffffff90; }
+.kino-platform-dialog__empty a { display: inline-flex; align-items: center; gap: 4px; color: white; padding: 6px 10px; border-radius: 20px; background: #ffffff0d; }
+.kino-platform-dialog.is-closing, .kino-platform-dialog.is-closing::backdrop { animation: kino-platform-overlay-out 200ms ease both; }
+.kino-platform-dialog.is-closing .kino-platform-dialog__sheet { pointer-events: none; animation: kino-platform-sheet-out 200ms ease both; }
+@keyframes kino-platform-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kino-platform-overlay-out { to { opacity: 0; } }
+@keyframes kino-platform-sheet-in { from { opacity: 0; transform: translateY(16px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes kino-platform-sheet-out { to { opacity: 0; transform: translateY(8px) scale(.985); } }
+@keyframes kino-platform-loading { to { opacity: .5; } }
+@media (hover: hover) and (pointer: fine) { .kino-platform-dialog__poster:hover .kino-platform-dialog__poster-artwork { transform: scale(1.025); box-shadow: 0 8px 24px #0007; } }
+@media (max-width: 600px) {
+  .kino-platform-dialog { padding-top: 14px; }
+  .kino-platform-dialog__header { height: 230px; }
+  .kino-platform-dialog__identity { left: 16px; right: 16px; }
+  .kino-platform-dialog__body { padding-inline: 16px; }
+  .kino-platform-dialog__close { width: 40px; height: 40px; }
+  .kino-platform-dialog__wordmark { font-size: 35px; }
+  .kino-platform-dialog__wordmark--max, .kino-platform-dialog__wordmark--hulu { font-size: 44px; }
+  .kino-platform-dialog__wordmark--paramount-plus { font-size: 28px; }
+  .kino-platform-dialog__poster { flex-basis: calc((100% - 18px) / 2.7); }
+  .kino-platform-dialog__row-controls button { min-height: 34px; min-width: 30px; }
+}
+@media (hover: none), (pointer: coarse) { .kino-platform-dialog__play { opacity: 1; transform: none; pointer-events: auto; min-height: 36px; } }
+@media (prefers-reduced-motion: reduce) {
+  .kino-platform-dialog, .kino-platform-dialog::backdrop, .kino-platform-dialog * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

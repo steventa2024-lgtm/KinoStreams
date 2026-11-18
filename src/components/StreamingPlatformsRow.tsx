@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { stopGlobalPlayback } from '@/lib/playback-cleanup';
 import { STREAMING_PLATFORMS, type StreamingPlatformSlug } from '@/lib/streaming-platforms';
 import { cn } from '@/lib/utils';
+import { useMediaDetails } from '@/components/MediaDetails';
 
 interface StreamingPlatformsRowProps {
   activeSlug?: StreamingPlatformSlug | string;
@@ -22,6 +23,7 @@ const DISPLAY_PLATFORMS = [...STREAMING_PLATFORMS].sort(
 
 export function StreamingPlatformsRow({ activeSlug, compact = false, className }: StreamingPlatformsRowProps) {
   const track = useRef<HTMLDivElement>(null);
+  const { openPlatform } = useMediaDetails();
   const scroll = (direction: number) => {
     if (!track.current) return;
     track.current.scrollBy({
@@ -45,6 +47,12 @@ export function StreamingPlatformsRow({ activeSlug, compact = false, className }
             key={platform.slug}
             href={`/platforms/${platform.slug}`}
             onClickCapture={stopGlobalPlayback}
+            onClick={(event) => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.defaultPrevented) return;
+              event.preventDefault();
+              openPlatform(platform.slug);
+            }}
+            aria-haspopup="dialog"
             aria-current={activeSlug === platform.slug ? 'page' : undefined}
             aria-label={`Browse ${platform.name}`}
             className={cn('kino-platform-tile', `kino-platform-${platform.slug}`, activeSlug === platform.slug && 'is-active')}
