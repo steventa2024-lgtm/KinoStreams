@@ -236,10 +236,8 @@ function MediaDetailsDialog({ initialItem, onClose, onSelect }: {
                 <div className="kino-details__episodes" tabIndex={0} aria-label="Scroll episodes">
                   {episodes.map((episode) => {
                     const watched = history?.season === season && history.episode === episode.episodeNumber;
-                    return <Link
+                    return <article
                       key={episode.id}
-                      href={`/watch/series/${encodeURIComponent(item.id)}?season=${season}&episode=${episode.episodeNumber}`}
-                      onClick={onClose}
                       className="kino-episode"
                     >
                       <div className="kino-episode__image">
@@ -247,13 +245,12 @@ function MediaDetailsDialog({ initialItem, onClose, onSelect }: {
                           // eslint-disable-next-line @next/next/no-img-element
                           <img src={episode.stillPath || backdrop} alt="" loading="lazy" />
                         )}
-                        <span className="kino-episode__play"><Play size={22} fill="currentColor" /></span>
                         {episode.runtime && <span className="kino-episode__runtime">{episode.runtime} min</span>}
                         {watched && <div className="kino-episode__progress" style={{ width: `${Math.min(100, Math.max(0, history.progress))}%` }} />}
                       </div>
                       <h4>{episode.episodeNumber}. {episode.name}</h4>
                       <p>{episode.overview}</p>
-                    </Link>;
+                    </article>;
                   })}
                 </div>
               ) : <p className="kino-details__status">Episode details are available from the full title page.</p>}
