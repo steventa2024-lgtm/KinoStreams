@@ -17,7 +17,6 @@ import {
   Pause,
   PictureInPicture2,
   Play,
-  Plus,
   Radio,
   RefreshCw,
   Server,
@@ -182,7 +181,6 @@ export function VideoPlayer({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const videoRef = useRef<WebKitVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appliedInitialSeekRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const currentTimeRef = useRef(initialTime || 0);
@@ -229,7 +227,6 @@ export function VideoPlayer({
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
   const [isTheaterFullscreen, setIsTheaterFullscreen] = useState(false);
   const isFullscreen = isNativeFullscreen || isTheaterFullscreen;
-  const [showControls, setShowControls] = useState(true);
   const [qualities, setQualities] = useState<QualityLevel[]>([]);
   const [activeQuality, setActiveQuality] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -508,10 +505,6 @@ export function VideoPlayer({
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    if (hideTimerRef.current) {
-      clearTimeout(hideTimerRef.current);
-      hideTimerRef.current = null;
-    }
     if (hlsRef.current) {
       try {
         hlsRef.current.stopLoad();
@@ -671,17 +664,6 @@ export function VideoPlayer({
     }, 1000);
     return () => clearTimeout(timer);
   }, [autoNextSeconds, hasNextEpisode, onNextEpisode]);
-
-  const scheduleHideControls = useCallback(() => {
-    setShowControls(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      if (playing) {
-        setShowControls(false);
-        setShowQualityMenu(false);
-      }
-    }, 3200);
-  }, [playing]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -1024,7 +1006,6 @@ export function VideoPlayer({
     } else {
       video.pause();
     }
-    scheduleHideControls();
   };
 
   const toggleMute = () => {
@@ -1033,7 +1014,6 @@ export function VideoPlayer({
     const nextMuted = !muted;
     video.muted = nextMuted;
     setMuted(nextMuted);
-    scheduleHideControls();
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1250,8 +1230,6 @@ export function VideoPlayer({
     <div className="w-full">
       <div
         ref={containerRef}
-        onMouseMove={scheduleHideControls}
-        onTouchStart={scheduleHideControls}
         className={cn(
           'bg-[#09090B] shadow-2xl',
           isTheaterFullscreen
@@ -1262,49 +1240,50 @@ export function VideoPlayer({
               )
         )}
       >
-        {/* 16:9 Media Viewport — All 4 Corners Kept 100% Unobstructed */}
+        {/* 16:9 Media Viewport — All 4 Corners & Bottom Edge Kept 100% Unobstructed */}
         <div
           className={cn(
             'relative w-full overflow-hidden bg-black',
             isFullscreen
               ? 'min-h-0 flex-1'
-              : cn('aspect-video', sources.length > 0 ? 'rounded-t-2xl' : 'rounded-2xl')
+              : sources.length > 0
+              ? 'aspect-video rounded-t-2xl'
+              : 'min-h-[300px] sm:min-h-0 sm:aspect-video rounded-2xl'
           )}
         >
         {sources.length === 0 ? (
           matchup ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.12),#09090B_68%)] px-5 py-4 text-center sm:px-8">
-              <div className="flex max-w-xl flex-col items-center rounded-2xl border border-[#D4AF37]/25 bg-[#121215]/90 px-5 py-5 shadow-2xl backdrop-blur-md sm:px-8 sm:py-7">
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.12),#09090B_68%)] px-4 py-4 text-center sm:px-8">
+              <div className="flex max-w-xl flex-col items-center rounded-2xl border border-[#D4AF37]/30 bg-[#121216]/95 px-5 py-5 shadow-2xl backdrop-blur-md sm:px-8 sm:py-7">
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-[10px] font-bold tracking-widest text-[#E2C275] uppercase">
                   <Radio className="h-3 w-3 text-[#D4AF37]" />
                   {matchup.league} · {matchup.awayTeam.abbreviation} vs {matchup.homeTeam.abbreviation}
                 </div>
                 <h2 className="mt-3 font-serif text-lg font-medium text-[#FAFAFA] sm:text-2xl">
-                  No Event Feed Connected for {matchup.awayTeam.shortName} vs.{' '}
+                  No Direct Match Stream Connected for {matchup.awayTeam.shortName} vs.{' '}
                   {matchup.homeTeam.shortName}
                 </h2>
                 <p className="mt-1.5 max-w-md text-xs leading-relaxed text-[#A1A1AA] sm:text-sm">
-                  Only team-matched event streams play on game pages. Connect an M3U event playlist or refresh to check for newly indexed feeds.
+                  Auto-play is restricted strictly to Tier 1 team-matched streams. Browse your imported feeds, click an optional network card below, or connect an M3U event playlist.
                 </p>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:mt-5">
+                  {onBrowseImportedFeeds && (
+                    <button
+                      type="button"
+                      onClick={onBrowseImportedFeeds}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275] active:scale-95"
+                    >
+                      <Server className="h-3.5 w-3.5" />
+                      Browse Imported Feeds ({importedFeedsCount})
+                    </button>
+                  )}
                   {onOpenSources && (
                     <button
                       type="button"
                       onClick={onOpenSources}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275] active:scale-95"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/50 bg-[#09090B] px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
                     >
-                      <Plus className="h-3.5 w-3.5" />
-                      Connect M3U / Event Feed
-                    </button>
-                  )}
-                  {importedFeedsCount > 0 && onBrowseImportedFeeds && (
-                    <button
-                      type="button"
-                      onClick={onBrowseImportedFeeds}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#f59e0b]/55 bg-[#09090b] px-5 py-2.5 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b] active:scale-95"
-                    >
-                      <Server className="h-3.5 w-3.5" />
-                      Browse Imported Feeds ({importedFeedsCount})
+                      + Connect M3U / Event Feed
                     </button>
                   )}
                   {onRefreshFeeds && (
@@ -1312,7 +1291,7 @@ export function VideoPlayer({
                       type="button"
                       onClick={onRefreshFeeds}
                       disabled={refreshingFeeds}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#09090B] px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37] hover:bg-[#D4AF37]/10 disabled:opacity-60"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/15 bg-[#09090B] px-4 py-2.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#D4AF37]/40 hover:text-[#FAFAFA] disabled:opacity-60"
                     >
                       <RefreshCw
                         className={cn(
@@ -1320,7 +1299,7 @@ export function VideoPlayer({
                           refreshingFeeds && 'animate-spin'
                         )}
                       />
-                      {refreshingFeeds ? 'Refreshing Feeds...' : 'Refresh Feeds'}
+                      {refreshingFeeds ? 'Refreshing...' : 'Refresh Feeds'}
                     </button>
                   )}
                 </div>
@@ -1516,453 +1495,470 @@ export function VideoPlayer({
                 </div>
               </div>
             )}
-
-            {/* Custom Cinematic Controls Overlay */}
-            <div
-              className={cn(
-                'absolute inset-x-0 bottom-0 flex flex-col justify-end bg-gradient-to-t from-[#09090B]/95 via-[#09090B]/55 to-transparent p-3 sm:p-5 transition-opacity duration-300',
-                showControls || !playing ? 'opacity-100' : 'pointer-events-none opacity-0'
-              )}
-            >
-              {/* Seek Bar (VOD only) */}
-              {!isLive && duration > 0 && (
-                <div className="mb-2 flex items-center gap-3">
-                  <span className="w-11 text-right text-[11px] font-medium tabular-nums text-[#A1A1AA]">
-                    {formatDuration(currentTime)}
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={duration}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    aria-label="Seek timeline"
-                    className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-white/20 accent-[#D4AF37]"
-                  />
-                  <span className="w-11 text-left text-[11px] font-medium tabular-nums text-[#A1A1AA]">
-                    {formatDuration(duration)}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between gap-2">
-                {/* Left Controls (min 44x44 touch targets) */}
-                <div className="flex items-center gap-1.5 sm:gap-2.5">
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    aria-label={playing ? 'Pause' : 'Play'}
-                    className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] transition hover:bg-[#E2C275]"
-                  >
-                    {playing ? (
-                      <Pause className="h-4 w-4 fill-current" />
-                    ) : (
-                      <Play className="ml-0.5 h-4 w-4 fill-current" />
-                    )}
-                  </button>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={toggleMute}
-                      aria-label={muted ? 'Unmute' : 'Mute'}
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[#FAFAFA] hover:bg-white/10"
-                    >
-                      {muted || volume === 0 ? (
-                        <VolumeX className="h-4 w-4" />
-                      ) : (
-                        <Volume2 className="h-4 w-4" />
-                      )}
-                    </button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={muted ? 0 : volume}
-                      onChange={handleVolumeChange}
-                      aria-label="Volume"
-                      className="hidden h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/25 accent-[#D4AF37] sm:block"
-                    />
-                  </div>
-
-                  {isLive && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EF4444]/20 px-2.5 py-1 text-[11px] font-semibold text-[#EF4444]">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
-                      LIVE
-                    </span>
-                  )}
-                </div>
-
-                {/* Right Controls (min 44x44 touch targets) */}
-                <div className="relative flex items-center gap-1 sm:gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setUseProxy((p) => !p)}
-                    title={useProxy ? 'CORS Stream Proxy Active' : 'Direct Stream Mode'}
-                    className={cn(
-                      'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-full border px-3 text-[11px] font-medium transition',
-                      useProxy
-                        ? 'border-[#D4AF37]/45 bg-[#D4AF37]/15 text-[#E2C275]'
-                        : 'border-white/15 bg-white/5 text-[#A1A1AA] hover:text-[#FAFAFA]'
-                    )}
-                  >
-                    <Shield className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">
-                      {useProxy ? 'Proxied' : 'Direct'}
-                    </span>
-                  </button>
-
-                  {qualities.length > 0 && (
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setShowQualityMenu((q) => !q)}
-                        aria-label="Video Quality"
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-full border border-white/15 bg-white/5 px-3 text-[11px] font-medium text-[#FAFAFA] hover:border-[#D4AF37]/40"
-                      >
-                        <SlidersHorizontal className="h-3.5 w-3.5 text-[#D4AF37]" />
-                        <span className="hidden sm:inline">
-                          {activeQuality === -1
-                            ? 'Auto'
-                            : qualities[activeQuality]?.label || 'Auto'}
-                        </span>
-                      </button>
-
-                      {showQualityMenu && (
-                        <div className="absolute right-0 bottom-12 z-20 min-w-[120px] rounded-xl border border-white/10 bg-[#121215]/95 p-1.5 shadow-xl backdrop-blur-xl">
-                          <button
-                            type="button"
-                            onClick={() => handleQualitySelect(-1)}
-                            className={cn(
-                              'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
-                              activeQuality === -1
-                                ? 'bg-[#D4AF37]/20 text-[#E2C275]'
-                                : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
-                            )}
-                          >
-                            Auto
-                          </button>
-                          {qualities.map((q) => (
-                            <button
-                              key={q.index}
-                              type="button"
-                              onClick={() => handleQualitySelect(q.index)}
-                              className={cn(
-                                'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
-                                activeQuality === q.index
-                                  ? 'bg-[#D4AF37]/20 text-[#E2C275]'
-                                  : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
-                              )}
-                            >
-                              {q.label}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {airplayAvailable && (
-                    <button
-                      type="button"
-                      onClick={triggerAirplay}
-                      aria-label="AirPlay"
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[#FAFAFA] hover:bg-white/10"
-                    >
-                      <Airplay className="h-4 w-4" />
-                    </button>
-                  )}
-
-                  {pipAvailable && (
-                    <button
-                      type="button"
-                      onClick={togglePip}
-                      aria-label="Picture in Picture"
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[#FAFAFA] hover:bg-white/10"
-                    >
-                      <PictureInPicture2 className="h-4 w-4" />
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={toggleFullscreen}
-                    aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-                    className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-[#FAFAFA] hover:bg-white/10"
-                  >
-                    {isFullscreen ? (
-                      <Minimize className="h-4 w-4" />
-                    ) : (
-                      <Maximize className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
           </>
         )}
         </div>
 
-        {/* External Obsidian-and-Gold Control Strip (Below 16:9 Frame — Zero Corner Overlap) */}
+        {/* External Docked Obsidian Control Bar (Completely Below 16:9 Frame — Zero Video/Corner Overlap) */}
         {sources.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-b-2xl border-t border-white/[0.08] bg-[#121215]/95 px-3 py-2.5 sm:px-4">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {showTapToUnmute && (
-                <button
-                  type="button"
-                  onClick={unmuteActivePlayer}
-                  className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/70 bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
-                >
-                  <VolumeX className="h-4 w-4" />
-                  Tap to Unmute
-                </button>
-              )}
+          <div className="space-y-2.5 rounded-b-2xl border-t border-white/[0.08] bg-[#121216] px-3 py-2.5 sm:px-4">
+            {/* Seek Timeline (Direct VOD Video Only — Outside 16:9 Viewport) */}
+            {!hasEmbedSources && !isLive && duration > 0 && (
+              <div className="flex items-center gap-3 pt-0.5">
+                <span className="w-11 text-right text-[11px] font-medium tabular-nums text-[#A1A1AA]">
+                  {formatDuration(currentTime)}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  value={currentTime}
+                  onChange={handleSeek}
+                  aria-label="Seek timeline"
+                  className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-white/15 accent-[#D4AF37]"
+                />
+                <span className="w-11 text-left text-[11px] font-medium tabular-nums text-[#A1A1AA]">
+                  {formatDuration(duration)}
+                </span>
+              </div>
+            )}
 
-              {hasEmbedSources && (
-                <>
-                  <button
-                    type="button"
-                    onClick={replayEmbed}
-                    aria-label="Replay / Autoplay embed stream"
-                    title="Restart Autoplay"
-                    className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#D4AF37] px-3 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
-                  >
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                    <span className="hidden sm:inline">Play</span>
-                  </button>
-
-                  {!showTapToUnmute && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                {!hasEmbedSources ? (
+                  <>
                     <button
                       type="button"
-                      onClick={() => setEmbedMutedAutoplay((m) => !m)}
-                      aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
-                      title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                      onClick={togglePlay}
+                      aria-label={playing ? 'Pause' : 'Play'}
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
                     >
-                      <Volume2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Audio</span>
+                      {playing ? (
+                        <Pause className="h-4 w-4 fill-current" />
+                      ) : (
+                        <Play className="ml-0.5 h-4 w-4 fill-current" />
+                      )}
                     </button>
-                  )}
 
-                  {adShield &&
-                    (shieldCurrentlyBlocking ? (
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
-                        onClick={unlockFrameForInteract}
-                        title="Unlock iframe for a single tap (auto-locks 350ms after clicking player, or 2.5s max)"
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                        onClick={toggleMute}
+                        aria-label={muted ? 'Unmute' : 'Mute'}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/45"
                       >
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Interact</span>
+                        {muted || volume === 0 ? (
+                          <VolumeX className="h-4 w-4" />
+                        ) : (
+                          <Volume2 className="h-4 w-4" />
+                        )}
                       </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={rearmRedirectShield}
-                        title="Tap player once or click here to lock Redirect Shield immediately"
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37] bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        <span className="tabular-nums">
-                          Tap Player · {(interactTimer ?? 2.5).toFixed(1)}s
-                        </span>
-                      </button>
-                    ))}
-                </>
-              )}
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={muted ? 0 : volume}
+                        onChange={handleVolumeChange}
+                        aria-label="Volume"
+                        className="hidden h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/25 accent-[#D4AF37] sm:block"
+                      />
+                    </div>
 
-              {sources.length > 1 && (
-                <button
-                  type="button"
-                  onClick={handleCycleServer}
-                  title="Rotate to next working server"
-                  className={cn(
-                    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
-                    showSwitchPrompt
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
-                      : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]'
-                  )}
-                >
-                  <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
-                  <span>{showSwitchPrompt ? 'Switch Server' : 'Next Server'}</span>
-                </button>
-              )}
-
-              {/* Multi-Language Audio Switcher (Docked Outside 16:9 Frame) */}
-              <div ref={audioMenuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowAudioMenu((open) => !open)}
-                  aria-haspopup="menu"
-                  aria-expanded={showAudioMenu}
-                  aria-label="Audio Language"
-                  title="Select Audio Language or Stream Audio Track"
-                  className={cn(
-                    'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
-                    showAudioMenu || effectiveAudioLang !== 'original' || detectedAudioTracks.length > 0
-                      ? 'border-[#f59e0b]/55 bg-[#09090b] text-[#f59e0b] hover:border-[#f59e0b]'
-                      : 'border-white/15 bg-[#09090b] text-[#E2C275] hover:border-[#f59e0b]/50'
-                  )}
-                >
-                  <Languages className="h-3.5 w-3.5 text-[#f59e0b]" />
-                  <span className="hidden sm:inline">
-                    {activeEmbeddedTrack
-                      ? `Audio: ${activeEmbeddedTrack.label}`
-                      : `Audio: ${selectedAudioOption.shortCode}`}
-                  </span>
-                  <span className="sm:hidden">{selectedAudioOption.shortCode}</span>
-                  <ChevronDown
-                    className={cn(
-                      'h-3.5 w-3.5 transition-transform',
-                      showAudioMenu && 'rotate-180'
+                    {isLive && (
+                      <span className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-[#EF4444]/35 bg-[#EF4444]/15 px-3 text-[11px] font-semibold text-[#EF4444]">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
+                        LIVE
+                      </span>
                     )}
-                  />
-                </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={replayEmbed}
+                      aria-label="Replay / Autoplay embed stream"
+                      title="Restart Autoplay"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#D4AF37] px-3 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
+                    >
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                      <span className="hidden sm:inline">Play</span>
+                    </button>
 
-                {showAudioMenu && (
-                  <div
-                    role="menu"
-                    aria-label="Audio Language Options"
+                    {!showTapToUnmute && (
+                      <button
+                        type="button"
+                        onClick={() => setEmbedMutedAutoplay((m) => !m)}
+                        aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
+                        title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Audio</span>
+                      </button>
+                    )}
+
+                    {isLive && (
+                      <span className="inline-flex min-h-[34px] items-center gap-1.5 rounded-full border border-[#EF4444]/35 bg-[#EF4444]/15 px-3 text-[11px] font-semibold text-[#EF4444]">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
+                        LIVE
+                      </span>
+                    )}
+
+                    {adShield &&
+                      (shieldCurrentlyBlocking ? (
+                        <button
+                          type="button"
+                          onClick={unlockFrameForInteract}
+                          title="Unlock iframe for a single tap (auto-locks 350ms after clicking player, or 2.5s max)"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span>Interact</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={rearmRedirectShield}
+                          title="Tap player once or click here to lock Redirect Shield immediately"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37] bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span className="tabular-nums">
+                            Tap Player · {(interactTimer ?? 2.5).toFixed(1)}s
+                          </span>
+                        </button>
+                      ))}
+                  </>
+                )}
+
+                {showTapToUnmute && (
+                  <button
+                    type="button"
+                    onClick={unmuteActivePlayer}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/70 bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                  >
+                    <VolumeX className="h-4 w-4" />
+                    Tap to Unmute
+                  </button>
+                )}
+
+                {sources.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={handleCycleServer}
+                    title="Rotate to next working server"
                     className={cn(
-                      'absolute left-0 z-30 max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#f59e0b]/35 bg-[#09090b]/98 p-2 shadow-2xl backdrop-blur-xl',
-                      isFullscreen ? 'bottom-12' : 'top-12'
+                      'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
+                      showSwitchPrompt
+                        ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
+                        : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]'
                     )}
                   >
-                    {detectedAudioTracks.length > 0 && (
-                      <div className="mb-2 border-b border-white/[0.08] pb-2">
-                        <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#f59e0b] uppercase">
-                          Embedded Stream Tracks
-                        </p>
-                        <div className="space-y-1">
-                          {detectedAudioTracks.map((track) => (
+                    <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <span>{showSwitchPrompt ? 'Switch Server' : 'Next Server'}</span>
+                  </button>
+                )}
+
+                {/* Multi-Language Audio Switcher */}
+                <div ref={audioMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowAudioMenu((open) => !open)}
+                    aria-haspopup="menu"
+                    aria-expanded={showAudioMenu}
+                    aria-label="Audio Language"
+                    title="Select Audio Language or Stream Audio Track"
+                    className={cn(
+                      'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
+                      showAudioMenu || effectiveAudioLang !== 'original' || detectedAudioTracks.length > 0
+                        ? 'border-[#f59e0b]/55 bg-[#09090b] text-[#f59e0b] hover:border-[#f59e0b]'
+                        : 'border-white/15 bg-[#09090b] text-[#E2C275] hover:border-[#f59e0b]/50'
+                    )}
+                  >
+                    <Languages className="h-3.5 w-3.5 text-[#f59e0b]" />
+                    <span className="hidden sm:inline">
+                      {activeEmbeddedTrack
+                        ? `Audio: ${activeEmbeddedTrack.label}`
+                        : `Audio: ${selectedAudioOption.shortCode}`}
+                    </span>
+                    <span className="sm:hidden">{selectedAudioOption.shortCode}</span>
+                    <ChevronDown
+                      className={cn(
+                        'h-3.5 w-3.5 transition-transform',
+                        showAudioMenu && 'rotate-180'
+                      )}
+                    />
+                  </button>
+
+                  {showAudioMenu && (
+                    <div
+                      role="menu"
+                      aria-label="Audio Language Options"
+                      className={cn(
+                        'absolute left-0 z-30 max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#f59e0b]/35 bg-[#09090b]/98 p-2 shadow-2xl backdrop-blur-xl',
+                        isFullscreen ? 'bottom-12' : 'bottom-12'
+                      )}
+                    >
+                      {detectedAudioTracks.length > 0 && (
+                        <div className="mb-2 border-b border-white/[0.08] pb-2">
+                          <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#f59e0b] uppercase">
+                            Embedded Stream Tracks
+                          </p>
+                          <div className="space-y-1">
+                            {detectedAudioTracks.map((track) => (
+                              <button
+                                key={`${track.kind}-${track.index}`}
+                                type="button"
+                                role="menuitem"
+                                onClick={() => handleSelectEmbeddedTrack(track)}
+                                className={cn(
+                                  'flex min-h-[38px] w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition',
+                                  track.active
+                                    ? 'border border-[#f59e0b]/45 bg-[#f59e0b]/15 font-semibold text-[#f59e0b]'
+                                    : 'text-[#FAFAFA] hover:bg-white/[0.06]'
+                                )}
+                              >
+                                <span className="truncate">
+                                  {track.label}
+                                  {track.lang ? ` (${track.lang.toUpperCase()})` : ''}
+                                </span>
+                                {track.active && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#A1A1AA] uppercase">
+                        Audio Language
+                      </p>
+                      <div className="space-y-1">
+                        {AUDIO_LANGUAGE_OPTIONS.map((opt) => {
+                          const isSelected = effectiveAudioLang === opt.code;
+                          return (
                             <button
-                              key={`${track.kind}-${track.index}`}
+                              key={opt.code}
                               type="button"
                               role="menuitem"
-                              onClick={() => handleSelectEmbeddedTrack(track)}
+                              onClick={() => handleSelectAudioLanguage(opt.code)}
                               className={cn(
                                 'flex min-h-[38px] w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition',
-                                track.active
+                                isSelected
                                   ? 'border border-[#f59e0b]/45 bg-[#f59e0b]/15 font-semibold text-[#f59e0b]'
-                                  : 'text-[#FAFAFA] hover:bg-white/[0.06]'
+                                  : 'text-[#A1A1AA] hover:bg-white/[0.06] hover:text-[#FAFAFA]'
                               )}
                             >
-                              <span className="truncate">
-                                {track.label}
-                                {track.lang ? ` (${track.lang.toUpperCase()})` : ''}
-                              </span>
-                              {track.active && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
+                              <span className="truncate">{opt.label}</span>
+                              {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
                             </button>
-                          ))}
-                        </div>
+                          );
+                        })}
                       </div>
-                    )}
-
-                    <p className="px-2.5 py-1 text-[10px] font-bold tracking-widest text-[#A1A1AA] uppercase">
-                      Audio Language
-                    </p>
-                    <div className="space-y-1">
-                      {AUDIO_LANGUAGE_OPTIONS.map((opt) => {
-                        const isSelected = effectiveAudioLang === opt.code;
-                        return (
-                          <button
-                            key={opt.code}
-                            type="button"
-                            role="menuitem"
-                            onClick={() => handleSelectAudioLanguage(opt.code)}
-                            className={cn(
-                              'flex min-h-[38px] w-full items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition',
-                              isSelected
-                                ? 'border border-[#f59e0b]/45 bg-[#f59e0b]/15 font-semibold text-[#f59e0b]'
-                                : 'text-[#A1A1AA] hover:bg-white/[0.06] hover:text-[#FAFAFA]'
-                            )}
-                          >
-                            <span className="truncate">{opt.label}</span>
-                            {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-[#f59e0b]" />}
-                          </button>
-                        );
-                      })}
                     </div>
+                  )}
+                </div>
+
+                {hasEmbedSources && (
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090b] px-3 text-[11px] font-medium text-[#E2C275]">
+                    {effectiveAudioLang !== 'original'
+                      ? `Audio: ${selectedAudioOption.shortCode}`
+                      : 'In-Player Audio'}
+                  </span>
+                )}
+
+                {animeAudioStatus && (
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/12 px-3 text-[11px] font-semibold text-[#E2C275]">
+                    {animeAudioStatus}
+                  </span>
+                )}
+
+                {(failoverToast || shieldNotice) && (
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090B] px-3 text-[11px] font-medium text-[#E2C275]">
+                    {failoverToast || shieldNotice}
+                  </span>
+                )}
+
+                {autoNextSeconds !== null && hasNextEpisode && onNextEpisode && (
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3 py-1">
+                    <span className="text-[11px] font-medium text-[#FAFAFA]">
+                      {nextEpisodeLabel ? `${nextEpisodeLabel} ` : 'Next '}
+                      in <strong className="text-[#D4AF37] tabular-nums">{autoNextSeconds}s</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAutoNextSeconds(null);
+                        onNextEpisode();
+                      }}
+                      className="min-h-[34px] rounded-full bg-[#D4AF37] px-3 text-[11px] font-semibold text-[#09090B]"
+                    >
+                      Play Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAutoNextSeconds(null);
+                        setAutoNextDismissed(true);
+                      }}
+                      className="min-h-[34px] rounded-full border border-white/10 px-2.5 text-[11px] text-[#A1A1AA]"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 )}
               </div>
 
-              {hasEmbedSources && (
-                <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090b] px-3 text-[11px] font-medium text-[#E2C275]">
-                  {effectiveAudioLang !== 'original'
-                    ? `Audio: ${selectedAudioOption.shortCode}`
-                    : 'In-Player Audio'}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {!hasEmbedSources ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setUseProxy((p) => !p)}
+                      title={useProxy ? 'CORS Stream Proxy Active' : 'Direct Stream Mode'}
+                      className={cn(
+                        'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition',
+                        useProxy
+                          ? 'border-[#D4AF37]/45 bg-[#D4AF37]/15 text-[#E2C275]'
+                          : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:text-[#FAFAFA]'
+                      )}
+                    >
+                      <Shield className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">
+                        {useProxy ? 'Proxied' : 'Direct'}
+                      </span>
+                    </button>
 
-              {animeAudioStatus && (
-                <span className="inline-flex min-h-[36px] items-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/12 px-3 text-[11px] font-semibold text-[#E2C275]">
-                  {animeAudioStatus}
-                </span>
-              )}
+                    {qualities.length > 0 && (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setShowQualityMenu((q) => !q)}
+                          aria-label="Video Quality"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-[11px] font-medium text-[#FAFAFA] hover:border-[#D4AF37]/40"
+                        >
+                          <SlidersHorizontal className="h-3.5 w-3.5 text-[#D4AF37]" />
+                          <span className="hidden sm:inline">
+                            {activeQuality === -1
+                              ? 'Auto'
+                              : qualities[activeQuality]?.label || 'Auto'}
+                          </span>
+                        </button>
 
-              {(failoverToast || shieldNotice) && (
-                <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090B] px-3 text-[11px] font-medium text-[#E2C275]">
-                  {failoverToast || shieldNotice}
-                </span>
-              )}
+                        {showQualityMenu && (
+                          <div className="absolute right-0 bottom-12 z-30 min-w-[120px] rounded-xl border border-white/10 bg-[#121215]/95 p-1.5 shadow-xl backdrop-blur-xl">
+                            <button
+                              type="button"
+                              onClick={() => handleQualitySelect(-1)}
+                              className={cn(
+                                'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
+                                activeQuality === -1
+                                  ? 'bg-[#D4AF37]/20 text-[#E2C275]'
+                                  : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
+                              )}
+                            >
+                              Auto
+                            </button>
+                            {qualities.map((q) => (
+                              <button
+                                key={q.index}
+                                type="button"
+                                onClick={() => handleQualitySelect(q.index)}
+                                className={cn(
+                                  'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
+                                  activeQuality === q.index
+                                    ? 'bg-[#D4AF37]/20 text-[#E2C275]'
+                                    : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
+                                )}
+                              >
+                                {q.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-              {autoNextSeconds !== null && hasNextEpisode && onNextEpisode && (
-                <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3 py-1">
-                  <span className="text-[11px] font-medium text-[#FAFAFA]">
-                    {nextEpisodeLabel ? `${nextEpisodeLabel} ` : 'Next '}
-                    in <strong className="text-[#D4AF37] tabular-nums">{autoNextSeconds}s</strong>
-                  </span>
+                    {airplayAvailable && (
+                      <button
+                        type="button"
+                        onClick={triggerAirplay}
+                        aria-label="AirPlay"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                      >
+                        <Airplay className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {pipAvailable && (
+                      <button
+                        type="button"
+                        onClick={togglePip}
+                        aria-label="Picture in Picture"
+                        title="Picture in Picture"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                      >
+                        <PictureInPicture2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </>
+                ) : (
                   <button
                     type="button"
                     onClick={() => {
-                      setAutoNextSeconds(null);
-                      onNextEpisode();
+                      setAdShield((prev) => {
+                        const next = !prev;
+                        if (next) {
+                          rearmRedirectShield();
+                        } else {
+                          cleanupInteractWindow();
+                          setInteractTimer(null);
+                        }
+                        return next;
+                      });
                     }}
-                    className="min-h-[34px] rounded-full bg-[#D4AF37] px-3 text-[11px] font-semibold text-[#09090B]"
+                    title="Toggle Redirect Shield"
+                    className={cn(
+                      'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition',
+                      adShield
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                        : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+                    )}
                   >
-                    Play Now
+                    {adShield ? (
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                    ) : (
+                      <ShieldAlert className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {adShield ? 'Redirect Shield' : 'Shield Off'}
+                    </span>
                   </button>
+                )}
+
+                {hasNextEpisode && onNextEpisode && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setAutoNextSeconds(null);
-                      setAutoNextDismissed(true);
-                    }}
-                    className="min-h-[34px] rounded-full border border-white/10 px-2.5 text-[11px] text-[#A1A1AA]"
+                    onClick={onNextEpisode}
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
                   >
-                    Cancel
+                    <SkipForward className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Next Episode</span>
+                    <span className="sm:hidden">Next</span>
                   </button>
-                </div>
-              )}
-            </div>
+                )}
 
-            <div className="flex items-center gap-1.5">
-              {hasNextEpisode && onNextEpisode && (
                 <button
                   type="button"
-                  onClick={onNextEpisode}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                  onClick={handleMinimize}
+                  aria-label="Minimize to floating mini-player"
+                  title="Minimize to mini-player"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275] active:scale-95"
                 >
-                  <SkipForward className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Next Episode</span>
-                  <span className="sm:hidden">Next</span>
+                  <ChevronDown className="h-4 w-4" />
+                  <span className="hidden sm:inline">Minimize</span>
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={handleMinimize}
-                aria-label="Minimize to floating mini-player"
-                title="Minimize to mini-player"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275] active:scale-95"
-              >
-                <ChevronDown className="h-4 w-4" />
-                <span className="hidden sm:inline">Minimize</span>
-              </button>
-
-              {(hasEmbedSources || isFullscreen) && (
                 <button
                   type="button"
                   onClick={toggleFullscreen}
@@ -1987,7 +1983,7 @@ export function VideoPlayer({
                     </>
                   )}
                 </button>
-              )}
+              </div>
             </div>
           </div>
         )}

@@ -790,10 +790,43 @@ export interface MatchedLiveFeed {
   nowTitle?: string;
 }
 
-const GENERIC_TEAM_STOP_WORDS = new Set(['away', 'home', 'tbd', 'team', 'the', 'club', 'fc']);
+const GENERIC_TEAM_STOP_WORDS = new Set([
+  'away',
+  'home',
+  'tbd',
+  'team',
+  'the',
+  'club',
+  'fc',
+  'no',
+  'la',
+  'us',
+  'in',
+  'at',
+  'on',
+]);
 
-const NON_SPORTS_NEWS_RX =
-  /\b(nightly news|world news|breaking news|abc news|nbc news|cbs news|fox news|fox business|fox weather|cnn|msnbc|cnbc|newsmax|weather channel|movies|cinema|kids|cartoon)\b/i;
+const SHORT_NETWORK_CODES = new Set([
+  'tsn',
+  'msg',
+  'yes',
+  'nesn',
+  'fox',
+  'cbs',
+  'nbc',
+  'abc',
+  'sny',
+  'masn',
+]);
+
+const FALSE_POSITIVE_SPORTS_PHRASE_RX =
+  /\b(?:tele\s+sondrio|telesondrio|the\s+ocho|theocho|news|court\s+showcase|feature\s+hour|highlights?|replays?|nightly\s+news|world\s+news|breaking\s+news|abc\s+news|nbc\s+news|cbs\s+news|fox\s+news|fox\s+business|fox\s+weather|fox\s+soul|live\s+now\s+from\s+fox|livenow|cnn|msnbc|cnbc|newsmax|weather\s+channel|yes\s+tv|cbs\s+reality|abc\s+australia|movies|cinema|kids|cartoon)\b/i;
+
+export function isFalsePositiveSportsTitle(rawText: string): boolean {
+  if (!rawText) return false;
+  const normalized = normalizeMatchText(rawText);
+  return FALSE_POSITIVE_SPORTS_PHRASE_RX.test(normalized);
+}
 
 export function normalizeMatchText(value: string): string {
   return value
@@ -965,16 +998,28 @@ const TEAM_RSN_MAP: Record<string, Array<{ phrase: string; label: string }>> = {
   BAL: [{ phrase: 'masn', label: 'MASN' }],
 };
 
+function matchesStrictShortCode(rawLower: string, code: string): boolean {
+  if (!rawLower || !code) return false;
+  if (code === 'yes' && rawLower.includes('yes!')) return false;
+  const rx = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(code)}(?:$|[^a-z0-9])`, 'i');
+  return rx.test(rawLower);
+}
+
 function matchesPhraseOrPlus(
   rawLower: string,
   normalizedHaystack: string,
   phrase: string
 ): boolean {
-  if (phrase.includes('+')) {
-    const rx = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(phrase)}(?:$|[^a-z0-9])`, 'i');
+  const lowerPhrase = phrase.toLowerCase();
+  if (lowerPhrase.includes('+')) {
+    const rx = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(lowerPhrase)}(?:$|[^a-z0-9])`, 'i');
     return rx.test(rawLower);
   }
-  return hasNormalizedPhrase(normalizedHaystack, normalizeMatchText(phrase));
+  const normalizedPhrase = normalizeMatchText(lowerPhrase);
+  if (SHORT_NETWORK_CODES.has(normalizedPhrase)) {
+    return matchesStrictShortCode(rawLower, normalizedPhrase);
+  }
+  return hasNormalizedPhrase(normalizedHaystack, normalizedPhrase);
 }
 
 function evaluateBroadcasterTier(
@@ -982,7 +1027,7 @@ function evaluateBroadcasterTier(
   rawLower: string,
   normalizedHaystack: string
 ): { score: number; reason: string } | null {
-  if (NON_SPORTS_NEWS_RX.test(rawLower)) {
+  if (isFalsePositiveSportsTitle(rawLower)) {
     return null;
   }
 
@@ -995,6 +1040,8 @@ function evaluateBroadcasterTier(
       const broadcastMatchesSpec = spec.matchTokens.some((tok) =>
         tok.includes('+')
           ? broadcastRaw.includes(tok)
+          : SHORT_NETWORK_CODES.has(tok)
+          ? matchesStrictShortCode(broadcastRaw, tok)
           : hasNormalizedPhrase(broadcastNorm, normalizeMatchText(tok))
       );
       if (!broadcastMatchesSpec) continue;
@@ -1010,13 +1057,16 @@ function evaluateBroadcasterTier(
       }
     }
 
-    // Fallback: direct normalized token from broadcast (length >= 3)
+    // Fallback: direct normalized token from broadcast (length >= 3) with strict word boundaries
     const rawTokens = broadcastRaw
       .split(/[\s/,+&()]+/)
       .map((t) => normalizeMatchText(t))
       .filter((t) => t.length >= 3 && !GENERIC_TEAM_STOP_WORDS.has(t));
     for (const tok of rawTokens) {
-      if (hasNormalizedPhrase(normalizedHaystack, tok)) {
+      const matchedToken = SHORT_NETWORK_CODES.has(tok)
+        ? matchesStrictShortCode(rawLower, tok)
+        : hasNormalizedPhrase(normalizedHaystack, tok);
+      if (matchedToken) {
         return {
           score: 620,
           reason: `Network: ${tok.toUpperCase()}`,
@@ -1050,7 +1100,7 @@ function evaluateLeagueSlotTier(
   rawLower: string,
   normalizedHaystack: string
 ): { score: number; reason: string } | null {
-  if (NON_SPORTS_NEWS_RX.test(rawLower)) {
+  if (isFalsePositiveSportsTitle(rawLower)) {
     return null;
   }
 
@@ -1179,17 +1229,30 @@ export interface EventMatchEvaluation {
 
 /**
  * 3-Tier Sports Event Matcher:
- * - Tier 1 (`direct_match`): Both competing teams or exact eventId
+ * - Tier 1 (`direct_match`): Both competing teams in stream title (`#EXTINF` / `tvg-name`) or exact eventId
  * - Tier 2 (`broadcaster_match`): Scheduled broadcast network(s) or team RSN
  * - Tier 3 (`league_slot`): League Pass / Sunday Ticket / Extra Innings / UFC PPV / numbered league slots
  */
 export function evaluateSportsEventMatch(
   match: SportsMatch,
   metadataText: string,
-  explicitEventId?: string
+  explicitEventId?: string,
+  tier1TitleText?: string
 ): EventMatchEvaluation {
+  if (
+    isFalsePositiveSportsTitle(metadataText) ||
+    (tier1TitleText && isFalsePositiveSportsTitle(tier1TitleText))
+  ) {
+    return {
+      matched: false,
+      score: 0,
+      reasons: [],
+    };
+  }
+
   const rawLower = metadataText.toLowerCase();
   const normalizedHaystack = normalizeMatchText(metadataText);
+  const tier1Haystack = normalizeMatchText(tier1TitleText ?? metadataText);
   const eventIdNorm = normalizeMatchText(match.id);
   const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb)-/i, '').trim();
   const rawEventIdNorm = normalizeMatchText(rawEventId);
@@ -1212,8 +1275,8 @@ export function evaluateSportsEventMatch(
   const awayTerms = rawAwayTerms.filter((t) => !sharedTerms.has(t));
   const homeTerms = rawHomeTerms.filter((t) => !sharedTerms.has(t));
 
-  const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
-  const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
+  const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(tier1Haystack, term));
+  const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(tier1Haystack, term));
   const bothTeamsMatched = awayHits.length > 0 && homeHits.length > 0;
 
   // Tier 1: Direct Match (Both Teams or Exact Event ID)
@@ -1293,18 +1356,29 @@ export function matchBroadcastChannelsForMatch(
 
     const sched = epgSchedules[ch.tvgId || ch.id];
     const nowTitle = sched?.now?.title || '';
-    const metadataText = [
+    const titleMetadataText = [ch.name, ch.tvgName, nowTitle]
+      .filter(Boolean)
+      .join(' ');
+    const fullFilterText = [
       ch.name,
       ch.tvgName,
       ch.tvgId,
       ch.group,
       nowTitle,
-      ch.url,
     ]
       .filter(Boolean)
       .join(' ');
 
-    const evaluation = evaluateSportsEventMatch(match, metadataText);
+    if (isFalsePositiveSportsTitle(fullFilterText)) {
+      continue;
+    }
+
+    const evaluation = evaluateSportsEventMatch(
+      match,
+      fullFilterText,
+      ch.tvgId,
+      titleMetadataText
+    );
     if (!evaluation.matched || !evaluation.tier) {
       continue;
     }
@@ -1376,20 +1450,26 @@ export function buildChannelStreamSources(channel: Channel): StreamSource[] {
 
 /**
  * Resolve ordered 3-tier event streams specifically for a SportsMatch.
- * Auto-selects the highest-tier match (`Tier 1` -> `Tier 2` -> `Tier 3`),
- * never falling back to built-in static 24/7 FAST/news channels.
+ * Auto-selects ONLY Tier 1 (`direct_match`) streams by default so Tier 2/3 feeds
+ * never auto-play on game pages unless explicitly chosen by the user.
  */
 export function resolveSportsMatchStreamSources(params: {
   match: SportsMatch;
   channels: Channel[];
   epgSchedules?: Record<string, EpgChannelSchedule>;
   selectedFeedChannelId?: string | null;
+  includeSecondaryTiers?: boolean;
 }): {
   streams: StreamSource[];
   matchedFeeds: MatchedLiveFeed[];
   matchSlug: string;
 } {
-  const { channels, epgSchedules = {}, selectedFeedChannelId } = params;
+  const {
+    channels,
+    epgSchedules = {},
+    selectedFeedChannelId,
+    includeSecondaryTiers = false,
+  } = params;
   const effectiveMatch = normalizeSportsMatch(params.match);
   const matchSlug = buildMatchSlug(effectiveMatch);
   const matchedFeeds = matchBroadcastChannelsForMatch(
@@ -1414,13 +1494,24 @@ export function resolveSportsMatchStreamSources(params: {
     streams.push(source);
   };
 
-  // Order picked feed first if explicitly chosen by user
-  const orderedFeeds = selectedFeedChannelId
+  // Restrict initial auto-play strictly to Tier 1 (`direct_match`) feeds unless the user
+  // explicitly selects a Tier 2 / Tier 3 feed from Matching Live Feeds.
+  const explicitSelection = selectedFeedChannelId
+    ? matchedFeeds.find((f) => f.channel.id === selectedFeedChannelId)
+    : undefined;
+  const tier1Feeds = matchedFeeds.filter((f) => f.tier === 'direct_match');
+
+  const orderedFeeds = explicitSelection
     ? [
-        ...matchedFeeds.filter((f) => f.channel.id === selectedFeedChannelId),
-        ...matchedFeeds.filter((f) => f.channel.id !== selectedFeedChannelId),
+        explicitSelection,
+        ...(explicitSelection.tier === 'direct_match'
+          ? tier1Feeds
+          : matchedFeeds
+        ).filter((f) => f.channel.id !== explicitSelection.channel.id),
       ]
-    : matchedFeeds;
+    : includeSecondaryTiers
+    ? matchedFeeds
+    : tier1Feeds;
 
   if (effectiveMatch.statusState === 'post' && effectiveMatch.highlightVideoUrl) {
     pushUnique({

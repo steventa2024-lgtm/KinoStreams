@@ -306,6 +306,19 @@ function WatchViewContent() {
     return matchBroadcastChannelsForMatch(sportsMatch, eventCandidateChannels, epgSchedules);
   }, [sportsMatch, eventCandidateChannels, epgSchedules]);
 
+  const directMatchedFeeds = useMemo(
+    () => matchedMatchFeeds.filter((f) => f.tier === 'direct_match'),
+    [matchedMatchFeeds]
+  );
+
+  const activeMatchedFeed = useMemo(() => {
+    if (manualImportedChannel) return undefined;
+    if (selectedMatchedFeedId) {
+      return matchedMatchFeeds.find((f) => f.channel.id === selectedMatchedFeedId);
+    }
+    return directMatchedFeeds[0];
+  }, [manualImportedChannel, selectedMatchedFeedId, matchedMatchFeeds, directMatchedFeeds]);
+
   const filteredImportedChannels = useMemo(() => {
     const q = importedSearch.trim().toLowerCase();
     if (!q) return eventCandidateChannels;
@@ -913,12 +926,12 @@ function WatchViewContent() {
               referrer={
                 activeChannel?.referrer ||
                 manualImportedChannel?.referrer ||
-                matchedMatchFeeds[0]?.channel.referrer
+                activeMatchedFeed?.channel.referrer
               }
               userAgent={
                 activeChannel?.userAgent ||
                 manualImportedChannel?.userAgent ||
-                matchedMatchFeeds[0]?.channel.userAgent
+                activeMatchedFeed?.channel.userAgent
               }
               allowCustomUrlInput={isChannelType}
               onAddCustomStreamUrl={isChannelType ? handleAddCustomStreamUrl : undefined}
@@ -948,7 +961,7 @@ function WatchViewContent() {
                       Matching Live Feeds
                     </h2>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
-                      3-tier matching across your imported M3U playlists and event feed provider (Match Feed → RSN / Network → League Pass Slot).
+                      Only Tier 1 team-matched streams auto-play on game load; optional RSN / Network and League Pass feeds below open when clicked.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1000,7 +1013,7 @@ function WatchViewContent() {
                     {matchedMatchFeeds.map((feed) => {
                       const activeFeedId = manualImportedChannel
                         ? null
-                        : selectedMatchedFeedId || matchedMatchFeeds[0]?.channel.id || null;
+                        : selectedMatchedFeedId || directMatchedFeeds[0]?.channel.id || null;
                       const active = activeFeedId === feed.channel.id;
                       return (
                         <button
@@ -1282,9 +1295,11 @@ function WatchViewContent() {
                       `Live broadcast from ${activeChannel.name}.`
                     : sportsMatch
                     ? `${sportsMatch.name}${sportsMatch.venue ? ` at ${sportsMatch.venue}` : ''}. ${
-                        matchedMatchFeeds.length > 0
-                          ? `Connected ${matchedMatchFeeds.length} team-matched event feed(s).`
-                          : 'No event stream connected yet. Add an event M3U playlist or paste a direct .m3u8 feed.'
+                        directMatchedFeeds.length > 0
+                          ? `Auto-playing from ${directMatchedFeeds.length} direct team-matched stream(s).`
+                          : matchedMatchFeeds.length > 0
+                          ? 'No direct team-matched stream found — select an optional network/league feed or Browse Imported Feeds above.'
+                          : 'No direct match stream connected yet. Browse Imported Feeds or connect an M3U event feed above.'
                       }`
                     : mediaDetails?.overview}
                 </p>
