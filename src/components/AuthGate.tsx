@@ -578,29 +578,26 @@ export function AuthGate({
         signOut,
       }}
     >
-      <div className="relative flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[#09090B] px-4 py-8 pt-safe pb-safe">
-        {/* Cinema Vignette & Champagne-Gold Ambient Glow */}
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.16),transparent_55%)]" />
-        <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(212,175,55,0.08),transparent_50%)]" />
+      <div className="kino-auth relative flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[#080809] px-4 py-8 pt-safe pb-safe">
 
         {/* Subtle Toast Banner */}
         {toastMsg && (
           <div
             role="status"
-            className="fixed top-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-[#D4AF37]/40 bg-[#121215]/95 px-4 py-3 text-center text-xs font-medium text-[#E2C275] shadow-2xl backdrop-blur-xl pt-safe"
+            className="fixed top-6 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-lg border border-[#e50935]/40 bg-[#151517]/95 px-4 py-3 text-center text-xs font-medium text-[#e4e4e7] shadow-2xl backdrop-blur-xl pt-safe"
           >
             {toastMsg}
           </div>
         )}
 
         {/* Centered Frosted-Glass Auth Card */}
-        <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/[0.08] bg-[#121215]/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.85)] backdrop-blur-2xl sm:p-8">
+        <div className="kino-auth-card relative z-10 w-full max-w-md rounded-xl border border-white/[0.08] bg-[#151517]/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.85)] backdrop-blur-2xl sm:p-8">
           {/* Editorial Brand Header */}
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#D4AF37]/45 bg-[#09090B] font-serif text-lg font-bold text-[#D4AF37] shadow-[0_0_24px_rgba(212,175,55,0.25)]">
+            <div className="kino-auth-mark mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[#e50935]/45 bg-[#080809] font-sans text-lg font-bold text-[#fb5272] shadow-[0_0_24px_rgba(229,9,53,0.25)]">
               K
             </div>
-            <h1 className="font-serif text-2xl font-semibold tracking-[0.22em] text-[#FAFAFA] sm:text-3xl">
+            <h1 className="kino-auth-wordmark">
               {siteConfig.wordmark}
             </h1>
             <p className="mt-1 text-[10px] font-semibold tracking-[0.28em] text-[#71717A] uppercase">
@@ -615,7 +612,7 @@ export function AuthGate({
           {stage === 'email-entry' && (
             <div className="mt-6 space-y-5">
               {/* Sign In / Create Account Mode Switcher */}
-              <div className="grid grid-cols-2 rounded-full border border-white/[0.08] bg-[#09090B] p-1">
+              <div className="grid grid-cols-2 rounded-full border border-white/[0.08] bg-[#080809] p-1">
                 {[
                   { id: 'signin' as const, label: 'Sign In' },
                   { id: 'signup' as const, label: 'Create Account' },
@@ -630,7 +627,7 @@ export function AuthGate({
                     className={cn(
                       'min-h-[44px] rounded-full text-xs font-semibold transition',
                       mode === tab.id
-                        ? 'bg-[#D4AF37] text-[#09090B]'
+                        ? 'bg-[#FAFAFA] text-[#080809]'
                         : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
                     )}
                   >
@@ -642,7 +639,7 @@ export function AuthGate({
               <button
                 type="button"
                 onClick={handleGoogleContinue}
-                className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-[#FAFAFA] px-5 text-sm font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-[0.99]"
+                className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-[#FAFAFA] px-5 text-sm font-semibold text-[#080809] transition hover:bg-[#e2e2e2] active:scale-[0.99]"
               >
                 <GoogleGlyph />
                 Continue with Google
@@ -676,7 +673,7 @@ export function AuthGate({
                       setErrorMsg(null);
                     }}
                     placeholder="you@domain.com"
-                    className="min-h-[48px] w-full rounded-2xl border border-white/[0.08] bg-[#09090B] pr-4 pl-11 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/60 focus:outline-none"
+                    className="min-h-[48px] w-full rounded-lg border border-white/[0.08] bg-[#080809] pr-4 pl-11 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/60 focus:outline-none"
                   />
                 </div>
 
@@ -700,7 +697,7 @@ export function AuthGate({
                         ? 'Your password'
                         : 'Create password (6+ characters)'
                     }
-                    className="min-h-[48px] w-full rounded-2xl border border-white/[0.08] bg-[#09090B] pr-12 pl-11 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/60 focus:outline-none"
+                    className="min-h-[48px] w-full rounded-lg border border-white/[0.08] bg-[#080809] pr-12 pl-11 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/60 focus:outline-none"
                   />
                   <button
                     type="button"
@@ -725,7 +722,7 @@ export function AuthGate({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#D4AF37] px-6 text-sm font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275] active:scale-[0.99] disabled:opacity-50"
+                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#FAFAFA] px-6 text-sm font-semibold text-[#080809] shadow-[0_0_24px_rgba(229,9,53,0.28)] transition hover:bg-[#e2e2e2] active:scale-[0.99] disabled:opacity-50"
                 >
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {mode === 'signin' ? 'Sign In' : 'Create Account'}
@@ -742,7 +739,7 @@ export function AuthGate({
                         setMode('signup');
                         setErrorMsg(null);
                       }}
-                      className="font-semibold text-[#E2C275] hover:underline"
+                      className="font-semibold text-[#e4e4e7] hover:underline"
                     >
                       Create Account
                     </button>
@@ -756,7 +753,7 @@ export function AuthGate({
                         setMode('signin');
                         setErrorMsg(null);
                       }}
-                      className="font-semibold text-[#E2C275] hover:underline"
+                      className="font-semibold text-[#e4e4e7] hover:underline"
                     >
                       Sign In
                     </button>
@@ -769,18 +766,18 @@ export function AuthGate({
           {/* Stage 2: Waiting for Email Link Verification */}
           {stage === 'waiting-verification' && (
             <div className="mt-7 space-y-5 text-center">
-              <div className="rounded-2xl border border-[#D4AF37]/25 bg-[#09090B]/75 p-5">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37]">
+              <div className="rounded-lg border border-[#e50935]/25 bg-[#080809]/75 p-5">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#e50935]/40 bg-[#e50935]/10 text-[#fb5272]">
                   <Mail className="h-5 w-5" />
                 </div>
 
                 {authProviderLabel === 'google' && (
-                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-semibold tracking-wider text-[#E2C275] uppercase">
+                  <p className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-semibold tracking-wider text-[#e4e4e7] uppercase">
                     Google Account Confirmed · One-Time Verification
                   </p>
                 )}
 
-                <h2 className="mt-3 font-serif text-xl font-medium text-[#FAFAFA]">
+                <h2 className="mt-3 font-sans text-xl font-medium text-[#FAFAFA]">
                   Check Your Inbox
                 </h2>
                 <p className="mt-1.5 text-xs leading-relaxed text-[#A1A1AA]">
@@ -789,22 +786,22 @@ export function AuthGate({
                   the link in that email to receive your 6-digit code and finish setting up your account.
                 </p>
 
-                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-3.5 py-1.5 text-[11px] font-medium text-[#E2C275]">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#D4AF37]" />
+                <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#e50935]/30 bg-[#e50935]/10 px-3.5 py-1.5 text-[11px] font-medium text-[#e4e4e7]">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-[#FAFAFA]" />
                   Waiting for email verification...
                 </div>
               </div>
 
               {devVerifyUrl && (
-                <div className="rounded-2xl border border-white/[0.08] bg-[#09090B]/80 p-3.5 text-xs text-[#A1A1AA]">
-                  <p className="font-semibold text-[#E2C275]">
+                <div className="rounded-lg border border-white/[0.08] bg-[#080809]/80 p-3.5 text-xs text-[#A1A1AA]">
+                  <p className="font-semibold text-[#e4e4e7]">
                     Local Dev Fallback (No Resend Key)
                   </p>
                   <a
                     href={devVerifyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-1.5 inline-block break-all text-[11px] text-[#D4AF37] underline"
+                    className="mt-1.5 inline-block break-all text-[11px] text-[#fb5272] underline"
                   >
                     Open Verification Link ↗
                   </a>
@@ -821,7 +818,7 @@ export function AuthGate({
                     type="button"
                     disabled={loading}
                     onClick={() => void handleCreateAccountStart()}
-                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] disabled:opacity-50"
+                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full border border-[#e50935]/40 bg-[#e50935]/10 px-5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809] disabled:opacity-50"
                   >
                     <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
                     Resend verification email
@@ -851,7 +848,7 @@ export function AuthGate({
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Email Verified
                 </div>
-                <h2 className="font-serif text-xl font-medium text-[#FAFAFA]">
+                <h2 className="font-sans text-xl font-medium text-[#FAFAFA]">
                   Enter 6-Digit Code
                 </h2>
                 <p className="mt-1 text-xs text-[#A1A1AA]">
@@ -878,17 +875,17 @@ export function AuthGate({
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                     onPaste={handleDigitPaste}
                     className={cn(
-                      'min-h-[52px] w-full rounded-xl border bg-[#09090B] text-center font-serif text-xl font-bold text-[#FAFAFA] transition focus:border-[#D4AF37] focus:outline-none',
-                      val ? 'border-[#D4AF37]/60' : 'border-white/[0.12]'
+                      'min-h-[52px] w-full rounded-xl border bg-[#080809] text-center font-sans text-xl font-bold text-[#FAFAFA] transition focus:border-[#e50935] focus:outline-none',
+                      val ? 'border-[#e50935]/60' : 'border-white/[0.12]'
                     )}
                   />
                 ))}
               </div>
 
               {devCode && (
-                <div className="rounded-xl border border-[#D4AF37]/30 bg-[#09090B]/75 px-3 py-2 text-xs text-[#A1A1AA]">
+                <div className="rounded-xl border border-[#e50935]/30 bg-[#080809]/75 px-3 py-2 text-xs text-[#A1A1AA]">
                   Dev Mode Code:{' '}
-                  <strong className="font-serif tracking-widest text-[#E2C275]">
+                  <strong className="font-sans tracking-widest text-[#e4e4e7]">
                     {devCode}
                   </strong>
                 </div>
@@ -902,7 +899,7 @@ export function AuthGate({
                 type="button"
                 disabled={loading || digits.join('').length !== 6}
                 onClick={() => void submitVerificationCode(digits.join(''))}
-                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#D4AF37] px-6 text-sm font-semibold text-[#09090B] transition hover:bg-[#E2C275] disabled:opacity-45"
+                className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#FAFAFA] px-6 text-sm font-semibold text-[#080809] transition hover:bg-[#e2e2e2] disabled:opacity-45"
               >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 Verify &amp; Enter KinoStream
@@ -926,7 +923,7 @@ export function AuthGate({
                   type="button"
                   disabled={resending}
                   onClick={() => void handleResendCode()}
-                  className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-[#E2C275] hover:underline disabled:opacity-50"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-[#e4e4e7] hover:underline disabled:opacity-50"
                 >
                   <RefreshCw className={cn('h-3 w-3', resending && 'animate-spin')} />
                   Resend Code
@@ -937,7 +934,7 @@ export function AuthGate({
 
           {/* Security Footer Note */}
           <div className="mt-7 flex items-center justify-center gap-1.5 border-t border-white/[0.06] pt-4 text-[11px] text-[#71717A]">
-            <ShieldCheck className="h-3.5 w-3.5 text-[#D4AF37]" />
+            <ShieldCheck className="h-3.5 w-3.5 text-[#fb5272]" />
             <span>30-day encrypted HTTP-only PWA session</span>
           </div>
         </div>

@@ -179,9 +179,9 @@ function MultiViewSlotPlayer({
       }}
       aria-label={`Screen ${slotIndex + 1}: ${channel?.name || 'Empty slot'}`}
       className={cn(
-        'group relative aspect-video w-full cursor-pointer overflow-hidden rounded-2xl border-2 bg-black transition-all duration-200',
+        'group relative aspect-video w-full cursor-pointer overflow-hidden rounded-lg border-2 bg-black transition-all duration-200',
         isAudioActive
-          ? 'border-[#D4AF37] shadow-[0_0_28px_rgba(212,175,55,0.25)]'
+          ? 'border-[#e50935] shadow-[0_0_28px_rgba(229,9,53,0.25)]'
           : 'border-white/[0.08] hover:border-white/25'
       )}
     >
@@ -198,12 +198,12 @@ function MultiViewSlotPlayer({
 
           {loading && !errorMsg && (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45">
-              <Loader2 className="h-7 w-7 animate-spin text-[#D4AF37]" />
+              <Loader2 className="h-7 w-7 animate-spin text-[#fb5272]" />
             </div>
           )}
 
           {errorMsg && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090B]/90 px-4 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#080809]/90 px-4 text-center">
               <p className="text-xs font-medium text-[#EF4444]">{errorMsg}</p>
               <button
                 type="button"
@@ -211,7 +211,7 @@ function MultiViewSlotPlayer({
                   e.stopPropagation();
                   onOpenSwap();
                 }}
-                className="mt-3 min-h-[44px] rounded-full bg-[#D4AF37] px-4 text-xs font-semibold text-[#09090B]"
+                className="mt-3 min-h-[44px] rounded-full bg-[#FAFAFA] px-4 text-xs font-semibold text-[#080809]"
               >
                 Swap Feed
               </button>
@@ -219,16 +219,16 @@ function MultiViewSlotPlayer({
           )}
         </>
       ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#121215]">
-          <Radio className="h-7 w-7 text-[#D4AF37]/50" />
+        <div className="flex h-full flex-col items-center justify-center gap-2 bg-[#151517]">
+          <Radio className="h-7 w-7 text-[#fb5272]/50" />
           <span className="text-xs text-[#A1A1AA]">Tap Swap to load a channel</span>
         </div>
       )}
 
       {/* Top Overlay Bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 bg-gradient-to-b from-[#09090B]/90 via-[#09090B]/45 to-transparent p-2.5 sm:p-3">
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 bg-gradient-to-b from-[#080809]/90 via-[#080809]/45 to-transparent p-2.5 sm:p-3">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="rounded-full bg-[#09090B]/85 px-2 py-0.5 text-[10px] font-bold text-[#A1A1AA]">
+          <span className="rounded-full bg-[#080809]/85 px-2 py-0.5 text-[10px] font-bold text-[#A1A1AA]">
             CAM {slotIndex + 1}
           </span>
           {channel && (
@@ -242,8 +242,8 @@ function MultiViewSlotPlayer({
           className={cn(
             'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider',
             isAudioActive
-              ? 'bg-[#D4AF37] text-[#09090B]'
-              : 'border border-white/15 bg-[#09090B]/75 text-[#A1A1AA]'
+              ? 'bg-[#FAFAFA] text-[#080809]'
+              : 'border border-white/15 bg-[#080809]/75 text-[#A1A1AA]'
           )}
         >
           {isAudioActive ? (
@@ -268,9 +268,9 @@ function MultiViewSlotPlayer({
             e.stopPropagation();
             onOpenSwap();
           }}
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B]/85 px-3.5 text-xs font-semibold text-[#FAFAFA] backdrop-blur-md transition hover:border-[#D4AF37]/50 hover:text-[#E2C275] active:scale-95"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809]/85 px-3.5 text-xs font-semibold text-[#FAFAFA] backdrop-blur-md transition hover:border-[#e50935]/50 hover:text-[#e4e4e7] active:scale-95"
         >
-          <ArrowLeftRight className="h-3.5 w-3.5 text-[#D4AF37]" />
+          <ArrowLeftRight className="h-3.5 w-3.5 text-[#fb5272]" />
           Swap
         </button>
       </div>
@@ -350,18 +350,18 @@ export default function MultiViewPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-12">
+    <main className="min-h-screen bg-[#080809] pt-20 pb-12">
       <TopBar showBack backHref="/sports" title="Multi-View" solid />
 
       <div className="mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-10">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#D4AF37]">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#fb5272]">
               <LayoutGrid className="h-3.5 w-3.5" />
               Game-Day Command
             </div>
-            <h1 className="mt-1 font-serif text-2xl font-medium text-[#FAFAFA] md:text-3xl">
+            <h1 className="mt-1 font-sans text-2xl font-medium text-[#FAFAFA] md:text-3xl">
               Sports Multi-View
             </h1>
             <p className="mt-0.5 text-xs text-[#A1A1AA]">
@@ -370,7 +370,7 @@ export default function MultiViewPage() {
           </div>
 
           {/* Desktop 2 / 4 Screen Toggle */}
-          <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-[#121215] p-1 md:flex">
+          <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-[#151517] p-1 md:flex">
             {[
               { quad: false, label: '2 Screens' },
               { quad: true, label: '4 Screens' },
@@ -382,7 +382,7 @@ export default function MultiViewPage() {
                 className={cn(
                   'min-h-[40px] rounded-full px-4 text-xs font-semibold transition',
                   desktopQuadMode === opt.quad
-                    ? 'bg-[#D4AF37] text-[#09090B]'
+                    ? 'bg-[#FAFAFA] text-[#080809]'
                     : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
                 )}
               >
@@ -426,13 +426,13 @@ export default function MultiViewPage() {
           aria-label="Select channel for screen"
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 backdrop-blur-sm md:items-center md:p-4"
         >
-          <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-white/[0.1] bg-[#121215] p-5 pb-safe shadow-2xl md:max-w-xl md:rounded-3xl">
+          <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl border border-white/[0.1] bg-[#151517] p-5 pb-safe shadow-2xl md:max-w-xl md:rounded-xl">
             <div className="flex items-center justify-between gap-3 border-b border-white/[0.08] pb-3.5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#D4AF37]">
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-[#fb5272]">
                   Screen {swapSlotIndex + 1}
                 </p>
-                <h2 className="font-serif text-xl font-medium text-[#FAFAFA]">
+                <h2 className="font-sans text-xl font-medium text-[#FAFAFA]">
                   Choose Broadcast Feed
                 </h2>
               </div>
@@ -440,7 +440,7 @@ export default function MultiViewPage() {
                 type="button"
                 onClick={() => setSwapSlotIndex(null)}
                 aria-label="Close channel picker"
-                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/[0.08] bg-[#09090B] text-[#A1A1AA] hover:text-[#FAFAFA]"
+                className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/[0.08] bg-[#080809] text-[#A1A1AA] hover:text-[#FAFAFA]"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -455,7 +455,7 @@ export default function MultiViewPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search channels..."
-                  className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#09090B] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                  className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#080809] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
                 />
               </div>
 
@@ -472,8 +472,8 @@ export default function MultiViewPage() {
                     className={cn(
                       'min-h-[44px] shrink-0 rounded-full border px-4 text-xs font-semibold transition',
                       drawerTab === t.id
-                        ? 'border-[#D4AF37] bg-[#D4AF37] text-[#09090B]'
-                        : 'border-white/[0.08] bg-[#09090B] text-[#A1A1AA]'
+                        ? 'border-[#e50935] bg-[#FAFAFA] text-[#080809]'
+                        : 'border-white/[0.08] bg-[#080809] text-[#A1A1AA]'
                     )}
                   >
                     {t.label}
@@ -484,18 +484,18 @@ export default function MultiViewPage() {
               {/* Paste Custom .m3u8 */}
               <form onSubmit={handleAssignCustomUrl} className="flex gap-2">
                 <div className="relative flex-1">
-                  <Link2 className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#D4AF37]" />
+                  <Link2 className="pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2 text-[#fb5272]" />
                   <input
                     type="url"
                     value={customUrl}
                     onChange={(e) => setCustomUrl(e.target.value)}
                     placeholder="Or paste direct .m3u8 URL..."
-                    className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#09090B] pr-3 pl-9 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                    className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#080809] pr-3 pl-9 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="min-h-[44px] shrink-0 rounded-xl bg-[#D4AF37] px-4 text-xs font-semibold text-[#09090B]"
+                  className="min-h-[44px] shrink-0 rounded-xl bg-[#FAFAFA] px-4 text-xs font-semibold text-[#080809]"
                 >
                   Load
                 </button>
@@ -509,10 +509,10 @@ export default function MultiViewPage() {
                   key={ch.id}
                   type="button"
                   onClick={() => assignChannelToSlot(ch)}
-                  className="flex min-h-[56px] w-full items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#09090B]/80 px-3.5 py-2.5 text-left transition hover:border-[#D4AF37]/45 active:scale-[0.99]"
+                  className="flex min-h-[56px] w-full items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-[#080809]/80 px-3.5 py-2.5 text-left transition hover:border-[#e50935]/45 active:scale-[0.99]"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#121215]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#151517]">
                       {ch.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -521,7 +521,7 @@ export default function MultiViewPage() {
                           className="h-full w-full object-contain p-1"
                         />
                       ) : (
-                        <span className="font-serif text-xs font-bold text-[#D4AF37]">
+                        <span className="font-sans text-xs font-bold text-[#fb5272]">
                           {getInitials(ch.name)}
                         </span>
                       )}
@@ -533,7 +533,7 @@ export default function MultiViewPage() {
                       <p className="truncate text-[11px] text-[#71717A]">{ch.group}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2.5 py-1 text-[10px] font-semibold text-[#E2C275]">
+                  <span className="shrink-0 rounded-full border border-[#e50935]/30 bg-[#e50935]/10 px-2.5 py-1 text-[10px] font-semibold text-[#e4e4e7]">
                     Select
                   </span>
                 </button>

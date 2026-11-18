@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
-import { Inter, Playfair_Display } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import { AuthGate, type InitialAuthSession } from '@/components/AuthGate';
 import { AuthenticatedShell } from '@/components/AuthenticatedShell';
 import { siteConfig } from '@/config/site';
@@ -13,12 +13,6 @@ import './globals.css';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-inter',
-  display: 'swap',
-});
-
-const playfair = Playfair_Display({
-  subsets: ['latin'],
-  variable: '--font-playfair',
   display: 'swap',
 });
 
@@ -45,7 +39,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#09090B',
+  themeColor: '#080809',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -80,9 +74,9 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} dark`}
+      className={`${inter.variable} dark`}
     >
-      <body className="min-h-screen bg-[#09090B] font-sans text-[#FAFAFA] antialiased selection:bg-[#D4AF37]/30 selection:text-[#FAFAFA]">
+      <body className="min-h-screen bg-[#080809] font-sans text-[#FAFAFA] antialiased selection:bg-[#e50935]/30 selection:text-[#FAFAFA]">
         <AuthGate initialSession={initialSession}>
           <AuthenticatedShell>{children}</AuthenticatedShell>
         </AuthGate>

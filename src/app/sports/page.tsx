@@ -116,18 +116,18 @@ export default function SportsPage() {
   }, [spotlight]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#09090B] pt-20 pb-10">
+    <main className="min-h-screen overflow-x-hidden bg-[#080809] pt-20 pb-10">
       <TopBar solid />
 
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/[0.08] pb-6">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#D4AF37]">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#fb5272]">
               <Trophy className="h-3.5 w-3.5" />
               Live Match Center
             </div>
-            <h1 className="mt-1.5 font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
+            <h1 className="mt-1.5 font-sans text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
               NBA, NFL, UFC &amp; MLB
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
@@ -138,7 +138,7 @@ export default function SportsPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <Link
               href="/sports/multiview"
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-4 py-2 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-4 py-2 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Multi-View
@@ -147,17 +147,17 @@ export default function SportsPage() {
               type="button"
               onClick={() => void loadScoreboard()}
               disabled={loading}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#121215] px-4 py-2 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/40"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#151517] px-4 py-2 text-xs font-medium text-[#FAFAFA] transition hover:border-[#e50935]/40"
             >
               <RefreshCw
-                className={cn('h-3.5 w-3.5 text-[#D4AF37]', loading && 'animate-spin')}
+                className={cn('h-3.5 w-3.5 text-[#fb5272]', loading && 'animate-spin')}
               />
               Refresh Scores
             </button>
             <button
               type="button"
               onClick={openSources}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 py-2 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#e50935]/40 bg-[#e50935]/10 px-4 py-2 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
             >
               <Plus className="h-3.5 w-3.5" />
               Add M3U Broadcasts
@@ -177,15 +177,15 @@ export default function SportsPage() {
                 className={cn(
                   'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-full border px-4 text-xs font-semibold transition',
                   active
-                    ? 'border-[#D4AF37] bg-[#D4AF37] text-[#09090B] shadow-[0_0_20px_rgba(212,175,55,0.28)]'
-                    : 'border-white/[0.08] bg-[#121215] text-[#A1A1AA] hover:border-[#D4AF37]/40 hover:text-[#FAFAFA]'
+                    ? 'border-[#e50935] bg-[#FAFAFA] text-[#080809] shadow-[0_0_20px_rgba(229,9,53,0.28)]'
+                    : 'border-white/[0.08] bg-[#151517] text-[#A1A1AA] hover:border-[#e50935]/40 hover:text-[#FAFAFA]'
                 )}
               >
                 {pill.id === 'live_games' && (
                   <span
                     className={cn(
                       'h-1.5 w-1.5 rounded-full',
-                      active ? 'bg-[#09090B]' : 'animate-pulse bg-[#EF4444]'
+                      active ? 'bg-[#080809]' : 'animate-pulse bg-[#EF4444]'
                     )}
                   />
                 )}
@@ -234,7 +234,7 @@ export default function SportsPage() {
                 {liveCount} Live Now
               </span>
             )}
-            <Link href="/live" className="text-[#E2C275] hover:underline">
+            <Link href="/live" className="text-[#e4e4e7] hover:underline">
               Full Network Guide →
             </Link>
           </div>
@@ -242,11 +242,11 @@ export default function SportsPage() {
 
         {/* Spotlight Match Banner */}
         {spotlight && (
-          <section className="mt-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.16),#121215_60%)] p-6 sm:p-8">
+          <section className="mt-6 overflow-hidden rounded-xl border border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(229,9,53,0.16),#151517_60%)] p-6 sm:p-8">
             <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-3 py-0.5 text-[11px] font-bold tracking-wider text-[#E2C275]">
+                  <span className="rounded-full border border-[#e50935]/40 bg-[#e50935]/15 px-3 py-0.5 text-[11px] font-bold tracking-wider text-[#e4e4e7]">
                     {spotlight.league} FEATURED MATCHUP
                   </span>
                   <span
@@ -255,8 +255,8 @@ export default function SportsPage() {
                       spotlight.statusState === 'in'
                         ? 'bg-[#EF4444] text-white'
                         : spotlight.statusState === 'pre'
-                        ? 'border border-[#D4AF37]/35 bg-[#D4AF37]/10 text-[#E2C275]'
-                        : 'border border-white/10 bg-[#09090B]/70 text-[#A1A1AA]'
+                        ? 'border border-[#e50935]/35 bg-[#e50935]/10 text-[#e4e4e7]'
+                        : 'border border-white/10 bg-[#080809]/70 text-[#A1A1AA]'
                     )}
                   >
                     {spotlight.statusState === 'in' && (
@@ -265,18 +265,18 @@ export default function SportsPage() {
                     {spotlightStatusLabel}
                   </span>
                   {spotlight.broadcast && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#09090B]/70 px-3 py-0.5 text-[11px] font-medium text-[#A1A1AA]">
-                      <Tv className="h-3 w-3 text-[#D4AF37]" />
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#080809]/70 px-3 py-0.5 text-[11px] font-medium text-[#A1A1AA]">
+                      <Tv className="h-3 w-3 text-[#fb5272]" />
                       {spotlight.broadcast}
                     </span>
                   )}
                 </div>
 
-                <h2 className="font-serif text-2xl font-medium text-[#FAFAFA] sm:text-3xl">
+                <h2 className="font-sans text-2xl font-medium text-[#FAFAFA] sm:text-3xl">
                   {spotlight.awayTeam.name} vs. {spotlight.homeTeam.name}
                 </h2>
                 {spotlight.highlightHeadline && (
-                  <p className="max-w-2xl text-xs leading-relaxed text-[#E2C275]/90 sm:text-sm">
+                  <p className="max-w-2xl text-xs leading-relaxed text-[#e4e4e7]/90 sm:text-sm">
                     {spotlight.highlightHeadline}
                   </p>
                 )}
@@ -286,9 +286,9 @@ export default function SportsPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-5">
-                <div className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#09090B]/80 px-4 py-2.5">
+                <div className="flex items-center gap-3 rounded-lg border border-white/[0.08] bg-[#080809]/80 px-4 py-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#121215]">
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#151517]">
                       {spotlight.awayTeam.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -301,7 +301,7 @@ export default function SportsPage() {
                           }
                         />
                       ) : (
-                        <span className="font-serif text-xs font-bold text-[#D4AF37]">
+                        <span className="font-sans text-xs font-bold text-[#fb5272]">
                           {getInitials(spotlight.awayTeam.abbreviation)}
                         </span>
                       )}
@@ -310,24 +310,24 @@ export default function SportsPage() {
                       <p className="text-[10px] font-semibold text-[#71717A]">
                         {spotlight.awayTeam.abbreviation}
                       </p>
-                      <p className="font-serif text-xl font-bold tabular-nums text-[#FAFAFA]">
+                      <p className="font-sans text-xl font-bold tabular-nums text-[#FAFAFA]">
                         {spotlight.awayTeam.score ?? '—'}
                       </p>
                     </div>
                   </div>
 
-                  <span className="font-serif text-xs font-semibold text-[#D4AF37]">VS</span>
+                  <span className="font-sans text-xs font-semibold text-[#fb5272]">VS</span>
 
                   <div className="flex items-center gap-2">
                     <div className="text-center">
                       <p className="text-[10px] font-semibold text-[#71717A]">
                         {spotlight.homeTeam.abbreviation}
                       </p>
-                      <p className="font-serif text-xl font-bold tabular-nums text-[#FAFAFA]">
+                      <p className="font-sans text-xl font-bold tabular-nums text-[#FAFAFA]">
                         {spotlight.homeTeam.score ?? '—'}
                       </p>
                     </div>
-                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#121215]">
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#151517]">
                       {spotlight.homeTeam.logo ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -340,7 +340,7 @@ export default function SportsPage() {
                           }
                         />
                       ) : (
-                        <span className="font-serif text-xs font-bold text-[#D4AF37]">
+                        <span className="font-sans text-xs font-bold text-[#fb5272]">
                           {getInitials(spotlight.homeTeam.abbreviation)}
                         </span>
                       )}
@@ -350,7 +350,7 @@ export default function SportsPage() {
 
                 <Link
                   href={`/watch/sports/${encodeURIComponent(spotlight.id)}`}
-                  className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-[#D4AF37] px-6 py-3 text-sm font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275]"
+                  className="inline-flex min-h-[44px] items-center gap-2.5 rounded-full bg-[#FAFAFA] px-6 py-3 text-sm font-semibold text-[#080809] shadow-[0_0_24px_rgba(229,9,53,0.28)] transition hover:bg-[#e2e2e2]"
                 >
                   <Play className="h-4 w-4 fill-current" />
                   Open Match Stream
@@ -363,7 +363,7 @@ export default function SportsPage() {
         {/* Match Cards Grid */}
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-serif text-xl font-medium text-[#FAFAFA]">
+            <h2 className="font-sans text-xl font-medium text-[#FAFAFA]">
               {selectedLeague === 'ALL' ? 'Today’s Slate' : `${selectedLeague} Scoreboard`}
             </h2>
             <span className="text-xs text-[#71717A]">
@@ -373,7 +373,7 @@ export default function SportsPage() {
 
           {loading && filteredMatches.length === 0 ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
             </div>
           ) : filteredMatches.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -382,7 +382,7 @@ export default function SportsPage() {
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#121215] p-8 text-center">
+            <div className="rounded-lg border border-white/[0.08] bg-[#151517] p-8 text-center">
               <p className="text-sm text-[#A1A1AA]">
                 No matches found for this filter. Tune directly to a live network below or switch filters.
               </p>
@@ -394,8 +394,8 @@ export default function SportsPage() {
         {filteredNetworks.length > 0 && (
           <section className="mt-10">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 font-serif text-xl font-medium text-[#FAFAFA]">
-                <Radio className="h-4 w-4 text-[#D4AF37]" />
+              <h2 className="flex items-center gap-2 font-sans text-xl font-medium text-[#FAFAFA]">
+                <Radio className="h-4 w-4 text-[#fb5272]" />
                 Sports &amp; Broadcast Networks
               </h2>
               <span className="text-xs text-[#71717A]">
@@ -408,10 +408,10 @@ export default function SportsPage() {
                 <Link
                   key={ch.id}
                   href={`/watch/${ch.category}/${encodeURIComponent(ch.id)}`}
-                  className="group flex min-h-[72px] flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 transition hover:border-[#D4AF37]/50 hover:bg-[#17171B]"
+                  className="group flex min-h-[72px] flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-3.5 transition hover:border-[#e50935]/50 hover:bg-[#17171B]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate font-serif text-sm font-semibold text-[#FAFAFA] group-hover:text-[#E2C275]">
+                    <span className="truncate font-sans text-sm font-semibold text-[#FAFAFA] group-hover:text-[#e4e4e7]">
                       {ch.name}
                     </span>
                     <span className="inline-flex h-2 w-2 shrink-0 animate-pulse rounded-full bg-[#EF4444]" />

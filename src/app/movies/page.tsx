@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Clapperboard, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { DropdownPill } from '@/components/DropdownPill';
 import { PosterCard } from '@/components/PosterCard';
 import { StreamingPlatformsRow } from '@/components/StreamingPlatformsRow';
@@ -112,51 +112,30 @@ function MoviesCatalogContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-12">
+    <main className="min-h-screen bg-[#080809] pt-20 pb-12">
       <TopBar solid />
 
       <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-10">
-        {/* Header & Type Switcher */}
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/[0.08] pb-6">
-          <div>
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#D4AF37]">
-              <Clapperboard className="h-3.5 w-3.5" />
-              On-Demand Catalog
-            </div>
-            <h1 className="mt-1.5 font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
-              Movies &amp; TV Series
-            </h1>
-            <p className="mt-1 text-sm text-[#A1A1AA]">
-              Trending premieres, acclaimed series, and open-archive cinema.
-            </p>
+        <div className="kino-page-heading">
+          <h1>Movies &amp; TV Series</h1>
+          <p>Find your next great watch.</p>
+        </div>
+        <div className="kino-catalog-controls">
+          <div className="kino-tab-list" aria-label="Catalog type">
+            {[
+              { id: 'movie' as const, label: 'Movies' },
+              { id: 'tv' as const, label: 'TV Series' },
+            ].map((type) => (
+              <button
+                key={type.id}
+                type="button"
+                aria-pressed={mediaType === type.id}
+                onClick={() => { setMediaType(type.id); setSelectedGenre(null); }}
+                className={cn('kino-tab', mediaType === type.id && 'is-active')}
+              >{type.label}</button>
+            ))}
           </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* Movie / Series Toggle */}
-            <div className="flex rounded-full border border-white/[0.08] bg-[#121215] p-1">
-              {[
-                { id: 'movie' as const, label: 'Movies' },
-                { id: 'tv' as const, label: 'TV Series' },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => {
-                    setMediaType(t.id);
-                    setSelectedGenre(null);
-                  }}
-                  className={cn(
-                    'rounded-full px-4 py-1.5 text-xs font-semibold transition',
-                    mediaType === t.id
-                      ? 'bg-[#D4AF37] text-[#09090B]'
-                      : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
-                  )}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
+          <div className="flex items-center gap-2">
             <DropdownPill
               label="Sort"
               value={sortMode}
@@ -168,21 +147,15 @@ function MoviesCatalogContent() {
               ]}
               onChange={(val) => setSortMode(val as SortMode)}
             />
-
             <DropdownPill
               label="Genre"
               value={selectedGenre === null ? 'all' : String(selectedGenre)}
               align="right"
               options={[
                 { value: 'all', label: 'All Genres' },
-                ...genres.map((g) => ({
-                  value: String(g.id),
-                  label: g.name,
-                })),
+                ...genres.map((genre) => ({ value: String(genre.id), label: genre.name })),
               ]}
-              onChange={(val) =>
-                setSelectedGenre(val === 'all' ? null : Number(val))
-              }
+              onChange={(val) => setSelectedGenre(val === 'all' ? null : Number(val))}
             />
           </div>
         </div>
@@ -193,17 +166,17 @@ function MoviesCatalogContent() {
         {/* Poster Grid */}
         {loading && items.length === 0 ? (
           <div className="mt-12 flex justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
           </div>
         ) : items.length === 0 ? (
-          <div className="mt-8 rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
+          <div className="mt-8 rounded-xl border border-white/[0.08] bg-[#151517] p-10 text-center">
             <p className="text-sm text-[#A1A1AA]">
               No titles found for the selected genre.
             </p>
           </div>
         ) : (
           <>
-            <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="mt-6 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
               {items.map((item, idx) => (
                 <PosterCard key={`${item.id}-${idx}`} item={item} fullWidth />
               ))}
@@ -215,7 +188,7 @@ function MoviesCatalogContent() {
                   type="button"
                   disabled={loading}
                   onClick={handleLoadMore}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#121215] px-7 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#e50935]/40 bg-[#151517] px-7 py-2.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809] disabled:opacity-50"
                 >
                   {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Load More Titles
@@ -233,8 +206,8 @@ export default function MoviesPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#09090B]">
-          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+        <div className="flex min-h-screen items-center justify-center bg-[#080809]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
         </div>
       }
     >

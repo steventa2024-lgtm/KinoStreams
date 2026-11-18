@@ -51,7 +51,7 @@ function LiveChannelCard({
     <Link
       href={`/watch/${channel.category}/${encodeURIComponent(channel.id)}`}
       onClickCapture={stopGlobalPlayback}
-      className="group flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#121215] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
+      className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3.5">
@@ -65,7 +65,7 @@ function LiveChannelCard({
                 loading="lazy"
               />
             ) : (
-              <span className="font-serif text-sm font-semibold text-[#f59e0b]">
+              <span className="font-sans text-sm font-semibold text-[#f59e0b]">
                 {getInitials(channel.name)}
               </span>
             )}
@@ -73,7 +73,7 @@ function LiveChannelCard({
 
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate font-serif text-lg font-medium text-[#FAFAFA] group-hover:text-[#E2C275]">
+              <h3 className="truncate font-sans text-lg font-medium text-[#FAFAFA] group-hover:text-[#e4e4e7]">
                 {channel.name}
               </h3>
               <span className="inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
@@ -96,7 +96,7 @@ function LiveChannelCard({
           </div>
         </div>
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]">
           <Play className="ml-0.5 h-4 w-4 fill-current" />
         </div>
       </div>
@@ -104,7 +104,7 @@ function LiveChannelCard({
       {/* Now & Next EPG Timeline */}
       <div className="mt-4 rounded-xl border border-white/[0.06] bg-[#09090b]/75 p-3.5">
         <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="truncate font-semibold text-[#E2C275]">
+          <span className="truncate font-semibold text-[#e4e4e7]">
             ON NOW: {nowProg?.title || `${channel.name} Live`}
           </span>
           {nowProg && (
@@ -122,7 +122,7 @@ function LiveChannelCard({
 
         <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#D4AF37] to-[#f59e0b]"
+            className="h-full rounded-full bg-gradient-to-r from-[#e50935] to-[#f59e0b]"
             style={{ width: `${Math.max(progress, 15)}%` }}
           />
         </div>
@@ -130,7 +130,7 @@ function LiveChannelCard({
         {nextProg && (
           <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2 text-[11px] text-[#71717A]">
             <span className="flex items-center gap-1.5 truncate">
-              <CalendarClock className="h-3 w-3 text-[#D4AF37]" />
+              <CalendarClock className="h-3 w-3 text-[#fb5272]" />
               Next: <span className="text-[#A1A1AA]">{nextProg.title}</span>
             </span>
             <span className="shrink-0 tabular-nums">
@@ -242,7 +242,7 @@ export default function LiveTvPage() {
               <Radio className="h-3.5 w-3.5" />
               Curated Live Guide
             </div>
-            <h1 className="mt-1.5 font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
+            <h1 className="mt-1.5 font-sans text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
               Live TV &amp; Cable Networks
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
@@ -258,7 +258,7 @@ export default function LiveTvPage() {
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
                 placeholder="Search all channels (ESPN, Disney, CNN...)"
-                className="min-h-[44px] w-56 rounded-full border border-white/[0.08] bg-[#121215] pr-9 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none sm:w-72"
+                className="min-h-[44px] w-56 rounded-full border border-white/[0.08] bg-[#151517] pr-9 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none sm:w-72"
               />
               {isSearching && (
                 <button
@@ -275,7 +275,7 @@ export default function LiveTvPage() {
             <Link
               href="/sports/multiview"
               onClickCapture={stopGlobalPlayback}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-4 text-xs font-semibold text-[#09090b] transition hover:bg-[#f59e0b]"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-4 text-xs font-semibold text-[#09090b] transition hover:bg-[#f59e0b]"
             >
               <LayoutGrid className="h-3.5 w-3.5" />
               Multi-View
@@ -312,7 +312,7 @@ export default function LiveTvPage() {
                   'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-xs font-semibold transition',
                   active
                     ? 'border-[#f59e0b] bg-[#f59e0b] text-[#09090b] shadow-[0_0_20px_rgba(245,158,11,0.28)]'
-                    : 'border-white/[0.08] bg-[#121215] text-[#A1A1AA] hover:border-[#f59e0b]/45 hover:text-[#FAFAFA]'
+                    : 'border-white/[0.08] bg-[#151517] text-[#A1A1AA] hover:border-[#f59e0b]/45 hover:text-[#FAFAFA]'
                 )}
               >
                 {pill.id === 'recommended' && (
@@ -347,7 +347,7 @@ export default function LiveTvPage() {
             {[1, 2, 3, 4].map((n) => (
               <div
                 key={n}
-                className="h-36 animate-pulse rounded-2xl border border-white/[0.06] bg-[#121215]"
+                className="h-36 animate-pulse rounded-lg border border-white/[0.06] bg-[#151517]"
               />
             ))}
           </div>
@@ -355,7 +355,7 @@ export default function LiveTvPage() {
           /* Live Search Across ALL Channels (Curated + Full Imported M3U) */
           <section className="mt-6">
             <div className="mb-4 flex items-center justify-between gap-2">
-              <h2 className="font-serif text-xl font-medium text-[#FAFAFA]">
+              <h2 className="font-sans text-xl font-medium text-[#FAFAFA]">
                 Search Results for &ldquo;{filterText.trim()}&rdquo;
               </h2>
               <span className="text-xs text-[#A1A1AA]">
@@ -365,7 +365,7 @@ export default function LiveTvPage() {
             </div>
 
             {searchResults.length === 0 ? (
-              <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
+              <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-10 text-center">
                 <p className="text-sm text-[#A1A1AA]">
                   No channels matched &ldquo;{filterText.trim()}&rdquo;.
                 </p>
@@ -386,9 +386,9 @@ export default function LiveTvPage() {
           /* Curated Recommended Cable, Kids & Major Sports Guide */
           <div className="mt-6 space-y-10">
             {!hasImportedSources && (
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#f59e0b]/30 bg-[#121215] px-5 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#f59e0b]/30 bg-[#151517] px-5 py-4">
                 <div className="min-w-0">
-                  <p className="font-serif text-base font-medium text-[#FAFAFA]">
+                  <p className="font-sans text-base font-medium text-[#FAFAFA]">
                     Curated Flagship Lineup Active
                   </p>
                   <p className="mt-0.5 text-xs text-[#A1A1AA]">
@@ -398,7 +398,7 @@ export default function LiveTvPage() {
                 <button
                   type="button"
                   onClick={openSources}
-                  className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full bg-[#f59e0b] px-4 text-xs font-semibold text-[#09090b] transition hover:bg-[#E2C275]"
+                  className="inline-flex min-h-[40px] shrink-0 items-center gap-1.5 rounded-full bg-[#f59e0b] px-4 text-xs font-semibold text-[#09090b] transition hover:bg-[#e2e2e2]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Connect M3U
@@ -414,7 +414,7 @@ export default function LiveTvPage() {
                 <section key={section.id}>
                   <div className="mb-4 flex flex-wrap items-end justify-between gap-2 border-b border-white/[0.08] pb-3">
                     <div>
-                      <h2 className="flex items-center gap-2 font-serif text-xl font-medium text-[#FAFAFA] sm:text-2xl">
+                      <h2 className="flex items-center gap-2 font-sans text-xl font-medium text-[#FAFAFA] sm:text-2xl">
                         <span className="h-2 w-2 rounded-full bg-[#f59e0b]" />
                         {section.title}
                       </h2>
@@ -445,7 +445,7 @@ export default function LiveTvPage() {
             })}
 
             {/* Compact Footer CTA to Full Imported M3U List */}
-            <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/[0.08] bg-[#121215] px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-white/[0.08] bg-[#151517] px-5 py-4">
               <p className="text-xs text-[#A1A1AA]">
                 Looking for regional, international, or specialty channels beyond the curated guide?
               </p>
@@ -508,8 +508,8 @@ export default function LiveTvPage() {
             </div>
 
             {categoryChannels.length === 0 ? (
-              <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
-                <p className="font-serif text-lg text-[#FAFAFA]">
+              <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-10 text-center">
+                <p className="font-sans text-lg text-[#FAFAFA]">
                   No channels connected for this category yet
                 </p>
                 <p className="mt-1 text-xs text-[#A1A1AA]">
@@ -518,7 +518,7 @@ export default function LiveTvPage() {
                 <button
                   type="button"
                   onClick={openSources}
-                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f59e0b] px-5 text-xs font-semibold text-[#09090b] transition hover:bg-[#E2C275]"
+                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f59e0b] px-5 text-xs font-semibold text-[#09090b] transition hover:bg-[#e2e2e2]"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Connect M3U Playlist

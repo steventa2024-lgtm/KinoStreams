@@ -133,13 +133,13 @@ export function SourceManagerModal() {
       aria-label="Stream Source Manager"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
     >
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-white/[0.08] bg-[#121215] p-6 shadow-2xl">
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/[0.08] bg-[#151517] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#D4AF37]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#fb5272]">
               Broadcast Sources
             </p>
-            <h2 className="mt-1 font-serif text-2xl font-medium text-[#FAFAFA]">
+            <h2 className="mt-1 font-sans text-2xl font-medium text-[#FAFAFA]">
               Playlist &amp; Stream Manager
             </h2>
           </div>
@@ -150,7 +150,7 @@ export function SourceManagerModal() {
                 closeSources();
                 await signOut();
               }}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/[0.1] bg-[#09090B] px-3.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#EF4444]/45 hover:text-[#EF4444]"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/[0.1] bg-[#080809] px-3.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#EF4444]/45 hover:text-[#EF4444]"
             >
               <LogOut className="h-3.5 w-3.5" />
               Sign Out
@@ -159,7 +159,7 @@ export function SourceManagerModal() {
               type="button"
               onClick={closeSources}
               aria-label="Close modal"
-              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/[0.08] bg-[#09090B] text-[#A1A1AA] hover:text-[#FAFAFA]"
+              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/[0.08] bg-[#080809] text-[#A1A1AA] hover:text-[#FAFAFA]"
             >
               <X className="h-4 w-4" />
             </button>
@@ -167,14 +167,14 @@ export function SourceManagerModal() {
         </div>
 
         {user?.email && (
-          <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/[0.06] bg-[#09090B]/50 px-4 py-2.5 text-xs">
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#080809]/50 px-4 py-2.5 text-xs">
             <span className="text-[#71717A]">Signed in account</span>
-            <span className="truncate font-medium text-[#E2C275]">{user.email}</span>
+            <span className="truncate font-medium text-[#e4e4e7]">{user.email}</span>
           </div>
         )}
 
         {/* Stream Proxy Preference */}
-        <div className="mt-5 rounded-2xl border border-white/[0.08] bg-[#09090B]/60 p-4">
+        <div className="mt-5 rounded-lg border border-white/[0.08] bg-[#080809]/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium text-[#FAFAFA]">
@@ -184,7 +184,7 @@ export function SourceManagerModal() {
                 Auto routes through `/api/stream` whenever direct browser playback fails.
               </p>
             </div>
-            <div className="flex rounded-full border border-white/[0.08] bg-[#121215] p-1">
+            <div className="flex rounded-full border border-white/[0.08] bg-[#151517] p-1">
               {(['auto', 'always', 'direct'] as ProxyMode[]).map((mode) => (
                 <button
                   key={mode}
@@ -193,7 +193,7 @@ export function SourceManagerModal() {
                   className={cn(
                     'rounded-full px-3 py-1 text-xs font-medium capitalize transition',
                     proxyMode === mode
-                      ? 'bg-[#D4AF37] text-[#09090B]'
+                      ? 'bg-[#FAFAFA] text-[#080809]'
                       : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
                   )}
                 >
@@ -223,7 +223,7 @@ export function SourceManagerModal() {
                 className={cn(
                   'inline-flex min-h-[44px] items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition',
                   tab === item.id
-                    ? 'border-[#D4AF37]/50 bg-[#D4AF37]/15 text-[#E2C275]'
+                    ? 'border-[#e50935]/50 bg-[#e50935]/15 text-[#e4e4e7]'
                     : 'border-white/[0.08] bg-white/[0.02] text-[#A1A1AA] hover:text-[#FAFAFA]'
                 )}
               >
@@ -241,7 +241,7 @@ export function SourceManagerModal() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Source Name (e.g. World FTA Sports)"
-            className="w-full rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+            className="w-full rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
           />
 
           {tab === 'm3u' && (
@@ -251,14 +251,14 @@ export function SourceManagerModal() {
                 value={m3uUrl}
                 onChange={(e) => setM3uUrl(e.target.value)}
                 placeholder="https://example.com/playlist.m3u8"
-                className="w-full rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
               <input
                 type="url"
                 value={epgUrl}
                 onChange={(e) => setEpgUrl(e.target.value)}
                 placeholder="Optional XMLTV EPG URL (.xml or .xml.gz)"
-                className="w-full rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="w-full rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
             </>
           )}
@@ -270,21 +270,21 @@ export function SourceManagerModal() {
                 value={serverUrl}
                 onChange={(e) => setServerUrl(e.target.value)}
                 placeholder="http://host:port"
-                className="sm:col-span-3 rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="sm:col-span-3 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Username"
-                className="rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="sm:col-span-2 rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="sm:col-span-2 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
             </div>
           )}
@@ -296,12 +296,12 @@ export function SourceManagerModal() {
                 value={directUrl}
                 onChange={(e) => setDirectUrl(e.target.value)}
                 placeholder="https://stream.example.com/live/master.m3u8"
-                className="sm:col-span-2 rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="sm:col-span-2 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value as 'live' | 'sports')}
-                className="rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] focus:border-[#e50935]/50 focus:outline-none"
               >
                 <option value="live">Live TV</option>
                 <option value="sports">Sports</option>
@@ -315,7 +315,7 @@ export function SourceManagerModal() {
               value={referrer}
               onChange={(e) => setReferrer(e.target.value)}
               placeholder="Optional HTTP Referer header (for protected streams)"
-              className="w-full rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
             />
           )}
 
@@ -325,7 +325,7 @@ export function SourceManagerModal() {
 
           <button
             type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-sm font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#FAFAFA] px-5 py-2.5 text-sm font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
           >
             <Plus className="h-4 w-4" />
             Add Source
@@ -349,7 +349,7 @@ export function SourceManagerModal() {
             Saved Sources ({sources.length})
           </h3>
           {sources.length === 0 ? (
-            <p className="mt-2 rounded-xl border border-white/[0.06] bg-[#09090B]/50 p-4 text-xs text-[#71717A]">
+            <p className="mt-2 rounded-xl border border-white/[0.06] bg-[#080809]/50 p-4 text-xs text-[#71717A]">
               No custom playlists added yet. KinoStream includes built-in legal FTA channels out of the box.
             </p>
           ) : (
@@ -357,14 +357,14 @@ export function SourceManagerModal() {
               {sources.map((src) => (
                 <li
                   key={src.id}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2.5"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5"
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium text-[#FAFAFA]">
                         {src.name}
                       </span>
-                      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] uppercase text-[#D4AF37]">
+                      <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] uppercase text-[#fb5272]">
                         {src.type}
                       </span>
                     </div>
@@ -378,7 +378,7 @@ export function SourceManagerModal() {
                       className={cn(
                         'rounded-full border px-2.5 py-1 text-[11px] font-medium transition',
                         src.enabled
-                          ? 'border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#E2C275]'
+                          ? 'border-[#e50935]/40 bg-[#e50935]/15 text-[#e4e4e7]'
                           : 'border-white/10 text-[#71717A]'
                       )}
                     >

@@ -60,19 +60,19 @@ export function DropdownPill({
         className={cn(
           'inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition',
           open
-            ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#FAFAFA]'
-            : 'border-white/[0.1] bg-[#121215] text-[#FAFAFA] hover:border-[#D4AF37]/45'
+            ? 'border-[#e50935] bg-[#e50935]/15 text-[#FAFAFA]'
+            : 'border-white/[0.1] bg-[#151517] text-[#FAFAFA] hover:border-[#e50935]/45'
         )}
       >
         {label && (
           <span className="text-[#71717A]">{label}:</span>
         )}
-        <span className="max-w-[160px] truncate font-semibold text-[#E2C275]">
+        <span className="max-w-[160px] truncate font-semibold text-[#e4e4e7]">
           {selected?.label || 'Select'}
         </span>
         <ChevronDown
           className={cn(
-            'h-3.5 w-3.5 shrink-0 text-[#D4AF37] transition-transform duration-200',
+            'h-3.5 w-3.5 shrink-0 text-[#fb5272] transition-transform duration-200',
             open && 'rotate-180'
           )}
         />
@@ -82,7 +82,7 @@ export function DropdownPill({
         <div
           role="listbox"
           className={cn(
-            'absolute z-40 mt-2 max-h-72 min-w-[210px] overflow-y-auto rounded-2xl border border-white/[0.1] bg-[#121215]/95 p-1.5 shadow-2xl backdrop-blur-xl',
+            'absolute z-40 mt-2 max-h-72 min-w-[210px] overflow-y-auto rounded-lg border border-white/[0.1] bg-[#151517]/95 p-1.5 shadow-2xl backdrop-blur-xl',
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
@@ -101,7 +101,7 @@ export function DropdownPill({
                 className={cn(
                   'flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs transition',
                   isSelected
-                    ? 'bg-[#D4AF37]/15 font-semibold text-[#E2C275]'
+                    ? 'bg-[#e50935]/15 font-semibold text-[#e4e4e7]'
                     : 'text-[#A1A1AA] hover:bg-white/[0.05] hover:text-[#FAFAFA]'
                 )}
               >
@@ -110,7 +110,7 @@ export function DropdownPill({
                   {opt.badge && (
                     <span className="text-[10px] text-[#71717A]">{opt.badge}</span>
                   )}
-                  {isSelected && <Check className="h-3.5 w-3.5 text-[#D4AF37]" />}
+                  {isSelected && <Check className="h-3.5 w-3.5 text-[#fb5272]" />}
                 </span>
               </button>
             );

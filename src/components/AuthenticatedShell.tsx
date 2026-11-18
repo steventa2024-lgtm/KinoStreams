@@ -6,6 +6,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { FloatingMiniPlayer } from '@/components/FloatingMiniPlayer';
 import { Footer } from '@/components/Footer';
 import { KinoProvider } from '@/components/KinoProvider';
+import { MediaDetailsProvider } from '@/components/MediaDetails';
 import { SearchOverlay } from '@/components/SearchOverlay';
 import { SourceManagerModal } from '@/components/SourceManagerModal';
 import { setActiveUserScope } from '@/lib/storage';
@@ -28,14 +29,16 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
 
   return (
     <KinoProvider key={user?.email || 'anon'}>
-      <div className="flex min-h-screen flex-col pb-20 md:pb-4 md:pl-20">
-        <div className="flex-1">{children}</div>
+      <MediaDetailsProvider>
+      <div className="kino-shell flex min-h-screen flex-col pb-20 md:pb-4">
+        <div className="kino-shell__content flex-1">{children}</div>
         <Footer />
       </div>
       <BottomNav />
       <FloatingMiniPlayer />
       <SearchOverlay />
       <SourceManagerModal />
+      </MediaDetailsProvider>
     </KinoProvider>
   );
 }

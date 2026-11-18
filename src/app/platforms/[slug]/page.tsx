@@ -146,10 +146,10 @@ export default function StreamingPlatformPage() {
 
   if (!platform) {
     return (
-      <div className="min-h-screen bg-[#09090B] text-zinc-100">
+      <div className="min-h-screen bg-[#080809] text-zinc-100">
         <TopBar showBack backHref="/movies" solid />
         <main className="mx-auto max-w-4xl px-4 sm:px-6 pt-28 pb-16">
-          <div className="rounded-2xl border border-white/10 bg-[#121215] p-8 text-center">
+          <div className="rounded-lg border border-white/10 bg-[#151517] p-8 text-center">
             <h1 className="text-2xl font-semibold text-zinc-100">
               Streaming Platform Not Found
             </h1>
@@ -181,12 +181,12 @@ export default function StreamingPlatformPage() {
     curatedRows !== null;
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-zinc-100 pb-20">
+    <div className="min-h-screen bg-[#080809] text-zinc-100 pb-20">
       <TopBar showBack backHref="/movies" solid />
 
       <main className="mx-auto max-w-7xl px-4 sm:px-6 pt-24 space-y-8">
         {/* Platform Editorial Banner */}
-        <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#121215] p-6 sm:p-8">
+        <section className="relative overflow-hidden rounded-lg border border-white/10 bg-[#151517] p-6 sm:p-8">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 opacity-25"
@@ -199,7 +199,7 @@ export default function StreamingPlatformPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-amber-500/40 bg-black/60 text-base font-bold tracking-wider text-amber-300 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)]"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-amber-500/40 bg-black/60 text-base font-bold tracking-wider text-amber-300 shadow-[0_0_24px_-8px_rgba(245,158,11,0.45)]"
                   style={{ boxShadow: `inset 0 0 0 1px ${platform.accentColor}40` }}
                 >
                   {platform.monogram}
@@ -258,7 +258,7 @@ export default function StreamingPlatformPage() {
         </section>
 
         {/* Controls Bar: Type + Sort + Genre Chips */}
-        <section className="rounded-2xl border border-white/10 bg-[#121215] p-4 sm:p-5 space-y-4">
+        <section className="rounded-lg border border-white/10 bg-[#151517] p-4 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* Media Type Pills */}
             <div className="inline-flex rounded-full border border-white/10 bg-black/45 p-1">
@@ -393,7 +393,7 @@ export default function StreamingPlatformPage() {
               </div>
 
               {items.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-[#121215] p-10 text-center text-sm text-zinc-400">
+                <div className="rounded-lg border border-white/10 bg-[#151517] p-10 text-center text-sm text-zinc-400">
                   No titles matched the current filter combination on {platform.name}.
                 </div>
               ) : (

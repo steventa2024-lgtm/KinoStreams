@@ -2,13 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Clock, Play, Sparkles } from 'lucide-react';
+import { Clock, Info, Play } from 'lucide-react';
 import { ChannelCard } from '@/components/ChannelCard';
 import { HeroBanner } from '@/components/HeroBanner';
 import { useKino } from '@/components/KinoProvider';
 import { MatchCard } from '@/components/MatchCard';
 import { MatchupArtwork } from '@/components/MatchupArtwork';
 import { MediaRow } from '@/components/MediaRow';
+import { useMediaDetails } from '@/components/MediaDetails';
 import { PosterCard } from '@/components/PosterCard';
 import { StreamingPlatformsRow } from '@/components/StreamingPlatformsRow';
 import { TopBar } from '@/components/TopBar';
@@ -22,6 +23,7 @@ import {
 import type { MediaItem, SportsMatch } from '@/types/media';
 
 export default function HomePage() {
+  const { openDetails } = useMediaDetails();
   const {
     channels,
     epgSchedules,
@@ -98,185 +100,88 @@ export default function HomePage() {
 
     const featuredCinema = trendingMovies.slice(0, 2);
     const featuredAnime = trendingAnime.slice(0, 1);
-    return [...featuredMatches, ...featuredCinema, ...featuredAnime];
-  }, [sportsMatches, trendingMovies, trendingAnime]);
+    return [...featuredCinema, ...trendingSeries.slice(0, 1), ...featuredAnime, ...featuredMatches];
+  }, [sportsMatches, trendingMovies, trendingSeries, trendingAnime]);
 
   return (
-    <main className="min-h-screen bg-[#09090B]">
+    <main className="kino-home min-h-screen">
       <TopBar />
-
-      {/* Full-Bleed Editorial Hero Banner */}
       <HeroBanner items={heroItems} />
 
-      <div className="relative z-10 -mt-2 space-y-4 pb-8">
-        {/* Continue Watching (shown when local history exists) */}
+      <div className="kino-home__rows">
+        <MediaRow title={`Top ${Math.min(10, trendingMovies.length)} this week`} viewAllHref="/movies?type=movie" viewAllLabel="Explore">
+          {trendingMovies.slice(0, 10).map((movie, index) => (
+            <PosterCard key={movie.id} item={movie} rank={index + 1} compact />
+          ))}
+        </MediaRow>
+
         {watchHistory.length > 0 && (
-          <MediaRow
-            title="Continue Watching"
-            subtitle="Pick up right where you left off"
-            viewAllHref="/library"
-            viewAllLabel="Manage"
-          >
+          <MediaRow title="Continue Watching" viewAllHref="/library" viewAllLabel="View all">
             {watchHistory.slice(0, 10).map((item) => {
-              const query =
-                item.type === 'series' && item.season && item.episode
-                  ? `?season=${item.season}&episode=${item.episode}`
-                  : '';
+              const query = item.type === 'series' && item.season && item.episode
+                ? `?season=${item.season}&episode=${item.episode}` : '';
+              const minutesLeft = item.duration && item.currentTime
+                ? Math.ceil(Math.max(0, item.duration - item.currentTime) / 60) : null;
               return (
-                <Link
-                  key={`${item.type}-${item.id}`}
-                  href={`/watch/${item.type}/${encodeURIComponent(item.id)}${query}`}
-                  className="group w-[240px] shrink-0 snap-start overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121215] transition hover:border-[#D4AF37]/45 md:w-[270px]"
-                >
-                  <div className="relative aspect-video w-full overflow-hidden bg-[#09090B]">
+                <Link key={`${item.type}-${item.id}`} href={`/watch/${item.type}/${encodeURIComponent(item.id)}${query}`} className="kino-continue">
+                  <div className="kino-continue__image">
                     {item.matchup ? (
-                      <MatchupArtwork
-                        awayTeam={item.matchup.awayTeam}
-                        homeTeam={item.matchup.homeTeam}
-                        league={item.matchup.league}
-                        highlightThumbnail={item.backdrop}
-                        compact
-                      />
+                      <MatchupArtwork awayTeam={item.matchup.awayTeam} homeTeam={item.matchup.homeTeam} league={item.matchup.league} highlightThumbnail={item.backdrop} compact />
                     ) : item.backdrop || item.poster ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={item.backdrop || item.poster}
-                        alt={item.title}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center bg-[#121215]">
-                        <Clock className="h-7 w-7 text-[#D4AF37]/50" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#09090B] via-transparent to-transparent" />
-                    <div className="absolute right-3 bottom-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] shadow-lg">
-                      <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
-                    </div>
-                    <div className="absolute inset-x-0 bottom-0 h-1 bg-white/15">
-                      <div
-                        className="h-full bg-[#D4AF37]"
-                        style={{ width: `${Math.max(item.progress, 8)}%` }}
-                      />
-                    </div>
+                      <img src={item.backdrop || item.poster} alt="" loading="lazy" />
+                    ) : <div className="flex h-full items-center justify-center"><Clock className="h-7 w-7 text-white/40" /></div>}
+                    <span className="kino-continue__play"><Play fill="currentColor" /></span>
+                    {minutesLeft !== null && <span className="kino-continue__remaining">{minutesLeft} min left</span>}
+                    <div className="kino-continue__progress"><div style={{ width: `${Math.min(100, Math.max(item.progress, 0))}%` }} /></div>
                   </div>
-                  <div className="p-3">
-                    <p className="truncate text-sm font-medium text-[#FAFAFA] group-hover:text-[#E2C275]">
-                      {item.title}
-                    </p>
-                    <p className="mt-0.5 truncate text-xs text-[#71717A]">
-                      {item.season && item.episode
-                        ? `S${item.season} E${item.episode}${
-                            item.currentTime && item.currentTime > 5
-                              ? ` · ${formatDuration(item.currentTime)}`
-                              : ''
-                          }`
-                        : item.currentTime && item.currentTime > 5
-                        ? `${formatDuration(item.currentTime)} watched`
-                        : item.subtitle || item.type.toUpperCase()}
-                    </p>
-                  </div>
+                  <h3>{item.title}</h3>
+                  <p>{item.season && item.episode ? `S${item.season} · E${item.episode}` : item.currentTime && item.currentTime > 5 ? `${formatDuration(item.currentTime)} watched` : item.subtitle || item.type.toUpperCase()}</p>
                 </Link>
               );
             })}
           </MediaRow>
         )}
 
-        {/* Latest Live Sports (Real NBA, NFL, UFC & MLB Match Cards) */}
-        <MediaRow
-          title="Latest Live Sports"
-          subtitle="Live NBA, NFL, UFC & MLB scoreboards and match streams"
-          viewAllHref="/sports"
-          viewAllLabel="Match Center"
-        >
-          {sportsMatches.slice(0, 12).map((match) => (
-            <MatchCard key={match.id} match={match} />
-          ))}
+        <MediaRow title="Trending Movies" viewAllHref="/movies?type=movie" viewAllLabel="Explore">
+          {trendingMovies.map((movie) => <PosterCard key={movie.id} item={movie} compact />)}
         </MediaRow>
 
-        {/* Browse by Streaming App (Netflix, Disney+, Prime Video, Paramount+, Peacock, Max, Hulu, Apple TV+) */}
-        <StreamingPlatformsRow />
-
-        {/* Tonight's Feature Broadcasts (All Live TV + 24/7 Sports Channels) */}
-        <MediaRow
-          title="Tonight’s Feature Broadcasts"
-          subtitle="Live television & 24/7 sports channels with real-time EPG schedules"
-          viewAllHref="/live"
-          viewAllLabel="TV Guide"
-        >
-          {channels.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              schedule={epgSchedules[channel.tvgId || channel.id]}
-              variant="broadcast"
-            />
-          ))}
-        </MediaRow>
-
-        {/* Trending Anime */}
-        <MediaRow
-          title="Trending Anime"
-          subtitle="Top Japanese animation series & seasonal hits"
-          viewAllHref="/anime"
-          viewAllLabel="All Anime"
-        >
-          {trendingAnime.map((anime) => (
-            <PosterCard
-              key={anime.id}
-              item={anime}
-              hrefOverride={`/watch/${anime.type === 'movie' ? 'movie' : 'tv'}/${encodeURIComponent(anime.id)}`}
-            />
-          ))}
-        </MediaRow>
-
-        {/* Binge-Worthy Series */}
-        <MediaRow
-          title="Binge-Worthy Series"
-          subtitle="Acclaimed episodic drama, sci-fi & docuseries"
-          viewAllHref="/movies?type=tv"
-          viewAllLabel="All Series"
-        >
-          {trendingSeries.map((series) => (
-            <PosterCard key={series.id} item={series} />
-          ))}
-        </MediaRow>
-
-        {/* Trending Movies */}
-        <MediaRow
-          title="Trending Movies"
-          subtitle="Curated cinema & top-rated premieres"
-          viewAllHref="/movies?type=movie"
-          viewAllLabel="All Movies"
-        >
-          {trendingMovies.map((movie) => (
-            <PosterCard key={movie.id} item={movie} />
-          ))}
-        </MediaRow>
-
-        {/* Subtle Editorial Footer Callout */}
-        <section className="mx-auto mt-6 max-w-[1440px] px-4 sm:px-6 lg:px-10">
-          <div className="flex flex-col items-start justify-between gap-4 rounded-3xl border border-white/[0.08] bg-[#121215]/70 p-6 sm:flex-row sm:items-center">
-            <div>
-              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest text-[#D4AF37]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Open-Source Cinema
+        <section className="kino-home__editorial" aria-label="Featured series">
+          {trendingSeries.slice(0, 3).map((series) => (
+            <article className="kino-feature" key={series.id}>
+              {(series.backdropPath || series.posterPath) && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={series.backdropPath || series.posterPath} alt="" loading="lazy" />
+              )}
+              <div className="kino-feature__copy">
+                <h3>{series.title}</h3>
+                <div>
+                  <Link href={`/watch/${series.type}/${encodeURIComponent(series.id)}`} className="kino-button kino-button--play"><Play size={12} fill="currentColor" />Play</Link>
+                  <button type="button" onClick={() => openDetails(series)} className="kino-button"><Info size={12} />More info</button>
+                </div>
               </div>
-              <h3 className="mt-1 font-serif text-lg text-[#FAFAFA]">
-                Bring your own M3U8 playlists, XMLTV EPGs, or Xtream sources
-              </h3>
-              <p className="mt-1 text-xs text-[#A1A1AA]">
-                All custom sources stay private in your browser with automatic CORS proxy support.
-              </p>
-            </div>
-            <Link
-              href="/library"
-              className="shrink-0 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
-            >
-              Open Source Manager
-            </Link>
-          </div>
+            </article>
+          ))}
         </section>
+
+        <div className="kino-home__platforms"><StreamingPlatformsRow /></div>
+
+        <MediaRow title="Binge-Worthy Series" viewAllHref="/movies?type=tv" viewAllLabel="Explore">
+          {trendingSeries.map((series) => <PosterCard key={series.id} item={series} compact />)}
+        </MediaRow>
+
+        <MediaRow title="Trending Anime" viewAllHref="/anime" viewAllLabel="Explore">
+          {trendingAnime.map((anime) => <PosterCard key={anime.id} item={anime} compact hrefOverride={`/watch/${anime.type === 'movie' ? 'movie' : 'tv'}/${encodeURIComponent(anime.id)}`} />)}
+        </MediaRow>
+
+        <MediaRow title="Live Sports" viewAllHref="/sports" viewAllLabel="Match center">
+          {sportsMatches.slice(0, 12).map((match) => <MatchCard key={match.id} match={match} />)}
+        </MediaRow>
+
+        <MediaRow title="On Air Tonight" viewAllHref="/live" viewAllLabel="TV guide">
+          {channels.map((channel) => <ChannelCard key={channel.id} channel={channel} schedule={epgSchedules[channel.tvgId || channel.id]} variant="broadcast" />)}
+        </MediaRow>
       </div>
     </main>
   );

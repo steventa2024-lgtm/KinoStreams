@@ -27,7 +27,7 @@ function SmallCompetitorIcon({
   }, [competitor.logo]);
 
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#09090B]/90">
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-[#080809]/90">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -48,7 +48,7 @@ function SmallCompetitorIcon({
           }
         />
       ) : (
-        <span className="font-serif text-[10px] font-semibold text-[#D4AF37]">
+        <span className="font-sans text-[10px] font-semibold text-[#fb5272]">
           {getInitials(competitor.abbreviation || competitor.shortName)}
         </span>
       )}
@@ -85,7 +85,7 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
     <Link
       href={href}
       className={cn(
-        'group flex flex-col justify-between overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121215] transition-all duration-300 hover:border-[#D4AF37]/45 hover:bg-[#17171B]',
+        'group flex flex-col justify-between overflow-hidden rounded-lg border border-white/[0.08] bg-[#151517] transition-all duration-300 hover:border-[#e50935]/45 hover:bg-[#17171B]',
         fullWidth ? 'w-full' : 'w-[285px] shrink-0 snap-start md:w-[330px]'
       )}
     >
@@ -99,14 +99,14 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
         />
 
         {match.highlightVideoUrl ? (
-          <span className="absolute top-2.5 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-semibold text-[#E2C275] backdrop-blur-sm">
+          <span className="absolute top-2.5 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-[#e50935]/40 bg-[#e50935]/15 px-2 py-0.5 text-[10px] font-semibold text-[#e4e4e7] backdrop-blur-sm">
             <Film className="h-2.5 w-2.5" />
             Highlights
             {match.highlightDuration ? ` · ${formatDuration(match.highlightDuration)}` : ''}
           </span>
         ) : match.broadcast ? (
-          <span className="absolute top-2.5 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#09090B]/80 px-2 py-0.5 text-[10px] font-semibold text-[#A1A1AA] backdrop-blur-sm">
-            <Tv className="h-2.5 w-2.5 text-[#D4AF37]" />
+          <span className="absolute top-2.5 right-3 z-10 inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#080809]/80 px-2 py-0.5 text-[10px] font-semibold text-[#A1A1AA] backdrop-blur-sm">
+            <Tv className="h-2.5 w-2.5 text-[#fb5272]" />
             {match.broadcast}
           </span>
         ) : null}
@@ -123,7 +123,7 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
                   ? 'bg-[#EF4444] text-white'
                   : isFinal
                   ? 'border border-white/10 bg-white/[0.04] text-[#A1A1AA]'
-                  : 'border border-white/10 bg-white/[0.04] text-[#E2C275]'
+                  : 'border border-white/10 bg-white/[0.04] text-[#e4e4e7]'
               )}
             >
               {isLive && (
@@ -134,7 +134,7 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
 
             {match.highlightVideoUrl && match.broadcast && (
               <span className="inline-flex items-center gap-1 text-[10px] text-[#71717A]">
-                <Tv className="h-2.5 w-2.5 text-[#D4AF37]" />
+                <Tv className="h-2.5 w-2.5 text-[#fb5272]" />
                 {match.broadcast}
               </span>
             )}
@@ -164,8 +164,8 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
                 {team.score !== undefined && team.score !== '' ? (
                   <span
                     className={cn(
-                      'font-serif text-lg font-semibold tabular-nums',
-                      team.winner ? 'text-[#E2C275]' : 'text-[#FAFAFA]'
+                      'font-sans text-lg font-semibold tabular-nums',
+                      team.winner ? 'text-[#e4e4e7]' : 'text-[#FAFAFA]'
                     )}
                   >
                     {team.score}
@@ -181,8 +181,8 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
 
           {/* Highlights / Storyline Strip */}
           {match.highlightHeadline && (
-            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/[0.06] bg-[#09090B]/70 px-3 py-2">
-              <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-[#D4AF37]" />
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-white/[0.06] bg-[#080809]/70 px-3 py-2">
+              <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-[#fb5272]" />
               <p className="line-clamp-2 text-[11px] leading-snug text-[#A1A1AA]">
                 {match.highlightHeadline}
               </p>
@@ -195,7 +195,7 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
           <span className="truncate text-[11px] text-[#71717A]">
             {match.venue || match.shortName}
           </span>
-          <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#D4AF37] transition-transform group-hover:translate-x-0.5">
+          <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#fb5272] transition-transform group-hover:translate-x-0.5">
             <Play className="h-3 w-3 fill-current" />
             {match.highlightVideoUrl ? 'Highlights' : 'Watch'}
           </span>

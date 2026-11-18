@@ -6,225 +6,187 @@ import { Film, Loader2, Radio, Search, Trophy, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
 import type { MediaItem } from '@/types/media';
 
+type SearchFilter = 'all' | 'movie' | 'series' | 'live';
+const FILTERS: { value: SearchFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'movie', label: 'Movies' },
+  { value: 'series', label: 'TV shows' },
+  { value: 'live', label: 'Live TV & Sports' },
+];
+const SEARCH_WORDS = ['movies', 'TV shows', 'hidden gems', 'your next binge', 'something great'];
+
 export function SearchOverlay() {
   const { isSearchOpen, closeSearch, channels } = useKino();
+  const [rendered, setRendered] = useState(isSearchOpen);
   const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<SearchFilter>('all');
+  const [word, setWord] = useState(0);
   const [vodResults, setVodResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const openerRef = useRef<HTMLElement | null>(null);
+  const closeRef = useRef(closeSearch);
+  closeRef.current = closeSearch;
 
   useEffect(() => {
     if (isSearchOpen) {
-      setTimeout(() => inputRef.current?.focus(), 40);
-    } else {
+      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setRendered(true);
+      const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50);
+      return () => window.clearTimeout(focusTimer);
+    }
+    const closeTimer = window.setTimeout(() => {
+      setRendered(false);
       setQuery('');
       setVodResults([]);
-    }
+      setFilter('all');
+    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
+    return () => window.clearTimeout(closeTimer);
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (!isSearchOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeSearch();
+    if (!rendered) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeRef.current();
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),[tabindex="0"]'
+      ) || []).filter((element) => element.getClientRects().length > 0);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first) return;
+      if (event.shiftKey && (document.activeElement === first || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); last?.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !dialogRef.current?.contains(document.activeElement))) {
+        event.preventDefault(); first.focus();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isSearchOpen, closeSearch]);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+      if (openerRef.current?.isConnected) openerRef.current.focus();
+    };
+  }, [rendered]);
+
+  useEffect(() => {
+    if (!isSearchOpen || query || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setWord((previous) => (previous + 1) % SEARCH_WORDS.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [isSearchOpen, query]);
 
   useEffect(() => {
     const trimmed = query.trim();
-    if (!trimmed) {
+    if (!isSearchOpen || !trimmed) {
       setVodResults([]);
       setLoading(false);
       return;
     }
-
     let cancelled = false;
+    const controller = new AbortController();
     setLoading(true);
-    const timer = setTimeout(async () => {
+    const timer = window.setTimeout(async () => {
       try {
-        const res = await fetch(
-          `/api/tmdb?action=search&query=${encodeURIComponent(trimmed)}`
-        );
+        const res = await fetch(`/api/tmdb?action=search&query=${encodeURIComponent(trimmed)}`, { signal: controller.signal });
         if (res.ok && !cancelled) {
           const data = (await res.json()) as { results?: MediaItem[] };
           setVodResults(Array.isArray(data.results) ? data.results.slice(0, 12) : []);
-        }
+        } else if (!cancelled) setVodResults([]);
       } catch {
         if (!cancelled) setVodResults([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
     }, 260);
+    return () => { cancelled = true; window.clearTimeout(timer); controller.abort(); };
+  }, [query, isSearchOpen]);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query]);
-
-  if (!isSearchOpen) return null;
-
+  if (!rendered) return null;
   const q = query.trim().toLowerCase();
-  const matchedChannels = q
-    ? channels
-        .filter(
-          (ch) =>
-            ch.name.toLowerCase().includes(q) ||
-            ch.group.toLowerCase().includes(q) ||
-            ch.league?.toLowerCase().includes(q)
-        )
-        .slice(0, 8)
-    : channels.slice(0, 6);
-
-  const sportsMatches = matchedChannels.filter((c) => c.category === 'sports');
-  const liveMatches = matchedChannels.filter((c) => c.category === 'live');
+  const matchedChannels = q ? channels.filter((channel) =>
+    channel.name.toLowerCase().includes(q) || channel.group.toLowerCase().includes(q) || channel.league?.toLowerCase().includes(q)
+  ).slice(0, 8) : channels.slice(0, 6);
+  const sportsMatches = matchedChannels.filter((channel) => channel.category === 'sports');
+  const liveMatches = matchedChannels.filter((channel) => channel.category === 'live');
+  const showChannels = filter === 'all' || filter === 'live';
+  const filteredVod = vodResults.filter((item) => filter === 'all' || filter === item.type);
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Search KinoStream"
-      className="fixed inset-0 z-50 flex flex-col bg-[#09090B]/95 backdrop-blur-2xl"
-    >
-      {/* Search Bar Header */}
-      <div className="border-b border-white/[0.08] px-4 py-4 sm:px-8">
-        <div className="mx-auto flex max-w-4xl items-center gap-3">
-          <Search className="h-5 w-5 shrink-0 text-[#D4AF37]" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search live sports, channels, movies, or series..."
-            className="w-full bg-transparent text-base text-[#FAFAFA] placeholder-[#71717A] focus:outline-none sm:text-lg"
-          />
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-[#D4AF37]" />}
-          <button
-            type="button"
-            onClick={closeSearch}
-            aria-label="Close search"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-[#121215] text-[#A1A1AA] transition hover:border-[#D4AF37]/40 hover:text-[#FAFAFA]"
-          >
-            <X className="h-4 w-4" />
-          </button>
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Search KinoStream" className={`kino-search${isSearchOpen ? ' is-open' : ' is-closing'}`}>
+      <button type="button" onClick={closeSearch} aria-label="Close search" className="kino-search-close"><X size={20} /></button>
+      <div className="kino-search-content">
+        <div className="kino-search-intro">
+          <h2>Search <span className="kino-search-word" key={word} aria-hidden="true">{Array.from(SEARCH_WORDS[word]).map((letter, index) => <span className="kino-search-letter" key={`${word}-${index}`} style={{ animationDelay: `${index * 16}ms` }}>{letter}</span>)}</span><span className="sr-only">KinoStream</span></h2>
+          <div className="kino-search-field">
+            <Search size={17} aria-hidden="true" />
+            <input ref={inputRef} type="search" aria-label="Search movies, shows, live TV and sports" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find movies, shows, and more" autoComplete="off" />
+            {loading ? <Loader2 size={16} className="animate-spin" aria-label="Searching" /> : <kbd>ESC</kbd>}
+          </div>
+          <div className="kino-search-filters" aria-label="Search category">
+            {FILTERS.map((option) => (
+              <button key={option.value} type="button" aria-pressed={filter === option.value} className={filter === option.value ? 'is-active' : ''} onClick={() => setFilter(option.value)}>{option.label}</button>
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Results Body */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-        <div className="mx-auto max-w-4xl space-y-8">
-          {/* Sports Matches */}
-          {sportsMatches.length > 0 && (
+        <div className="kino-search-results" aria-busy={loading}>
+          {showChannels && sportsMatches.length > 0 && (
             <section>
-              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#D4AF37]">
-                <Trophy className="h-3.5 w-3.5" />
-                {q ? 'Live Sports' : 'Featured Sports Channels'}
-              </h3>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {sportsMatches.map((ch) => (
-                  <Link
-                    key={ch.id}
-                    href={`/watch/sports/${encodeURIComponent(ch.id)}`}
-                    onClick={closeSearch}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 transition hover:border-[#D4AF37]/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#FAFAFA]">
-                        {ch.name}
-                      </p>
-                      <p className="truncate text-xs text-[#71717A]">
-                        {ch.league || ch.group}
-                      </p>
-                    </div>
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
-                      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
-                      LIVE
-                    </span>
+              <h3 className="kino-search-section-title"><Trophy size={15} />{q ? 'Live sports' : 'Featured sports channels'}</h3>
+              <div className="kino-search-channel-grid">
+                {sportsMatches.map((channel) => (
+                  <Link key={channel.id} href={`/watch/sports/${encodeURIComponent(channel.id)}`} onClick={closeSearch} className="kino-search-channel">
+                    <span><strong>{channel.name}</strong><small>{channel.league || channel.group}</small></span>
+                    <span className="kino-search-live"><span />LIVE</span>
                   </Link>
                 ))}
               </div>
             </section>
           )}
-
-          {/* Live TV Channels */}
-          {liveMatches.length > 0 && (
+          {showChannels && liveMatches.length > 0 && (
             <section>
-              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#D4AF37]">
-                <Radio className="h-3.5 w-3.5" />
-                {q ? 'Live TV Channels' : 'Popular Live Broadcasts'}
-              </h3>
-              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                {liveMatches.map((ch) => (
-                  <Link
-                    key={ch.id}
-                    href={`/watch/live/${encodeURIComponent(ch.id)}`}
-                    onClick={closeSearch}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-[#121215] p-3.5 transition hover:border-[#D4AF37]/40"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-[#FAFAFA]">
-                        {ch.name}
-                      </p>
-                      <p className="truncate text-xs text-[#71717A]">{ch.group}</p>
-                    </div>
-                    <span className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-[#A1A1AA]">
-                      {ch.quality || 'LIVE'}
-                    </span>
+              <h3 className="kino-search-section-title"><Radio size={15} />{q ? 'Live TV channels' : 'Popular live broadcasts'}</h3>
+              <div className="kino-search-channel-grid">
+                {liveMatches.map((channel) => (
+                  <Link key={channel.id} href={`/watch/live/${encodeURIComponent(channel.id)}`} onClick={closeSearch} className="kino-search-channel">
+                    <span><strong>{channel.name}</strong><small>{channel.group}</small></span><span className="kino-search-quality">{channel.quality || 'LIVE'}</span>
                   </Link>
                 ))}
               </div>
             </section>
           )}
-
-          {/* Movies & Series */}
-          {q && (
+          {q && filter !== 'live' && (
             <section>
-              <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#D4AF37]">
-                <Film className="h-3.5 w-3.5" />
-                Movies &amp; Series
-              </h3>
-              {vodResults.length > 0 ? (
-                <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
-                  {vodResults.map((item) => (
-                    <Link
-                      key={`${item.type}-${item.id}`}
-                      href={`/watch/${item.type}/${encodeURIComponent(item.id)}`}
-                      onClick={closeSearch}
-                      className="group overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121215] transition hover:border-[#D4AF37]/45"
-                    >
-                      <div className="aspect-[2/3] w-full overflow-hidden bg-[#09090B]">
+              <h3 className="kino-search-section-title"><Film size={15} />{filter === 'movie' ? 'Movies' : filter === 'series' ? 'TV shows' : 'Movies & TV shows'}</h3>
+              {filteredVod.length > 0 ? (
+                <div className="kino-search-posters">
+                  {filteredVod.map((item) => (
+                    <Link key={`${item.type}-${item.id}`} href={`/watch/${item.type}/${encodeURIComponent(item.id)}`} onClick={closeSearch} className="kino-search-result">
+                      <div className="kino-search-result-artwork">
                         {item.posterPath ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={item.posterPath}
-                            alt={item.title}
-                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center p-3 text-center text-xs text-[#71717A]">
-                            {item.title}
-                          </div>
-                        )}
+                          <img src={item.posterPath} alt="" loading="lazy" />
+                        ) : <Film size={28} />}
                       </div>
-                      <div className="p-2.5">
-                        <p className="truncate text-xs font-medium text-[#FAFAFA]">
-                          {item.title}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-[#71717A]">
-                          {item.year || ''} · {item.type === 'series' ? 'Series' : 'Movie'}
-                        </p>
-                      </div>
+                      <strong>{item.title}</strong><small>{[item.year, item.type === 'series' ? 'Series' : 'Movie'].filter(Boolean).join(' · ')}</small>
                     </Link>
                   ))}
                 </div>
-              ) : !loading ? (
-                <p className="rounded-2xl border border-white/[0.08] bg-[#121215] p-6 text-center text-sm text-[#71717A]">
-                  No movies or series matched &ldquo;{query}&rdquo;.
-                </p>
-              ) : null}
+              ) : loading ? (
+                <div className="kino-search-posters" aria-label="Loading search results">{Array.from({ length: 6 }, (_, index) => <div key={index} className="kino-search-skeleton" />)}</div>
+              ) : <p className="kino-search-empty">No {filter === 'all' ? 'movies or shows' : filter === 'movie' ? 'movies' : 'shows'} matched “{query}”.</p>}
             </section>
           )}
+          {!q && (filter === 'movie' || filter === 'series') && <p className="kino-search-empty">Search for a title to explore {filter === 'movie' ? 'movies' : 'TV shows'}.</p>}
+          {q && showChannels && matchedChannels.length === 0 && filter === 'live' && <p className="kino-search-empty">No live channels matched “{query}”.</p>}
         </div>
       </div>
     </div>

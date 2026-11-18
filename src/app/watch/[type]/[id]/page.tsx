@@ -799,7 +799,7 @@ function WatchViewContent() {
   const hasResolvedContent = Boolean(activeChannel || sportsMatch || mediaDetails);
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-14">
+    <main className="min-h-screen bg-[#080809] pt-20 pb-14">
       <TopBar showBack backHref={backTarget} title={displayTitle} solid />
 
       <div className="mx-auto max-w-[1440px] space-y-8 px-4 sm:px-6 lg:px-10">
@@ -810,8 +810,8 @@ function WatchViewContent() {
           mediaDetails &&
           resolvingDirectStream &&
           resolvedDirectSources.length === 0) ? (
-          <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-2xl border border-white/[0.08] bg-[#121215]">
-            <Loader2 className="h-9 w-9 animate-spin text-[#D4AF37]" />
+          <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-lg border border-white/[0.08] bg-[#151517]">
+            <Loader2 className="h-9 w-9 animate-spin text-[#fb5272]" />
             {!loadingDetails && resolvingDirectStream && (
               <p className="text-xs font-medium text-[#A1A1AA]">
                 Connecting Server I · Direct Auto-Play HD...
@@ -819,13 +819,13 @@ function WatchViewContent() {
             )}
           </div>
         ) : !hasResolvedContent ? (
-          <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-10 text-center">
+          <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-10 text-center">
             {isChannelType ? (
-              <Radio className="mx-auto h-10 w-10 text-[#D4AF37]" />
+              <Radio className="mx-auto h-10 w-10 text-[#fb5272]" />
             ) : (
-              <Film className="mx-auto h-10 w-10 text-[#D4AF37]" />
+              <Film className="mx-auto h-10 w-10 text-[#fb5272]" />
             )}
-            <h1 className="mt-3 font-serif text-2xl text-[#FAFAFA]">
+            <h1 className="mt-3 font-sans text-2xl text-[#FAFAFA]">
               {isChannelType ? 'Broadcast Not Found' : 'Title Unavailable'}
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
@@ -835,7 +835,7 @@ function WatchViewContent() {
             </p>
             <Link
               href={backTarget}
-              className="mt-5 inline-flex rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B]"
+              className="mt-5 inline-flex rounded-full bg-[#FAFAFA] px-5 py-2.5 text-xs font-semibold text-[#080809]"
             >
               Return to {mediaType === 'sports' ? 'Match Center' : mediaType === 'live' ? 'Live TV' : 'Catalog'}
             </Link>
@@ -844,23 +844,23 @@ function WatchViewContent() {
           <>
             {/* Pre-Game / Upcoming Match Broadcast Notice */}
             {sportsMatch && sportsMatch.statusState === 'pre' && (
-              <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#D4AF37]/40 bg-[#121215]/95 p-4 shadow-xl">
+              <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#e50935]/40 bg-[#151517]/95 p-4 shadow-xl">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#D4AF37]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e50935]/40 bg-[#e50935]/15 text-[#fb5272]">
                     <Clock className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-[#E2C275] uppercase">
+                      <span className="rounded-full border border-[#e50935]/40 bg-[#e50935]/15 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-[#e4e4e7] uppercase">
                         Pre-Game
                       </span>
-                      <p className="font-serif text-base font-medium text-[#FAFAFA] sm:text-lg">
+                      <p className="font-sans text-base font-medium text-[#FAFAFA] sm:text-lg">
                         Broadcast Starts at {preGameStartTime}
                       </p>
                     </div>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
                       Assigned network:{' '}
-                      <span className="font-semibold text-[#E2C275]">
+                      <span className="font-semibold text-[#e4e4e7]">
                         {sportsMatch.broadcast || matchedMatchFeeds[0]?.channel.name || sportsMatch.league}
                       </span>
                       {sportsMatch.venue ? ` · ${sportsMatch.venue}` : ''}
@@ -873,7 +873,7 @@ function WatchViewContent() {
                     <button
                       type="button"
                       onClick={handleCyclePreGameFeed}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-[#D4AF37] px-4 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-[#FAFAFA] px-4 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
                     >
                       <Radio className="h-3.5 w-3.5" />
                       Switch Feed
@@ -882,9 +882,9 @@ function WatchViewContent() {
                   <button
                     type="button"
                     onClick={openSources}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#e50935]/50"
                   >
-                    <Plus className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <Plus className="h-3.5 w-3.5 text-[#fb5272]" />
                     Custom M3U
                   </button>
                 </div>
@@ -953,11 +953,11 @@ function WatchViewContent() {
 
             {/* Smart Live Feed Matcher Cards (when viewing a SportsMatch) */}
             {sportsMatch && (
-              <section className="rounded-3xl border border-white/[0.08] bg-[#121215] p-4 sm:p-6">
+              <section className="rounded-xl border border-white/[0.08] bg-[#151517] p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-[#FAFAFA] sm:text-xl">
-                      <Radio className="h-4 w-4 text-[#D4AF37]" />
+                    <h2 className="flex items-center gap-2 font-sans text-lg font-medium text-[#FAFAFA] sm:text-xl">
+                      <Radio className="h-4 w-4 text-[#fb5272]" />
                       Matching Live Feeds
                     </h2>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
@@ -981,11 +981,11 @@ function WatchViewContent() {
                       type="button"
                       onClick={() => void handleRefreshFeeds()}
                       disabled={refreshingFeeds}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#09090B] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/45 disabled:opacity-60"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#080809] px-4 text-xs font-medium text-[#FAFAFA] transition hover:border-[#e50935]/45 disabled:opacity-60"
                     >
                       <RefreshCw
                         className={cn(
-                          'h-3.5 w-3.5 text-[#D4AF37]',
+                          'h-3.5 w-3.5 text-[#fb5272]',
                           refreshingFeeds && 'animate-spin'
                         )}
                       />
@@ -994,14 +994,14 @@ function WatchViewContent() {
                     <button
                       type="button"
                       onClick={openSources}
-                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-4 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                      className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935]/40 bg-[#e50935]/10 px-4 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Custom M3U
                     </button>
                     <Link
                       href="/sports/multiview"
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#09090B] px-4 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#D4AF37]/40 hover:text-[#E2C275]"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/[0.08] bg-[#080809] px-4 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#e50935]/40 hover:text-[#e4e4e7]"
                     >
                       Open Multi-View
                     </Link>
@@ -1024,14 +1024,14 @@ function WatchViewContent() {
                             setSelectedMatchedFeedId(feed.channel.id);
                           }}
                           className={cn(
-                            'flex min-h-[64px] items-center justify-between gap-3 rounded-2xl border p-3.5 text-left transition active:scale-[0.99]',
+                            'flex min-h-[64px] items-center justify-between gap-3 rounded-lg border p-3.5 text-left transition active:scale-[0.99]',
                             active
-                              ? 'border-[#D4AF37] bg-[#D4AF37]/12'
-                              : 'border-white/[0.08] bg-[#09090B]/70 hover:border-[#D4AF37]/45'
+                              ? 'border-[#e50935] bg-[#e50935]/12'
+                              : 'border-white/[0.08] bg-[#080809]/70 hover:border-[#e50935]/45'
                           )}
                         >
                           <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#121215]">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#151517]">
                               {feed.channel.logo ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -1040,7 +1040,7 @@ function WatchViewContent() {
                                   className="h-full w-full object-contain p-1"
                                 />
                               ) : (
-                                <span className="font-serif text-xs font-bold text-[#D4AF37]">
+                                <span className="font-sans text-xs font-bold text-[#fb5272]">
                                   {getInitials(feed.channel.name)}
                                 </span>
                               )}
@@ -1057,10 +1057,10 @@ function WatchViewContent() {
                                   className={cn(
                                     'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
                                     feed.tier === 'direct_match'
-                                      ? 'border-[#D4AF37]/50 bg-[#D4AF37]/20 text-[#E2C275]'
+                                      ? 'border-[#e50935]/50 bg-[#e50935]/20 text-[#e4e4e7]'
                                       : feed.tier === 'broadcaster_match'
                                       ? 'border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[#f59e0b]'
-                                      : 'border-white/15 bg-[#121215] text-[#A1A1AA]'
+                                      : 'border-white/15 bg-[#151517] text-[#A1A1AA]'
                                   )}
                                 >
                                   {feed.tierLabel}
@@ -1068,7 +1068,7 @@ function WatchViewContent() {
                                 {feed.reasons.map((r) => (
                                   <span
                                     key={r}
-                                    className="rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-medium text-[#E2C275]"
+                                    className="rounded-full bg-[#e50935]/15 px-2 py-0.5 text-[10px] font-medium text-[#e4e4e7]"
                                   >
                                     {r}
                                   </span>
@@ -1077,7 +1077,7 @@ function WatchViewContent() {
                             </div>
                           </div>
 
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B]">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#080809]">
                             <Play className="ml-0.5 h-4 w-4 fill-current" />
                           </div>
                         </button>
@@ -1085,7 +1085,7 @@ function WatchViewContent() {
                     })}
                   </div>
                 ) : (
-                  <p className="mt-4 rounded-2xl border border-white/[0.06] bg-[#09090B]/60 p-4 text-xs text-[#A1A1AA]">
+                  <p className="mt-4 rounded-lg border border-white/[0.06] bg-[#080809]/60 p-4 text-xs text-[#A1A1AA]">
                     No automatic Match, RSN, or League Pass feeds matched {sportsMatch.awayTeam.shortName} vs.{' '}
                     {sportsMatch.homeTeam.shortName}.
                     {eventCandidateChannels.length > 0
@@ -1098,12 +1098,12 @@ function WatchViewContent() {
                 {showImportedPicker && (
                   <div
                     ref={importedPickerRef}
-                    className="mt-4 rounded-2xl border border-[#f59e0b]/35 bg-[#09090b] p-4"
+                    className="mt-4 rounded-lg border border-[#f59e0b]/35 bg-[#09090b] p-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
                       <div className="flex items-center gap-2">
                         <Server className="h-4 w-4 text-[#f59e0b]" />
-                        <h3 className="font-serif text-sm font-medium text-[#FAFAFA] sm:text-base">
+                        <h3 className="font-sans text-sm font-medium text-[#FAFAFA] sm:text-base">
                           Imported M3U &amp; Event Channels ({filteredImportedChannels.length})
                         </h3>
                       </div>
@@ -1111,14 +1111,14 @@ function WatchViewContent() {
                         type="button"
                         onClick={() => setShowImportedPicker(false)}
                         aria-label="Close imported feeds picker"
-                        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-white/10 bg-[#121215] text-[#A1A1AA] hover:text-[#FAFAFA]"
+                        className="flex min-h-[36px] min-w-[36px] items-center justify-center rounded-full border border-white/10 bg-[#151517] text-[#A1A1AA] hover:text-[#FAFAFA]"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
 
                     {eventCandidateChannels.length === 0 ? (
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#121215] p-3.5 text-xs text-[#A1A1AA]">
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#151517] p-3.5 text-xs text-[#A1A1AA]">
                         <span>No custom M3U playlist imported yet.</span>
                         <button
                           type="button"
@@ -1138,7 +1138,7 @@ function WatchViewContent() {
                             value={importedSearch}
                             onChange={(e) => setImportedSearch(e.target.value)}
                             placeholder="Search imported feeds (e.g. NBA 04, VIP Sports 12, US: Arena 4, RSN)..."
-                            className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#121215] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+                            className="min-h-[44px] w-full rounded-xl border border-white/[0.08] bg-[#151517] pr-4 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
                           />
                         </div>
 
@@ -1159,7 +1159,7 @@ function WatchViewContent() {
                                     'flex min-h-[52px] w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition',
                                     isManualPlaying
                                       ? 'border-[#f59e0b] bg-[#f59e0b]/15'
-                                      : 'border-white/[0.06] bg-[#121215]/80 hover:border-[#f59e0b]/45'
+                                      : 'border-white/[0.06] bg-[#151517]/80 hover:border-[#f59e0b]/45'
                                   )}
                                 >
                                   <div className="flex min-w-0 items-center gap-3">
@@ -1172,7 +1172,7 @@ function WatchViewContent() {
                                           className="h-full w-full object-contain p-0.5"
                                         />
                                       ) : (
-                                        <span className="font-serif text-[11px] font-bold text-[#f59e0b]">
+                                        <span className="font-sans text-[11px] font-bold text-[#f59e0b]">
                                           {getInitials(ch.name)}
                                         </span>
                                       )}
@@ -1221,7 +1221,7 @@ function WatchViewContent() {
                     </span>
                   ) : sportsMatch ? (
                     <>
-                      <span className="rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-[11px] font-bold tracking-wider text-[#E2C275]">
+                      <span className="rounded-full border border-[#e50935]/35 bg-[#e50935]/10 px-3 py-1 text-[11px] font-bold tracking-wider text-[#e4e4e7]">
                         {sportsMatch.league}
                       </span>
                       <span
@@ -1229,7 +1229,7 @@ function WatchViewContent() {
                           'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold',
                           sportsMatch.statusState === 'in'
                             ? 'bg-[#EF4444] text-white'
-                            : 'border border-white/10 bg-[#121215] text-[#FAFAFA]'
+                            : 'border border-white/10 bg-[#151517] text-[#FAFAFA]'
                         )}
                       >
                         {sportsMatch.statusState === 'in' && (
@@ -1238,14 +1238,14 @@ function WatchViewContent() {
                         {sportsMatch.statusText}
                       </span>
                       {sportsMatch.broadcast && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-[#121215] px-3 py-1 text-xs text-[#A1A1AA]">
-                          <Tv className="h-3 w-3 text-[#D4AF37]" />
+                        <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-[#151517] px-3 py-1 text-xs text-[#A1A1AA]">
+                          <Tv className="h-3 w-3 text-[#fb5272]" />
                           Network: {sportsMatch.broadcast}
                         </span>
                       )}
                     </>
                   ) : (
-                    <span className="rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#E2C275]">
+                    <span className="rounded-full border border-[#e50935]/35 bg-[#e50935]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#e4e4e7]">
                       {mediaType === 'series'
                         ? `Series · S${selectedSeason} E${selectedEpisode}`
                         : 'Feature Film'}
@@ -1253,37 +1253,37 @@ function WatchViewContent() {
                   )}
 
                   {!isChannelType && mediaDetails?.rating && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-[#121215] px-3 py-1 text-xs font-medium text-[#E2C275]">
-                      <Star className="h-3.5 w-3.5 fill-[#D4AF37] text-[#D4AF37]" />
+                    <span className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-[#151517] px-3 py-1 text-xs font-medium text-[#e4e4e7]">
+                      <Star className="h-3.5 w-3.5 fill-[#e50935] text-[#fb5272]" />
                       {mediaDetails.rating.toFixed(1)}
                     </span>
                   )}
 
                   {!isChannelType && mediaDetails?.year && (
-                    <span className="rounded-full border border-white/[0.08] bg-[#121215] px-3 py-1 text-xs text-[#A1A1AA]">
+                    <span className="rounded-full border border-white/[0.08] bg-[#151517] px-3 py-1 text-xs text-[#A1A1AA]">
                       {mediaDetails.year}
                     </span>
                   )}
 
                   {!isChannelType && mediaDetails?.runtime && (
-                    <span className="rounded-full border border-white/[0.08] bg-[#121215] px-3 py-1 text-xs text-[#A1A1AA]">
+                    <span className="rounded-full border border-white/[0.08] bg-[#151517] px-3 py-1 text-xs text-[#A1A1AA]">
                       {mediaDetails.runtime} min
                     </span>
                   )}
 
                   {activeChannel && (
-                    <span className="rounded-full border border-white/[0.08] bg-[#121215] px-3 py-1 text-xs text-[#A1A1AA]">
+                    <span className="rounded-full border border-white/[0.08] bg-[#151517] px-3 py-1 text-xs text-[#A1A1AA]">
                       {activeChannel.league || activeChannel.group}
                     </span>
                   )}
                 </div>
 
-                <h1 className="font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
+                <h1 className="font-sans text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
                   {displayTitle}
                 </h1>
 
                 {!isChannelType && mediaDetails?.tagline && (
-                  <p className="font-serif text-base italic text-[#E2C275]/90">
+                  <p className="font-sans text-base italic text-[#e4e4e7]/90">
                     &ldquo;{mediaDetails.tagline}&rdquo;
                   </p>
                 )}
@@ -1324,8 +1324,8 @@ function WatchViewContent() {
                     className={cn(
                       'inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-xs font-semibold transition',
                       saved
-                        ? 'border-[#D4AF37] bg-[#D4AF37] text-[#09090B]'
-                        : 'border-white/15 bg-[#121215] text-[#FAFAFA] hover:border-[#D4AF37]/45 hover:text-[#E2C275]'
+                        ? 'border-[#e50935] bg-[#FAFAFA] text-[#080809]'
+                        : 'border-white/15 bg-[#151517] text-[#FAFAFA] hover:border-[#e50935]/45 hover:text-[#e4e4e7]'
                     )}
                   >
                     {saved ? (
@@ -1345,7 +1345,7 @@ function WatchViewContent() {
                     <button
                       type="button"
                       onClick={() => setShowTrailer((t) => !t)}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#121215] px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37]/45"
+                      className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-[#151517] px-5 py-2.5 text-xs font-semibold text-[#e4e4e7] transition hover:border-[#e50935]/45"
                     >
                       <Film className="h-4 w-4" />
                       {showTrailer ? 'Hide Trailer' : 'Watch Trailer'}
@@ -1354,7 +1354,7 @@ function WatchViewContent() {
                 </div>
 
                 {showTrailer && mediaDetails?.trailerKey && (
-                  <div className="mt-4 aspect-video w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-black">
+                  <div className="mt-4 aspect-video w-full overflow-hidden rounded-lg border border-white/[0.08] bg-black">
                     <iframe
                       src={`https://www.youtube.com/embed/${mediaDetails.trailerKey}?autoplay=1&playsinline=1`}
                       title={`${displayTitle} Trailer`}
@@ -1370,17 +1370,17 @@ function WatchViewContent() {
               {/* Right Sidebar: Match Scoreboard OR EPG Schedule OR Screening Notes */}
               <div className="lg:col-span-4">
                 {sportsMatch ? (
-                  <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-5">
-                    <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-[#FAFAFA]">
-                      <Trophy className="h-4 w-4 text-[#D4AF37]" />
+                  <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-5">
+                    <h2 className="flex items-center gap-2 font-sans text-lg font-medium text-[#FAFAFA]">
+                      <Trophy className="h-4 w-4 text-[#fb5272]" />
                       Live Scoreboard
                     </h2>
 
-                    <div className="mt-4 space-y-3 rounded-2xl border border-white/[0.06] bg-[#09090B]/70 p-4">
+                    <div className="mt-4 space-y-3 rounded-lg border border-white/[0.06] bg-[#080809]/70 p-4">
                       {[sportsMatch.awayTeam, sportsMatch.homeTeam].map((team, i) => (
                         <div key={`${team.id}-${i}`} className="flex items-center justify-between gap-3">
                           <div className="flex min-w-0 items-center gap-2.5">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-[#121215]">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/[0.08] bg-[#151517]">
                               {team.logo ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -1389,7 +1389,7 @@ function WatchViewContent() {
                                   className="h-5 w-5 object-contain"
                                 />
                               ) : (
-                                <span className="font-serif text-[10px] font-semibold text-[#D4AF37]">
+                                <span className="font-sans text-[10px] font-semibold text-[#fb5272]">
                                   {getInitials(team.abbreviation)}
                                 </span>
                               )}
@@ -1403,7 +1403,7 @@ function WatchViewContent() {
                               )}
                             </div>
                           </div>
-                          <span className="font-serif text-xl font-semibold tabular-nums text-[#E2C275]">
+                          <span className="font-sans text-xl font-semibold tabular-nums text-[#e4e4e7]">
                             {team.score ?? '—'}
                           </span>
                         </div>
@@ -1418,7 +1418,7 @@ function WatchViewContent() {
                       {sportsMatch.broadcast && (
                         <div className="flex justify-between border-b border-white/[0.06] pb-2">
                           <dt className="text-[#71717A]">Broadcast</dt>
-                          <dd className="font-medium text-[#E2C275]">{sportsMatch.broadcast}</dd>
+                          <dd className="font-medium text-[#e4e4e7]">{sportsMatch.broadcast}</dd>
                         </div>
                       )}
                       {sportsMatch.venue && (
@@ -1432,21 +1432,21 @@ function WatchViewContent() {
                     </dl>
 
                     {sportsMatch.highlightHeadline && (
-                      <div className="mt-4 rounded-2xl border border-[#D4AF37]/25 bg-[#D4AF37]/10 p-3 text-xs text-[#E2C275]">
+                      <div className="mt-4 rounded-lg border border-[#e50935]/25 bg-[#e50935]/10 p-3 text-xs text-[#e4e4e7]">
                         {sportsMatch.highlightHeadline}
                       </div>
                     )}
                   </div>
                 ) : activeChannel ? (
-                  <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-5">
-                    <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-[#FAFAFA]">
-                      <CalendarClock className="h-4 w-4 text-[#D4AF37]" />
+                  <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-5">
+                    <h2 className="flex items-center gap-2 font-sans text-lg font-medium text-[#FAFAFA]">
+                      <CalendarClock className="h-4 w-4 text-[#fb5272]" />
                       Program Schedule
                     </h2>
 
                     {channelSchedule?.now && (
-                      <div className="mt-4 rounded-2xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 p-3.5">
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#D4AF37]">
+                      <div className="mt-4 rounded-lg border border-[#e50935]/30 bg-[#e50935]/10 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-[#fb5272]">
                           On Now · {formatClockTime(channelSchedule.now.start)} –{' '}
                           {formatClockTime(channelSchedule.now.end)}
                         </span>
@@ -1466,7 +1466,7 @@ function WatchViewContent() {
                         {channelSchedule.upcoming.slice(0, 4).map((prog, i) => (
                           <li
                             key={`${prog.start}-${i}`}
-                            className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#09090B]/60 p-3"
+                            className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#080809]/60 p-3"
                           >
                             <div className="min-w-0">
                               <p className="truncate text-xs font-medium text-[#FAFAFA]">
@@ -1491,9 +1491,9 @@ function WatchViewContent() {
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-white/[0.08] bg-[#121215] p-5">
-                    <h2 className="flex items-center gap-2 font-serif text-lg font-medium text-[#FAFAFA]">
-                      <Bookmark className="h-4 w-4 text-[#D4AF37]" />
+                  <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-5">
+                    <h2 className="flex items-center gap-2 font-sans text-lg font-medium text-[#FAFAFA]">
+                      <Bookmark className="h-4 w-4 text-[#fb5272]" />
                       Screening Notes
                     </h2>
                     <dl className="mt-4 space-y-2.5 text-xs">
@@ -1521,7 +1521,7 @@ function WatchViewContent() {
                       )}
                       <div className="flex justify-between">
                         <dt className="text-[#71717A]">AirPlay / PiP</dt>
-                        <dd className="font-medium text-[#E2C275]">Supported</dd>
+                        <dd className="font-medium text-[#e4e4e7]">Supported</dd>
                       </div>
                     </dl>
                   </div>
@@ -1531,10 +1531,10 @@ function WatchViewContent() {
 
             {/* Season & Episode Picker (Series / Anime Dropdown Pills) */}
             {mediaType === 'series' && mediaDetails?.seasons && mediaDetails.seasons.length > 0 && (
-              <section className="rounded-3xl border border-white/[0.08] bg-[#121215] p-5 sm:p-6">
+              <section className="rounded-xl border border-white/[0.08] bg-[#151517] p-5 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] pb-4">
-                  <h2 className="flex items-center gap-2 font-serif text-xl font-medium text-[#FAFAFA]">
-                    <Tv className="h-4 w-4 text-[#D4AF37]" />
+                  <h2 className="flex items-center gap-2 font-sans text-xl font-medium text-[#FAFAFA]">
+                    <Tv className="h-4 w-4 text-[#fb5272]" />
                     Seasons &amp; Episodes
                   </h2>
 
@@ -1570,7 +1570,7 @@ function WatchViewContent() {
 
                 {loadingEpisodes ? (
                   <div className="flex justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-[#D4AF37]" />
+                    <Loader2 className="h-6 w-6 animate-spin text-[#fb5272]" />
                   </div>
                 ) : (
                   <div className="mt-5 grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-3">
@@ -1586,13 +1586,13 @@ function WatchViewContent() {
                             handleEpisodeSelect(ep.seasonNumber, ep.episodeNumber)
                           }
                           className={cn(
-                            'group flex flex-col overflow-hidden rounded-2xl border text-left transition',
+                            'group flex flex-col overflow-hidden rounded-lg border text-left transition',
                             active
-                              ? 'border-[#D4AF37] bg-[#D4AF37]/10'
-                              : 'border-white/[0.08] bg-[#09090B]/70 hover:border-[#D4AF37]/40'
+                              ? 'border-[#e50935] bg-[#e50935]/10'
+                              : 'border-white/[0.08] bg-[#080809]/70 hover:border-[#e50935]/40'
                           )}
                         >
-                          <div className="relative aspect-video w-full overflow-hidden bg-[#09090B]">
+                          <div className="relative aspect-video w-full overflow-hidden bg-[#080809]">
                             {ep.stillPath ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -1603,18 +1603,18 @@ function WatchViewContent() {
                               />
                             ) : (
                               <div className="flex h-full items-center justify-center">
-                                <Tv className="h-8 w-8 text-[#D4AF37]/40" />
+                                <Tv className="h-8 w-8 text-[#fb5272]/40" />
                               </div>
                             )}
-                            <span className="absolute top-2.5 left-2.5 rounded-full bg-[#09090B]/80 px-2.5 py-0.5 text-[10px] font-semibold text-[#E2C275]">
+                            <span className="absolute top-2.5 left-2.5 rounded-full bg-[#080809]/80 px-2.5 py-0.5 text-[10px] font-semibold text-[#e4e4e7]">
                               E{ep.episodeNumber}
                             </span>
                             <div
                               className={cn(
                                 'absolute right-2.5 bottom-2.5 flex h-8 w-8 items-center justify-center rounded-full shadow-lg',
                                 active
-                                  ? 'bg-[#D4AF37] text-[#09090B]'
-                                  : 'bg-[#09090B]/80 text-[#FAFAFA] group-hover:bg-[#D4AF37] group-hover:text-[#09090B]'
+                                  ? 'bg-[#FAFAFA] text-[#080809]'
+                                  : 'bg-[#080809]/80 text-[#FAFAFA] group-hover:bg-[#FAFAFA] group-hover:text-[#080809]'
                               )}
                             >
                               <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
@@ -1647,17 +1647,17 @@ function WatchViewContent() {
             {/* Cast Strip (VOD) */}
             {!isChannelType && mediaDetails?.cast && mediaDetails.cast.length > 0 && (
               <section>
-                <h2 className="mb-3.5 flex items-center gap-2 font-serif text-xl font-medium text-[#FAFAFA]">
-                  <Users className="h-4 w-4 text-[#D4AF37]" />
+                <h2 className="mb-3.5 flex items-center gap-2 font-sans text-xl font-medium text-[#FAFAFA]">
+                  <Users className="h-4 w-4 text-[#fb5272]" />
                   Principal Cast
                 </h2>
                 <div className="scrollbar-hide flex gap-3.5 overflow-x-auto pb-2">
                   {mediaDetails.cast.map((actor) => (
                     <div
                       key={actor.id}
-                      className="w-28 shrink-0 rounded-2xl border border-white/[0.08] bg-[#121215] p-2.5 text-center"
+                      className="w-28 shrink-0 rounded-lg border border-white/[0.08] bg-[#151517] p-2.5 text-center"
                     >
-                      <div className="mx-auto h-16 w-16 overflow-hidden rounded-full border border-white/10 bg-[#09090B]">
+                      <div className="mx-auto h-16 w-16 overflow-hidden rounded-full border border-white/10 bg-[#080809]">
                         {actor.profilePath ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1667,7 +1667,7 @@ function WatchViewContent() {
                             loading="lazy"
                           />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-xs font-semibold text-[#D4AF37]">
+                          <div className="flex h-full items-center justify-center text-xs font-semibold text-[#fb5272]">
                             {actor.name.slice(0, 2).toUpperCase()}
                           </div>
                         )}
@@ -1689,7 +1689,7 @@ function WatchViewContent() {
             {/* Related Channels (Live/Sports) OR Recommendations (VOD) */}
             {isChannelType && relatedChannels.length > 0 && (
               <section>
-                <h2 className="mb-4 font-serif text-xl font-medium text-[#FAFAFA]">
+                <h2 className="mb-4 font-sans text-xl font-medium text-[#FAFAFA]">
                   {mediaType === 'sports' ? '24/7 Sports Broadcast Channels' : 'Related Live Channels'}
                 </h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -1708,7 +1708,7 @@ function WatchViewContent() {
 
             {!isChannelType && recommendations.length > 0 && (
               <section>
-                <h2 className="mb-4 font-serif text-xl font-medium text-[#FAFAFA]">
+                <h2 className="mb-4 font-sans text-xl font-medium text-[#FAFAFA]">
                   More Like This
                 </h2>
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -1729,8 +1729,8 @@ export default function WatchPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#09090B]">
-          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+        <div className="flex min-h-screen items-center justify-center bg-[#080809]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
         </div>
       }
     >

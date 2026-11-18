@@ -1,0 +1,156 @@
+/* Reference-led catalog presentation. Data, navigation and playback stay in the existing components. */
+.kino-media-row { position: relative; padding-block: 18px; }
+.kino-row-heading { max-width: 1680px; margin: 0 auto 11px; padding-inline: clamp(20px, 3vw, 56px); display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.kino-section-heading { margin: 0; font-family: var(--font-sans), sans-serif; font-size: 16px; line-height: 1.4; font-weight: 650; letter-spacing: -.025em; color: #f6f6f6; }
+.kino-row-subtitle { margin: 4px 0 0; font-size: 11px; line-height: 1.5; color: #909095; }
+.kino-row-view-all { display: inline-flex; align-items: center; gap: 2px; flex: none; color: #a4a4aa; font-size: 11px; transition: color 160ms ease; }
+.kino-row-view-all:hover { color: white; }
+.kino-row-track-wrap { position: relative; max-width: 1680px; margin-inline: auto; }
+.kino-row-track { display: flex; gap: 12px; overflow-x: auto; padding: 6px clamp(20px, 3vw, 56px) 12px; scroll-padding-inline: clamp(20px, 3vw, 56px); scroll-snap-type: x proximity; overscroll-behavior-x: contain; }
+.kino-row-track:focus-visible { outline: 1px solid #ffffff70; outline-offset: -4px; border-radius: 8px; }
+.kino-rail-arrow { position: absolute; top: 44%; transform: translateY(-50%); z-index: 3; display: grid; place-items: center; width: 30px; height: 66px; border: 1px solid #ffffff0d; border-radius: 24px; background: #292a2b94; backdrop-filter: blur(16px); color: white; opacity: .7; transition: background 180ms ease, opacity 180ms ease; cursor: pointer; }
+.kino-rail-arrow:hover, .kino-rail-arrow:focus-visible { opacity: 1; background: #4a4a4bc9; }
+.kino-rail-arrow:disabled { opacity: 0; pointer-events: none; }
+.kino-rail-arrow-left { left: 10px; }
+.kino-rail-arrow-right { right: 10px; }
+.kino-poster { position: relative; flex: 0 0 clamp(132px, 12.8vw, 200px); width: clamp(132px, 12.8vw, 200px); min-width: 0; scroll-snap-align: start; }
+.kino-poster-full { width: 100%; }
+.kino-poster-content { position: relative; width: 100%; }
+.kino-poster-artwork { position: relative; aspect-ratio: 2 / 3; border-radius: 6px; background: #1a1a1c; isolation: isolate; transition: transform 260ms cubic-bezier(.2,.75,.25,1), box-shadow 260ms ease; }
+.kino-poster-open { display: block; width: 100%; height: 100%; overflow: hidden; border-radius: inherit; cursor: pointer; text-align: left; }
+.kino-poster-open img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kino-poster-open:focus-visible { outline: 2px solid white; outline-offset: 3px; }
+.kino-poster-fallback { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; gap: 12px; padding: 15px; color: #a1a1a6; text-align: center; font-size: 12px; }
+.kino-poster-shade { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(0deg, #000b, transparent 45%); opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+.kino-poster-actions { position: absolute; inset: auto 9px 10px; display: flex; justify-content: space-between; align-items: center; gap: 6px; opacity: 0; transform: translateY(5px); transition: opacity 180ms ease, transform 220ms ease; pointer-events: none; }
+.kino-poster-play { display: inline-flex; min-width: 32px; height: 32px; padding: 0 11px; align-items: center; gap: 5px; border-radius: 30px; background: white; color: #111; font-size: 11px; font-weight: 650; }
+.kino-poster-save { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border: 1px solid #ffffff45; border-radius: 50%; background: #202023a8; color: white; backdrop-filter: blur(12px); cursor: pointer; }
+.kino-poster-save[aria-pressed="true"] { background: #f5f5f5; color: #111; }
+.kino-poster-play:hover { background: #ddd; }
+.kino-poster-save:hover { border-color: #fff; }
+.kino-poster:hover .kino-poster-actions, .kino-poster:focus-within .kino-poster-actions { opacity: 1; transform: none; pointer-events: auto; }
+.kino-poster:hover .kino-poster-shade, .kino-poster:focus-within .kino-poster-shade { opacity: 1; }
+.kino-poster:focus-within .kino-poster-artwork { box-shadow: 0 8px 24px #0006; }
+.kino-poster-quality { position: absolute; right: 7px; top: 7px; padding: 2px 5px; border-radius: 3px; background: #151518b3; color: #e7e7eb; font-size: 9px; letter-spacing: .03em; backdrop-filter: blur(8px); pointer-events: none; }
+.kino-poster-caption { padding: 8px 1px 0; }
+.kino-poster-caption h3 { font-size: 11px; font-weight: 500; line-height: 1.45; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #e5e5e7; margin: 0; }
+.kino-poster-caption p { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10px; color: #929298; margin: 3px 0 0; line-height: 1.5; }
+.kino-poster-caption p > span:first-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.kino-poster-rating { color: #c4ceca; flex: none; font-size: 9px; }
+.kino-poster-ranked { flex-basis: clamp(178px, 17.3vw, 260px); width: clamp(178px, 17.3vw, 260px); align-self: end; }
+.kino-poster-ranked .kino-poster-content { width: 58%; margin-left: 42%; }
+.kino-poster-ranked .kino-poster-play { width: 32px; padding: 0; justify-content: center; }
+.kino-poster-ranked .kino-poster-play span { display: none; }
+.kino-poster-rank { position: absolute; bottom: -5px; left: 0; color: transparent; -webkit-text-stroke: 1.5px #d0d4d06b; font-family: Arial, sans-serif; font-size: clamp(150px, 18vw, 270px); font-weight: 700; line-height: .85; letter-spacing: -.105em; user-select: none; }
+.kino-platforms { margin-bottom: 26px; }
+.kino-platform-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 16px; }
+.kino-platform-navigation { display: flex; gap: 4px; }
+.kino-platform-navigation button { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; color: #aaa; cursor: pointer; transition: color 160ms ease, background 160ms ease; }
+.kino-platform-navigation button:hover { color: white; background: #ffffff12; }
+.kino-platform-track { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity; padding-block: 4px 9px; overscroll-behavior-x: contain; }
+.kino-platform-tile { display: flex; position: relative; justify-content: center; align-items: center; flex: 0 0 calc((100% - 36px) / 4.25); min-width: 168px; aspect-ratio: 1.85; padding: 20px; border: 1px solid #ffffff0d; border-radius: 7px; background: #111214; color: white; scroll-snap-align: start; transition: transform 240ms cubic-bezier(.2,.75,.25,1), border-color 180ms ease, box-shadow 180ms ease; }
+.kino-platform-tile:hover, .kino-platform-tile:focus-visible { transform: translateY(-2px); border-color: #ffffff70; box-shadow: 0 6px 20px #0005; }
+.kino-platform-tile.is-active { border-color: white; box-shadow: 0 0 0 1px white; }
+.kino-platform-wordmark { text-align: center; font-size: clamp(24px, 2.7vw, 42px); line-height: 1; font-weight: 750; letter-spacing: -.05em; white-space: nowrap; }
+.kino-platform-netflix { color: #e50914; background: #131315; }
+.kino-platform-netflix .kino-platform-wordmark { text-transform: uppercase; letter-spacing: -.035em; transform: scaleX(.82); }
+.kino-platform-disney-plus { background: #071923; }
+.kino-platform-disney-plus .kino-platform-wordmark { font-family: Georgia, serif; font-style: italic; font-weight: 600; letter-spacing: -.065em; }
+.kino-platform-prime-video { background: #0f2029; color: #36b4dd; }
+.kino-platform-prime-video .kino-platform-wordmark { font-size: clamp(22px, 2.3vw, 34px); }
+.kino-platform-paramount-plus { background: #073fb1; }
+.kino-platform-paramount-plus .kino-platform-wordmark { font-family: Georgia, serif; font-size: clamp(20px, 2vw, 32px); font-style: italic; }
+.kino-platform-peacock .kino-platform-wordmark { font-size: clamp(24px, 2.5vw, 38px); }
+.kino-platform-max .kino-platform-wordmark { text-transform: lowercase; font-size: clamp(32px, 4vw, 58px); }
+.kino-platform-hulu { color: #071c13; background: #1ce783; }
+.kino-platform-hulu .kino-platform-wordmark { font-size: clamp(34px, 3.8vw, 58px); font-weight: 850; }
+.kino-platform-apple-tv-plus { color: #111; background: #e2e2e4; }
+.kino-platform-apple-tv-plus .kino-platform-wordmark { font-size: clamp(24px, 2.5vw, 38px); }
+.kino-platforms-compact .kino-platform-tile { min-width: 135px; aspect-ratio: 2.6; }
+.kino-platforms-compact .kino-platform-wordmark { font-size: clamp(20px, 2vw, 28px); }
+.kino-search { position: fixed; inset: 0; z-index: 80; background: #080809f7; overflow-y: auto; overscroll-behavior: contain; backdrop-filter: blur(24px); color: #f6f6f6; animation: kino-search-enter 240ms ease both; }
+.kino-search.is-closing { pointer-events: none; animation: kino-search-exit 200ms ease both; }
+.kino-search-close { position: fixed; top: max(22px, env(safe-area-inset-top)); right: clamp(20px, 3vw, 48px); z-index: 2; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 1px solid #ffffff18; background: #202023b3; cursor: pointer; color: #bdbdc4; transition: background 180ms ease, color 180ms ease; }
+.kino-search-close:hover { background: #333337; color: white; }
+.kino-search-content { max-width: 1280px; margin: 0 auto; padding: 100px clamp(22px, 5vw, 70px) 80px; }
+.kino-search-intro { max-width: 600px; margin: 0 auto 48px; }
+.kino-search-intro h2 { display: flex; align-items: center; justify-content: center; gap: 12px; height: 42px; margin: 0 0 22px; font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
+.kino-search-word { display: inline-block; min-width: 140px; border-radius: 4px; background: #e50935; color: white; text-align: center; padding: 6px 14px; font-size: 20px; line-height: 1.2; animation: kino-search-word 380ms cubic-bezier(.2,.75,.25,1) both; }
+.kino-search-field { display: flex; gap: 12px; align-items: center; padding: 0 16px; min-height: 50px; border: 1px solid #ffffff08; border-radius: 7px; background: #18181b; color: #77777e; transition: border-color 160ms ease; }
+.kino-search-field:focus-within { border-color: #ffffff37; }
+.kino-search-field input { background: transparent; border: 0; color: white; font-size: 13px; width: 100%; min-width: 0; outline: none; height: 48px; }
+.kino-search-field input::placeholder { color: #808087; }
+.kino-search-field input::-webkit-search-cancel-button { cursor: pointer; }
+.kino-search-field kbd { font-size: 9px; letter-spacing: .06em; color: #888890; }
+.kino-search-filters { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 16px; border-bottom: 1px solid #ffffff08; }
+.kino-search-filters button { position: relative; flex: 1; min-height: 40px; padding: 8px 6px; font-size: 11px; color: #7e7e84; cursor: pointer; white-space: nowrap; transition: color 180ms ease; }
+.kino-search-filters button.is-active, .kino-search-filters button:hover { color: white; }
+.kino-search-filters button::after { content: ''; position: absolute; bottom: -1px; height: 2px; left: 12px; right: 12px; background: #e50935; opacity: 0; transform: scaleX(.4); transition: opacity 160ms ease, transform 220ms ease; }
+.kino-search-filters button.is-active::after { opacity: 1; transform: scaleX(1); }
+.kino-search-results { display: flex; flex-direction: column; gap: 34px; }
+.kino-search-section-title { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 15px; font-weight: 600; letter-spacing: -.015em; }
+.kino-search-section-title svg { color: #77777d; }
+.kino-search-channel-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kino-search-channel { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 18px 16px; min-width: 0; border: 1px solid #ffffff0c; border-radius: 7px; background: #ffffff04; transition: background 180ms ease, border-color 180ms ease; }
+.kino-search-channel:hover, .kino-search-channel:focus-visible { background: #ffffff0a; border-color: #ffffff30; }
+.kino-search-channel > span:first-child { min-width: 0; }
+.kino-search-channel strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; font-weight: 550; }
+.kino-search-channel small { display: block; margin-top: 4px; color: #85858e; font-size: 10px; }
+.kino-search-live { display: inline-flex; align-items: center; gap: 5px; color: #fb516c; font-size: 9px; font-weight: 650; }
+.kino-search-live > span { width: 4px; height: 4px; border-radius: 50%; background: currentColor; }
+.kino-search-quality { color: #96969e; font-size: 9px; padding: 2px 5px; border: 1px solid #ffffff15; border-radius: 3px; }
+.kino-search-posters { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.kino-search-result { min-width: 0; }
+.kino-search-result-artwork { aspect-ratio: 2 / 3; display: grid; place-items: center; overflow: hidden; border-radius: 5px; background: #202024; color: #777; transition: transform 240ms cubic-bezier(.2,.75,.25,1); }
+.kino-search-result-artwork img { width: 100%; height: 100%; object-fit: cover; }
+.kino-search-result strong { display: block; margin-top: 8px; font-size: 11px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kino-search-result small { display: block; margin-top: 3px; font-size: 10px; color: #85858e; }
+.kino-search-result:hover .kino-search-result-artwork { transform: translateY(-3px); }
+.kino-search-empty { padding: 45px 18px; text-align: center; font-size: 13px; line-height: 1.6; color: #909098; }
+.kino-search-skeleton { aspect-ratio: 2 / 3; border-radius: 5px; background: #161619; animation: kino-search-pulse 1.8s ease-in-out infinite alternate; }
+@keyframes kino-search-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes kino-search-exit { to { opacity: 0; transform: translateY(6px); } }
+@keyframes kino-search-word { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes kino-search-pulse { to { opacity: .45; } }
+@media (hover: hover) and (pointer: fine) { .kino-poster:hover .kino-poster-artwork { transform: scale(1.025); box-shadow: 0 12px 32px #0008; } }
+@media (hover: none), (pointer: coarse) {
+  .kino-poster-actions { opacity: 1; transform: none; pointer-events: auto; }
+  .kino-poster-shade { opacity: .7; }
+  .kino-poster-save, .kino-poster-play { min-height: 36px; }
+  .kino-poster-save { min-width: 36px; }
+}
+@media (max-width: 767px) {
+  .kino-media-row { padding-block: 13px; }
+  .kino-section-heading { font-size: 15px; }
+  .kino-row-subtitle { font-size: 10px; }
+  .kino-row-track { gap: 10px; }
+  .kino-poster { flex-basis: 132px; width: 132px; }
+  .kino-poster-full { width: 100%; }
+  .kino-poster-ranked { flex-basis: 178px; width: 178px; }
+  .kino-poster-rank { font-size: 174px; }
+  .kino-rail-arrow { width: 25px; height: 50px; }
+  .kino-rail-arrow-left { left: 4px; }
+  .kino-rail-arrow-right { right: 4px; }
+  .kino-platform-tile { min-width: 166px; }
+  .kino-platforms-compact .kino-platform-tile { min-width: 135px; }
+  .kino-search-content { padding-top: 90px; }
+  .kino-search-intro { margin-bottom: 32px; }
+  .kino-search-intro h2 { gap: 9px; font-size: 20px; }
+  .kino-search-word { font-size: 18px; min-width: 120px; padding-inline: 10px; }
+  .kino-search-field input { font-size: 16px; }
+  .kino-search-filters button { font-size: 10px; }
+  .kino-search-channel-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kino-search-posters { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 10px; }
+}
+@media (max-width: 420px) {
+  .kino-search-channel-grid { grid-template-columns: 1fr; }
+  .kino-search-content { padding-inline: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kino-media-row *, .kino-platforms *, .kino-poster *, .kino-search, .kino-search * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+.kino-search-letter { display: inline-block; white-space: pre; transform-origin: 50% 100%; animation: kino-search-letter-in 340ms cubic-bezier(.2,.75,.25,1) both; }
+@keyframes kino-search-letter-in { from { opacity: 0; transform: translateY(6px) rotateX(-65deg); } to { opacity: 1; transform: none; } }
+.kino-poster-ranked-double .kino-poster-content { width: 52%; margin-left: 48%; }
+.kino-poster-ranked-double .kino-poster-rank { font-size: clamp(120px, 15vw, 220px); letter-spacing: -.14em; transform: scaleX(.64); transform-origin: left bottom; }

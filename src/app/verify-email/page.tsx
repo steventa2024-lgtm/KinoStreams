@@ -242,11 +242,11 @@ function VerifyEmailContent() {
   };
 
   return (
-    <main className="relative flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[#09090B] px-4 py-10 pt-safe pb-safe">
-      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.16),transparent_55%)]" />
+    <main className="relative flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[#080809] px-4 py-10 pt-safe pb-safe">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,rgba(229,9,53,0.16),transparent_55%)]" />
 
-      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/[0.08] bg-[#121215]/90 p-6 text-center shadow-2xl backdrop-blur-2xl sm:p-8">
-        <p className="font-serif text-lg font-semibold tracking-[0.22em] text-[#FAFAFA]">
+      <div className="relative z-10 w-full max-w-md rounded-xl border border-white/[0.08] bg-[#151517]/90 p-6 text-center shadow-2xl backdrop-blur-2xl sm:p-8">
+        <p className="font-sans text-lg font-semibold tracking-[0.22em] text-[#FAFAFA]">
           {siteConfig.wordmark}
         </p>
         <p className="mt-1 text-[10px] font-medium tracking-[0.26em] text-[#71717A] uppercase">
@@ -255,8 +255,8 @@ function VerifyEmailContent() {
 
         {status === 'verifying' && (
           <div className="mt-8 space-y-4">
-            <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#D4AF37]" />
-            <h1 className="font-serif text-2xl font-medium text-[#FAFAFA]">
+            <Loader2 className="mx-auto h-10 w-10 animate-spin text-[#fb5272]" />
+            <h1 className="font-sans text-2xl font-medium text-[#FAFAFA]">
               Verifying Your Email
             </h1>
             <p className="text-sm text-[#A1A1AA]">
@@ -267,7 +267,7 @@ function VerifyEmailContent() {
 
         {status === 'code-entry' && (
           <div className="mt-7 space-y-5">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 text-[#D4AF37]">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-[#e50935]/40 bg-[#e50935]/15 text-[#fb5272]">
               <MailCheck className="h-6 w-6" />
             </div>
 
@@ -276,7 +276,7 @@ function VerifyEmailContent() {
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Email Verified
               </div>
-              <h1 className="font-serif text-2xl font-medium text-[#FAFAFA]">
+              <h1 className="font-sans text-2xl font-medium text-[#FAFAFA]">
                 Enter 6-Digit Code
               </h1>
               <p className="mt-1.5 text-xs leading-relaxed text-[#A1A1AA]">
@@ -302,24 +302,24 @@ function VerifyEmailContent() {
                   onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                   onPaste={handleDigitPaste}
                   className={cn(
-                    'min-h-[52px] w-full rounded-xl border bg-[#09090B] text-center font-serif text-xl font-bold text-[#FAFAFA] transition focus:border-[#D4AF37] focus:outline-none',
-                    val ? 'border-[#D4AF37]/60' : 'border-white/[0.12]'
+                    'min-h-[52px] w-full rounded-xl border bg-[#080809] text-center font-sans text-xl font-bold text-[#FAFAFA] transition focus:border-[#e50935] focus:outline-none',
+                    val ? 'border-[#e50935]/60' : 'border-white/[0.12]'
                   )}
                 />
               ))}
             </div>
 
             {devCode && (
-              <div className="rounded-2xl border border-[#D4AF37]/30 bg-[#09090B]/80 p-3 text-xs text-[#A1A1AA]">
+              <div className="rounded-lg border border-[#e50935]/30 bg-[#080809]/80 p-3 text-xs text-[#A1A1AA]">
                 Dev Mode Preview Code:{' '}
-                <strong className="font-serif tracking-widest text-[#E2C275]">
+                <strong className="font-sans tracking-widest text-[#e4e4e7]">
                   {devCode}
                 </strong>
               </div>
             )}
 
             {resendMsg && (
-              <p className="text-xs font-medium text-[#E2C275]">{resendMsg}</p>
+              <p className="text-xs font-medium text-[#e4e4e7]">{resendMsg}</p>
             )}
 
             {codeError && (
@@ -330,7 +330,7 @@ function VerifyEmailContent() {
               type="button"
               disabled={submitting || digits.join('').length !== 6}
               onClick={() => void submitCode(digits.join(''))}
-              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#D4AF37] px-6 text-sm font-semibold text-[#09090B] transition hover:bg-[#E2C275] disabled:opacity-45"
+              className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#FAFAFA] px-6 text-sm font-semibold text-[#080809] transition hover:bg-[#e2e2e2] disabled:opacity-45"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Verify &amp; Enter KinoStream
@@ -348,7 +348,7 @@ function VerifyEmailContent() {
                 type="button"
                 disabled={resending}
                 onClick={() => void handleResendCode()}
-                className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-[#E2C275] hover:underline disabled:opacity-50"
+                className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-[#e4e4e7] hover:underline disabled:opacity-50"
               >
                 <RefreshCw className={cn('h-3 w-3', resending && 'animate-spin')} />
                 Resend Code
@@ -362,14 +362,14 @@ function VerifyEmailContent() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#EF4444]/40 bg-[#EF4444]/10 text-[#EF4444]">
               <AlertCircle className="h-7 w-7" />
             </div>
-            <h1 className="font-serif text-2xl font-medium text-[#FAFAFA]">
+            <h1 className="font-sans text-2xl font-medium text-[#FAFAFA]">
               Link Expired or Invalid
             </h1>
             <p className="text-sm text-[#A1A1AA]">{error}</p>
             <div className="pt-2">
               <Link
                 href="/"
-                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.04] px-6 text-sm font-semibold text-[#FAFAFA] transition hover:border-[#D4AF37]/45"
+                className="inline-flex min-h-[48px] w-full items-center justify-center rounded-full border border-white/15 bg-white/[0.04] px-6 text-sm font-semibold text-[#FAFAFA] transition hover:border-[#e50935]/45"
               >
                 Back to KinoStream Sign-In
               </Link>
@@ -385,8 +385,8 @@ export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#09090B]">
-          <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+        <div className="flex min-h-screen items-center justify-center bg-[#080809]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
         </div>
       }
     >

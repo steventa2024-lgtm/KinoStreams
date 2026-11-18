@@ -1231,11 +1231,11 @@ export function VideoPlayer({
       <div
         ref={containerRef}
         className={cn(
-          'bg-[#09090B] shadow-2xl',
+          'bg-[#080809] shadow-2xl',
           isTheaterFullscreen
             ? 'fixed inset-0 z-50 flex flex-col justify-between rounded-none border-0 bg-[#09090b]'
             : cn(
-                'rounded-2xl border border-white/[0.08]',
+                'rounded-lg border border-white/[0.08]',
                 isNativeFullscreen && 'flex flex-col justify-between bg-[#09090b]'
               )
         )}
@@ -1248,18 +1248,18 @@ export function VideoPlayer({
               ? 'min-h-0 flex-1'
               : sources.length > 0
               ? 'aspect-video rounded-t-2xl'
-              : 'min-h-[300px] sm:min-h-0 sm:aspect-video rounded-2xl'
+              : 'min-h-[300px] sm:min-h-0 sm:aspect-video rounded-lg'
           )}
         >
         {sources.length === 0 ? (
           matchup ? (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(212,175,55,0.12),#09090B_68%)] px-4 py-4 text-center sm:px-8">
-              <div className="flex max-w-xl flex-col items-center rounded-2xl border border-[#D4AF37]/30 bg-[#121216]/95 px-5 py-5 shadow-2xl backdrop-blur-md sm:px-8 sm:py-7">
-                <div className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-1 text-[10px] font-bold tracking-widest text-[#E2C275] uppercase">
-                  <Radio className="h-3 w-3 text-[#D4AF37]" />
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[radial-gradient(circle_at_top,rgba(229,9,53,0.12),#080809_68%)] px-4 py-4 text-center sm:px-8">
+              <div className="flex max-w-xl flex-col items-center rounded-lg border border-[#e50935]/30 bg-[#121216]/95 px-5 py-5 shadow-2xl backdrop-blur-md sm:px-8 sm:py-7">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#e50935]/35 bg-[#e50935]/10 px-3 py-1 text-[10px] font-bold tracking-widest text-[#e4e4e7] uppercase">
+                  <Radio className="h-3 w-3 text-[#fb5272]" />
                   {matchup.league} · {matchup.awayTeam.abbreviation} vs {matchup.homeTeam.abbreviation}
                 </div>
-                <h2 className="mt-3 font-serif text-lg font-medium text-[#FAFAFA] sm:text-2xl">
+                <h2 className="mt-3 font-sans text-lg font-medium text-[#FAFAFA] sm:text-2xl">
                   No Direct Match Stream Connected for {matchup.awayTeam.shortName} vs.{' '}
                   {matchup.homeTeam.shortName}
                 </h2>
@@ -1271,7 +1271,7 @@ export function VideoPlayer({
                     <button
                       type="button"
                       onClick={onBrowseImportedFeeds}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B] shadow-[0_0_24px_rgba(212,175,55,0.28)] transition hover:bg-[#E2C275] active:scale-95"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-5 py-2.5 text-xs font-semibold text-[#080809] shadow-[0_0_24px_rgba(229,9,53,0.28)] transition hover:bg-[#e2e2e2] active:scale-95"
                     >
                       <Server className="h-3.5 w-3.5" />
                       Browse Imported Feeds ({importedFeedsCount})
@@ -1281,7 +1281,7 @@ export function VideoPlayer({
                     <button
                       type="button"
                       onClick={onOpenSources}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/50 bg-[#09090B] px-5 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37] hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#e50935]/50 bg-[#080809] px-5 py-2.5 text-xs font-semibold text-[#e4e4e7] transition hover:border-[#e50935] hover:bg-[#FAFAFA] hover:text-[#080809] active:scale-95"
                     >
                       + Connect M3U / Event Feed
                     </button>
@@ -1291,11 +1291,11 @@ export function VideoPlayer({
                       type="button"
                       onClick={onRefreshFeeds}
                       disabled={refreshingFeeds}
-                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/15 bg-[#09090B] px-4 py-2.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#D4AF37]/40 hover:text-[#FAFAFA] disabled:opacity-60"
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/15 bg-[#080809] px-4 py-2.5 text-xs font-semibold text-[#A1A1AA] transition hover:border-[#e50935]/40 hover:text-[#FAFAFA] disabled:opacity-60"
                     >
                       <RefreshCw
                         className={cn(
-                          'h-3.5 w-3.5 text-[#D4AF37]',
+                          'h-3.5 w-3.5 text-[#fb5272]',
                           refreshingFeeds && 'animate-spin'
                         )}
                       />
@@ -1306,9 +1306,9 @@ export function VideoPlayer({
               </div>
             </div>
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center bg-[#09090B] px-6 text-center">
-              <Radio className="h-10 w-10 text-[#D4AF37]/70" />
-              <p className="mt-3 font-serif text-lg text-[#FAFAFA]">
+            <div className="flex h-full w-full flex-col items-center justify-center bg-[#080809] px-6 text-center">
+              <Radio className="h-10 w-10 text-[#fb5272]/70" />
+              <p className="mt-3 font-sans text-lg text-[#FAFAFA]">
                 No Active Broadcast Feed Matched
               </p>
               <p className="mt-1 max-w-md text-xs text-[#A1A1AA]">
@@ -1318,7 +1318,7 @@ export function VideoPlayer({
                 <button
                   type="button"
                   onClick={() => setShowCustomInput(true)}
-                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B]"
+                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-5 py-2.5 text-xs font-semibold text-[#080809]"
                 >
                   <Link2 className="h-3.5 w-3.5" />
                   Paste Direct .m3u8 Link
@@ -1474,20 +1474,20 @@ export function VideoPlayer({
             {/* Buffering Spinner */}
             {buffering && !errorMsg && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/35">
-                <Loader2 className="h-10 w-10 animate-spin text-[#D4AF37]" />
+                <Loader2 className="h-10 w-10 animate-spin text-[#fb5272]" />
               </div>
             )}
 
             {/* Error Overlay */}
             {errorMsg && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#09090B]/90 px-6 text-center backdrop-blur-md">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#080809]/90 px-6 text-center backdrop-blur-md">
                 <AlertCircle className="h-10 w-10 text-[#EF4444]" />
                 <p className="mt-3 max-w-md text-sm text-[#FAFAFA]">{errorMsg}</p>
                 <div className="mt-5 flex flex-wrap justify-center gap-3">
                   <button
                     type="button"
                     onClick={retryPlayback}
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#D4AF37] px-5 py-2.5 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-5 py-2.5 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Retry {useProxy ? 'Direct' : 'via CORS Proxy'}
@@ -1515,7 +1515,7 @@ export function VideoPlayer({
                   value={currentTime}
                   onChange={handleSeek}
                   aria-label="Seek timeline"
-                  className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-white/15 accent-[#D4AF37]"
+                  className="h-2 flex-1 cursor-pointer appearance-none rounded-full bg-white/15 accent-[#e50935]"
                 />
                 <span className="w-11 text-left text-[11px] font-medium tabular-nums text-[#A1A1AA]">
                   {formatDuration(duration)}
@@ -1531,7 +1531,7 @@ export function VideoPlayer({
                       type="button"
                       onClick={togglePlay}
                       aria-label={playing ? 'Pause' : 'Play'}
-                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#D4AF37] text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
+                      className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-[#FAFAFA] text-[#080809] transition hover:bg-[#e2e2e2] active:scale-95"
                     >
                       {playing ? (
                         <Pause className="h-4 w-4 fill-current" />
@@ -1545,7 +1545,7 @@ export function VideoPlayer({
                         type="button"
                         onClick={toggleMute}
                         aria-label={muted ? 'Unmute' : 'Mute'}
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/45"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/10 bg-[#080809] text-[#FAFAFA] transition hover:border-[#e50935]/45"
                       >
                         {muted || volume === 0 ? (
                           <VolumeX className="h-4 w-4" />
@@ -1561,7 +1561,7 @@ export function VideoPlayer({
                         value={muted ? 0 : volume}
                         onChange={handleVolumeChange}
                         aria-label="Volume"
-                        className="hidden h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/25 accent-[#D4AF37] sm:block"
+                        className="hidden h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/25 accent-[#e50935] sm:block"
                       />
                     </div>
 
@@ -1579,7 +1579,7 @@ export function VideoPlayer({
                       onClick={replayEmbed}
                       aria-label="Replay / Autoplay embed stream"
                       title="Restart Autoplay"
-                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#D4AF37] px-3 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275] active:scale-95"
+                      className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full bg-[#FAFAFA] px-3 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2] active:scale-95"
                     >
                       <Play className="h-3.5 w-3.5 fill-current" />
                       <span className="hidden sm:inline">Play</span>
@@ -1591,7 +1591,7 @@ export function VideoPlayer({
                         onClick={() => setEmbedMutedAutoplay((m) => !m)}
                         aria-label={embedMutedAutoplay ? 'Unmute embed' : 'Mute embed'}
                         title={embedMutedAutoplay ? 'Tap to Unmute' : 'Mute Audio'}
-                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#e50935]/50"
                       >
                         <Volume2 className="h-4 w-4" />
                         <span className="hidden sm:inline">Audio</span>
@@ -1611,7 +1611,7 @@ export function VideoPlayer({
                           type="button"
                           onClick={unlockFrameForInteract}
                           title="Unlock iframe for a single tap (auto-locks 350ms after clicking player, or 2.5s max)"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935]/45 bg-[#080809] px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           <span>Interact</span>
@@ -1621,7 +1621,7 @@ export function VideoPlayer({
                           type="button"
                           onClick={rearmRedirectShield}
                           title="Tap player once or click here to lock Redirect Shield immediately"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#D4AF37] bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B]"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
                           <span className="tabular-nums">
@@ -1636,7 +1636,7 @@ export function VideoPlayer({
                   <button
                     type="button"
                     onClick={unmuteActivePlayer}
-                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D4AF37]/70 bg-[#D4AF37]/15 px-3.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#e50935]/70 bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809] active:scale-95"
                   >
                     <VolumeX className="h-4 w-4" />
                     Tap to Unmute
@@ -1651,11 +1651,11 @@ export function VideoPlayer({
                     className={cn(
                       'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
                       showSwitchPrompt
-                        ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
-                        : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:border-[#D4AF37]/50 hover:text-[#FAFAFA]'
+                        ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
+                        : 'border-white/15 bg-[#080809] text-[#A1A1AA] hover:border-[#e50935]/50 hover:text-[#FAFAFA]'
                     )}
                   >
-                    <Server className="h-3.5 w-3.5 text-[#D4AF37]" />
+                    <Server className="h-3.5 w-3.5 text-[#fb5272]" />
                     <span>{showSwitchPrompt ? 'Switch Server' : 'Next Server'}</span>
                   </button>
                 )}
@@ -1673,7 +1673,7 @@ export function VideoPlayer({
                       'inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
                       showAudioMenu || effectiveAudioLang !== 'original' || detectedAudioTracks.length > 0
                         ? 'border-[#f59e0b]/55 bg-[#09090b] text-[#f59e0b] hover:border-[#f59e0b]'
-                        : 'border-white/15 bg-[#09090b] text-[#E2C275] hover:border-[#f59e0b]/50'
+                        : 'border-white/15 bg-[#09090b] text-[#e4e4e7] hover:border-[#f59e0b]/50'
                     )}
                   >
                     <Languages className="h-3.5 w-3.5 text-[#f59e0b]" />
@@ -1696,7 +1696,7 @@ export function VideoPlayer({
                       role="menu"
                       aria-label="Audio Language Options"
                       className={cn(
-                        'absolute left-0 z-30 max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-2xl border border-[#f59e0b]/35 bg-[#09090b]/98 p-2 shadow-2xl backdrop-blur-xl',
+                        'absolute left-0 z-30 max-h-80 w-64 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-[#f59e0b]/35 bg-[#09090b]/98 p-2 shadow-2xl backdrop-blur-xl',
                         isFullscreen ? 'bottom-12' : 'bottom-12'
                       )}
                     >
@@ -1760,7 +1760,7 @@ export function VideoPlayer({
                 </div>
 
                 {hasEmbedSources && (
-                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090b] px-3 text-[11px] font-medium text-[#E2C275]">
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090b] px-3 text-[11px] font-medium text-[#e4e4e7]">
                     {effectiveAudioLang !== 'original'
                       ? `Audio: ${selectedAudioOption.shortCode}`
                       : 'In-Player Audio'}
@@ -1768,22 +1768,22 @@ export function VideoPlayer({
                 )}
 
                 {animeAudioStatus && (
-                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-[#D4AF37]/45 bg-[#D4AF37]/12 px-3 text-[11px] font-semibold text-[#E2C275]">
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-[#e50935]/45 bg-[#e50935]/12 px-3 text-[11px] font-semibold text-[#e4e4e7]">
                     {animeAudioStatus}
                   </span>
                 )}
 
                 {(failoverToast || shieldNotice) && (
-                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#09090B] px-3 text-[11px] font-medium text-[#E2C275]">
+                  <span className="inline-flex min-h-[36px] items-center rounded-full border border-white/10 bg-[#080809] px-3 text-[11px] font-medium text-[#e4e4e7]">
                     {failoverToast || shieldNotice}
                   </span>
                 )}
 
                 {autoNextSeconds !== null && hasNextEpisode && onNextEpisode && (
-                  <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[#D4AF37]/45 bg-[#09090B] px-3 py-1">
+                  <div className="flex flex-wrap items-center gap-1.5 rounded-full border border-[#e50935]/45 bg-[#080809] px-3 py-1">
                     <span className="text-[11px] font-medium text-[#FAFAFA]">
                       {nextEpisodeLabel ? `${nextEpisodeLabel} ` : 'Next '}
-                      in <strong className="text-[#D4AF37] tabular-nums">{autoNextSeconds}s</strong>
+                      in <strong className="text-[#fb5272] tabular-nums">{autoNextSeconds}s</strong>
                     </span>
                     <button
                       type="button"
@@ -1791,7 +1791,7 @@ export function VideoPlayer({
                         setAutoNextSeconds(null);
                         onNextEpisode();
                       }}
-                      className="min-h-[34px] rounded-full bg-[#D4AF37] px-3 text-[11px] font-semibold text-[#09090B]"
+                      className="min-h-[34px] rounded-full bg-[#FAFAFA] px-3 text-[11px] font-semibold text-[#080809]"
                     >
                       Play Now
                     </button>
@@ -1819,8 +1819,8 @@ export function VideoPlayer({
                       className={cn(
                         'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border px-3 text-[11px] font-medium transition',
                         useProxy
-                          ? 'border-[#D4AF37]/45 bg-[#D4AF37]/15 text-[#E2C275]'
-                          : 'border-white/15 bg-[#09090B] text-[#A1A1AA] hover:text-[#FAFAFA]'
+                          ? 'border-[#e50935]/45 bg-[#e50935]/15 text-[#e4e4e7]'
+                          : 'border-white/15 bg-[#080809] text-[#A1A1AA] hover:text-[#FAFAFA]'
                       )}
                     >
                       <Shield className="h-3.5 w-3.5" />
@@ -1835,9 +1835,9 @@ export function VideoPlayer({
                           type="button"
                           onClick={() => setShowQualityMenu((q) => !q)}
                           aria-label="Video Quality"
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-[11px] font-medium text-[#FAFAFA] hover:border-[#D4AF37]/40"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3 text-[11px] font-medium text-[#FAFAFA] hover:border-[#e50935]/40"
                         >
-                          <SlidersHorizontal className="h-3.5 w-3.5 text-[#D4AF37]" />
+                          <SlidersHorizontal className="h-3.5 w-3.5 text-[#fb5272]" />
                           <span className="hidden sm:inline">
                             {activeQuality === -1
                               ? 'Auto'
@@ -1846,14 +1846,14 @@ export function VideoPlayer({
                         </button>
 
                         {showQualityMenu && (
-                          <div className="absolute right-0 bottom-12 z-30 min-w-[120px] rounded-xl border border-white/10 bg-[#121215]/95 p-1.5 shadow-xl backdrop-blur-xl">
+                          <div className="absolute right-0 bottom-12 z-30 min-w-[120px] rounded-xl border border-white/10 bg-[#151517]/95 p-1.5 shadow-xl backdrop-blur-xl">
                             <button
                               type="button"
                               onClick={() => handleQualitySelect(-1)}
                               className={cn(
                                 'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
                                 activeQuality === -1
-                                  ? 'bg-[#D4AF37]/20 text-[#E2C275]'
+                                  ? 'bg-[#e50935]/20 text-[#e4e4e7]'
                                   : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
                               )}
                             >
@@ -1867,7 +1867,7 @@ export function VideoPlayer({
                                 className={cn(
                                   'block min-h-[44px] w-full rounded-lg px-3 py-2 text-left text-xs transition',
                                   activeQuality === q.index
-                                    ? 'bg-[#D4AF37]/20 text-[#E2C275]'
+                                    ? 'bg-[#e50935]/20 text-[#e4e4e7]'
                                     : 'text-[#A1A1AA] hover:bg-white/5 hover:text-[#FAFAFA]'
                                 )}
                               >
@@ -1884,7 +1884,7 @@ export function VideoPlayer({
                         type="button"
                         onClick={triggerAirplay}
                         aria-label="AirPlay"
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#080809] text-[#FAFAFA] transition hover:border-[#e50935]/50"
                       >
                         <Airplay className="h-4 w-4" />
                       </button>
@@ -1896,7 +1896,7 @@ export function VideoPlayer({
                         onClick={togglePip}
                         aria-label="Picture in Picture"
                         title="Picture in Picture"
-                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#09090B] text-[#FAFAFA] transition hover:border-[#D4AF37]/50"
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/15 bg-[#080809] text-[#FAFAFA] transition hover:border-[#e50935]/50"
                       >
                         <PictureInPicture2 className="h-4 w-4" />
                       </button>
@@ -1940,7 +1940,7 @@ export function VideoPlayer({
                   <button
                     type="button"
                     onClick={onNextEpisode}
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3.5 text-xs font-semibold text-[#E2C275] transition hover:border-[#D4AF37]/60 hover:bg-[#D4AF37] hover:text-[#09090B] active:scale-95"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:border-[#e50935]/60 hover:bg-[#FAFAFA] hover:text-[#080809] active:scale-95"
                   >
                     <SkipForward className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Next Episode</span>
@@ -1953,7 +1953,7 @@ export function VideoPlayer({
                   onClick={handleMinimize}
                   aria-label="Minimize to floating mini-player"
                   title="Minimize to mini-player"
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#09090B] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#D4AF37]/60 hover:text-[#E2C275] active:scale-95"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3 text-xs font-medium text-[#FAFAFA] transition hover:border-[#e50935]/60 hover:text-[#e4e4e7] active:scale-95"
                 >
                   <ChevronDown className="h-4 w-4" />
                   <span className="hidden sm:inline">Minimize</span>
@@ -1968,7 +1968,7 @@ export function VideoPlayer({
                     'inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-full border text-xs transition',
                     isFullscreen
                       ? 'border-[#f59e0b] bg-[#f59e0b] px-3.5 font-semibold text-[#09090b] shadow-[0_0_20px_rgba(245,158,11,0.35)] hover:bg-[#fbbf24]'
-                      : 'min-w-[44px] border-white/15 bg-[#09090B] px-3 text-[#FAFAFA] hover:border-[#D4AF37]/60 hover:text-[#E2C275]'
+                      : 'min-w-[44px] border-white/15 bg-[#080809] px-3 text-[#FAFAFA] hover:border-[#e50935]/60 hover:text-[#e4e4e7]'
                   )}
                 >
                   {isFullscreen ? (
@@ -1991,17 +1991,17 @@ export function VideoPlayer({
 
       {/* Multi-Source Switcher + SUB/DUB + Ad-Shield + Direct Link Bar (44px+ Touch Targets) */}
       {(sources.length > 0 || allowCustomUrlInput || isAnime) && (
-        <div className="mt-3.5 space-y-3 rounded-2xl border border-white/[0.08] bg-[#121215] px-4 py-3">
+        <div className="mt-3.5 space-y-3 rounded-lg border border-white/[0.08] bg-[#151517] px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex w-full items-center justify-between gap-2 text-xs text-[#A1A1AA] sm:w-auto">
               <div className="flex items-center gap-2">
-                <Radio className="h-3.5 w-3.5 text-[#D4AF37]" />
+                <Radio className="h-3.5 w-3.5 text-[#fb5272]" />
                 <span className="font-medium text-[#FAFAFA]">Stream Sources</span>
               </div>
 
               {/* Anime SUB / DUB Toggle Pills (always visible on mobile header row) */}
               {isAnime && onAnimeAudioChange && (
-                <div className="flex shrink-0 items-center rounded-full border border-white/[0.08] bg-[#09090B] p-1 sm:hidden">
+                <div className="flex shrink-0 items-center rounded-full border border-white/[0.08] bg-[#080809] p-1 sm:hidden">
                   {(['sub', 'dub'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -2010,7 +2010,7 @@ export function VideoPlayer({
                       className={cn(
                         'min-h-[36px] min-w-[48px] rounded-full px-3 text-xs font-bold uppercase transition',
                         animeAudio === mode
-                          ? 'bg-[#D4AF37] text-[#09090B]'
+                          ? 'bg-[#FAFAFA] text-[#080809]'
                           : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
                       )}
                     >
@@ -2039,7 +2039,7 @@ export function VideoPlayer({
                     className={cn(
                       'inline-flex min-h-[44px] shrink-0 items-center gap-2 rounded-full border px-4 text-xs font-medium transition',
                       selected
-                        ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
+                        ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
                         : 'border-white/[0.08] bg-white/[0.03] text-[#A1A1AA] hover:border-white/20 hover:text-[#FAFAFA]'
                     )}
                   >
@@ -2052,10 +2052,10 @@ export function VideoPlayer({
                         className={cn(
                           'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
                           src.tier === 'direct_match'
-                            ? 'border-[#D4AF37]/50 bg-[#D4AF37]/20 text-[#E2C275]'
+                            ? 'border-[#e50935]/50 bg-[#e50935]/20 text-[#e4e4e7]'
                             : src.tier === 'broadcaster_match'
                             ? 'border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[#f59e0b]'
-                            : 'border-white/15 bg-[#09090B]/80 text-[#A1A1AA]'
+                            : 'border-white/15 bg-[#080809]/80 text-[#A1A1AA]'
                         )}
                       >
                         {src.tierLabel}
@@ -2067,7 +2067,7 @@ export function VideoPlayer({
 
               {/* Anime SUB / DUB Toggle Pills (desktop) */}
               {isAnime && onAnimeAudioChange && (
-                <div className="hidden shrink-0 items-center rounded-full border border-white/[0.08] bg-[#09090B] p-1 sm:flex">
+                <div className="hidden shrink-0 items-center rounded-full border border-white/[0.08] bg-[#080809] p-1 sm:flex">
                   {(['sub', 'dub'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -2076,7 +2076,7 @@ export function VideoPlayer({
                       className={cn(
                         'min-h-[36px] min-w-[52px] rounded-full px-3 text-xs font-bold uppercase transition',
                         animeAudio === mode
-                          ? 'bg-[#D4AF37] text-[#09090B]'
+                          ? 'bg-[#FAFAFA] text-[#080809]'
                           : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
                       )}
                     >
@@ -2133,8 +2133,8 @@ export function VideoPlayer({
                       className={cn(
                         'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
                         shieldCurrentlyBlocking
-                          ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
-                          : 'border-[#D4AF37]/50 bg-[#D4AF37]/10 text-[#E2C275]'
+                          ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
+                          : 'border-[#e50935]/50 bg-[#e50935]/10 text-[#e4e4e7]'
                       )}
                     >
                       {shieldCurrentlyBlocking
@@ -2153,7 +2153,7 @@ export function VideoPlayer({
                   className={cn(
                     'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
                     showCustomInput
-                      ? 'border-[#D4AF37] bg-[#D4AF37]/15 text-[#E2C275]'
+                      ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
                       : 'border-white/[0.08] bg-white/[0.03] text-[#A1A1AA] hover:text-[#FAFAFA]'
                   )}
                 >
@@ -2171,11 +2171,11 @@ export function VideoPlayer({
                 value={customStreamUrl}
                 onChange={(e) => setCustomStreamUrl(e.target.value)}
                 placeholder="https://example.com/live/game-feed.m3u8"
-                className="min-h-[44px] flex-1 rounded-xl border border-white/[0.08] bg-[#09090B] px-3.5 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#D4AF37]/50 focus:outline-none"
+                className="min-h-[44px] flex-1 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
               <button
                 type="submit"
-                className="min-h-[44px] rounded-xl bg-[#D4AF37] px-5 py-2 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+                className="min-h-[44px] rounded-xl bg-[#FAFAFA] px-5 py-2 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
               >
                 Load Stream
               </button>

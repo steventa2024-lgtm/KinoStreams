@@ -68,18 +68,18 @@ export default function AnimePage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#09090B] pt-20 pb-12">
+    <main className="min-h-screen bg-[#080809] pt-20 pb-12">
       <TopBar solid />
 
       <div className="mx-auto max-w-[1440px] space-y-8 px-4 sm:px-6 lg:px-10">
         {/* Header & Filter Pills */}
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/[0.08] pb-6">
           <div>
-            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#D4AF37]">
+            <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#fb5272]">
               <Sparkles className="h-3.5 w-3.5" />
               Japanese Animation
             </div>
-            <h1 className="mt-1.5 font-serif text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
+            <h1 className="mt-1.5 font-sans text-3xl font-medium tracking-tight text-[#FAFAFA] md:text-4xl">
               Anime Collection
             </h1>
             <p className="mt-1 text-sm text-[#A1A1AA]">
@@ -102,7 +102,7 @@ export default function AnimePage() {
 
         {/* Hero Spotlight */}
         {spotlight && (
-          <section className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#121215]">
+          <section className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#151517]">
             <div className="grid grid-cols-1 lg:grid-cols-12">
               <div className="relative aspect-video lg:col-span-7">
                 {spotlight.backdropPath || spotlight.posterPath ? (
@@ -113,21 +113,21 @@ export default function AnimePage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-[#09090B]">
-                    <Sparkles className="h-12 w-12 text-[#D4AF37]/50" />
+                  <div className="flex h-full w-full items-center justify-center bg-[#080809]">
+                    <Sparkles className="h-12 w-12 text-[#fb5272]/50" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-[#121215]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#151517] via-transparent to-transparent lg:bg-gradient-to-r lg:from-transparent lg:to-[#151517]" />
               </div>
 
               <div className="flex flex-col justify-center p-6 lg:col-span-5 lg:p-8">
                 <div className="flex items-center gap-2.5">
-                  <span className="rounded-full border border-[#D4AF37]/35 bg-[#D4AF37]/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#E2C275]">
+                  <span className="rounded-full border border-[#e50935]/35 bg-[#e50935]/10 px-3 py-0.5 text-[10px] font-bold uppercase tracking-widest text-[#e4e4e7]">
                     Spotlight
                   </span>
                   {spotlight.rating && (
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#E2C275]">
-                      <Star className="h-3.5 w-3.5 fill-[#D4AF37] text-[#D4AF37]" />
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#e4e4e7]">
+                      <Star className="h-3.5 w-3.5 fill-[#e50935] text-[#fb5272]" />
                       {spotlight.rating.toFixed(1)}
                     </span>
                   )}
@@ -136,7 +136,7 @@ export default function AnimePage() {
                   )}
                 </div>
 
-                <h2 className="mt-3 font-serif text-2xl font-medium text-[#FAFAFA] md:text-3xl">
+                <h2 className="mt-3 font-sans text-2xl font-medium text-[#FAFAFA] md:text-3xl">
                   {spotlight.title}
                 </h2>
                 <p className="mt-2.5 line-clamp-3 text-sm leading-relaxed text-[#A1A1AA]">
@@ -146,7 +146,7 @@ export default function AnimePage() {
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <Link
                     href={`/watch/${spotlightTypePath}/${encodeURIComponent(spotlight.id)}`}
-                    className="inline-flex items-center gap-2 rounded-full bg-[#D4AF37] px-6 py-2.5 text-xs font-semibold text-[#09090B] transition hover:bg-[#E2C275]"
+                    className="inline-flex items-center gap-2 rounded-full bg-[#FAFAFA] px-6 py-2.5 text-xs font-semibold text-[#080809] transition hover:bg-[#e2e2e2]"
                   >
                     <Play className="h-3.5 w-3.5 fill-current" />
                     Play Now
@@ -164,11 +164,11 @@ export default function AnimePage() {
                         rating: spotlight.rating,
                       })
                     }
-                    className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-[#09090B]/70 px-4 py-2.5 text-xs font-medium text-[#FAFAFA] hover:border-[#D4AF37]/45"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-[#080809]/70 px-4 py-2.5 text-xs font-medium text-[#FAFAFA] hover:border-[#e50935]/45"
                   >
                     {spotlightSaved ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-[#D4AF37]" />
+                        <Check className="h-3.5 w-3.5 text-[#fb5272]" />
                         In Watchlist
                       </>
                     ) : (
@@ -187,7 +187,7 @@ export default function AnimePage() {
         {/* Poster Grid */}
         {loading && items.length === 0 ? (
           <div className="flex justify-center py-14">
-            <Loader2 className="h-8 w-8 animate-spin text-[#D4AF37]" />
+            <Loader2 className="h-8 w-8 animate-spin text-[#fb5272]" />
           </div>
         ) : (
           <>
@@ -211,7 +211,7 @@ export default function AnimePage() {
                   type="button"
                   disabled={loading}
                   onClick={handleLoadMore}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#D4AF37]/40 bg-[#121215] px-7 py-2.5 text-xs font-semibold text-[#E2C275] transition hover:bg-[#D4AF37] hover:text-[#09090B] disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#e50935]/40 bg-[#151517] px-7 py-2.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809] disabled:opacity-50"
                 >
                   {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Load More Anime

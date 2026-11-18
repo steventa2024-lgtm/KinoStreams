@@ -184,7 +184,7 @@ export function FloatingMiniPlayer() {
   return (
     <aside
       aria-label="Floating mini-player"
-      className="fixed right-3 bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-40 w-[190px] overflow-hidden rounded-2xl border border-[#D4AF37]/40 bg-[#121215]/95 shadow-[0_18px_48px_rgba(0,0,0,0.8)] backdrop-blur-xl md:right-6 md:bottom-6 md:w-[320px]"
+      className="fixed right-3 bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-40 w-[190px] overflow-hidden rounded-lg border border-[#e50935]/40 bg-[#151517]/95 shadow-[0_18px_48px_rgba(0,0,0,0.8)] backdrop-blur-xl md:right-6 md:bottom-6 md:w-[320px]"
     >
       {/* 16:9 Media Preview */}
       <div className="relative aspect-video w-full bg-black">
@@ -215,7 +215,7 @@ export function FloatingMiniPlayer() {
             {miniPlayer.isLive ? (
               <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#EF4444]" />
             ) : (
-              <Radio className="h-3 w-3 shrink-0 text-[#D4AF37]" />
+              <Radio className="h-3 w-3 shrink-0 text-[#fb5272]" />
             )}
             <span className="truncate text-[10px] font-semibold text-[#FAFAFA] md:text-xs">
               {miniPlayer.title}
@@ -225,12 +225,12 @@ export function FloatingMiniPlayer() {
       </div>
 
       {/* Touch-Friendly 44px Control Bar */}
-      <div className="grid grid-cols-4 border-t border-white/[0.08] bg-[#09090B]/90">
+      <div className="grid grid-cols-4 border-t border-white/[0.08] bg-[#080809]/90">
         <button
           type="button"
           onClick={isEmbed ? handleExpand : togglePlay}
           aria-label={playing ? 'Pause mini-player' : 'Play mini-player'}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-[#D4AF37] transition hover:bg-white/[0.06] active:scale-95"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-[#fb5272] transition hover:bg-white/[0.06] active:scale-95"
         >
           {playing && !isEmbed ? (
             <Pause className="h-4 w-4 fill-current" />
@@ -257,7 +257,7 @@ export function FloatingMiniPlayer() {
           type="button"
           onClick={handleExpand}
           aria-label="Expand mini-player"
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-[#FAFAFA] transition hover:bg-white/[0.06] hover:text-[#E2C275] active:scale-95"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center text-[#FAFAFA] transition hover:bg-white/[0.06] hover:text-[#e4e4e7] active:scale-95"
         >
           <Maximize2 className="h-4 w-4" />
         </button>
