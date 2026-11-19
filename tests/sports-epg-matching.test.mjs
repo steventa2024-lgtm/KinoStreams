@@ -101,11 +101,15 @@ const { resolveAllChannelSources } = loadTsModule(
 );
 const {
   M3U_SOURCES_STORAGE_KEY,
+  CUSTOM_CHANNEL_BINDINGS_KEY,
   setActiveUserScope,
   addCustomSource,
   getCustomSources,
   getBuiltinSourceStates,
   setBuiltinSourceEnabled,
+  getCustomChannelBindings,
+  setCustomChannelBinding,
+  removeCustomChannelBinding,
 } = loadTsModule(path.join(SRC_DIR, 'lib', 'storage.ts'));
 const { FALLBACK_CHANNELS, FALLBACK_SPORTS_MATCHES } = loadTsModule(
   path.join(SRC_DIR, 'config', 'fallback-streams.ts')
@@ -114,6 +118,8 @@ const {
   RECOMMENDED_CHANNELS,
   RECOMMENDED_SECTIONS,
   buildRecommendedGuide,
+  resolveRecommendedChannelById,
+  lookupEpgSchedule,
   channelMatchesLiveFilter,
 } = loadTsModule(path.join(SRC_DIR, 'lib', 'live-guide.ts'));
 
@@ -986,8 +992,8 @@ test('Case (h): User M3U sources & FAST toggles persist across reload/redeploy s
   }
 });
 
-test('Case (i): resolveAllChannelSources loads 300+ live channels from built-in FAST playlists & isolates slow failures', async () => {
-  assert.equal(BUILTIN_PUBLIC_PLAYLISTS.length, 3);
+test('Case (i): resolveAllChannelSources loads 300+ live channels across 8 public FAST playlists & lights up cable/kids/UFC', async () => {
+  assert.equal(BUILTIN_PUBLIC_PLAYLISTS.length, 8);
   const { channels, errors } = await resolveAllChannelSources({
     includeBuiltins: true,
     includeFallback: true,
@@ -1010,12 +1016,156 @@ test('Case (i): resolveAllChannelSources loads 300+ live channels from built-in 
     `Expected >= 300 live channels from public FAST playlists, got ${channels.length}`
   );
 
-  // Confirm recommended guide keeps UFC & Spectrum offline unless present & never injects ESPN urls
   const guide = buildRecommendedGuide(channels);
-  for (const id of ['rec-spectrum-sportsnet', 'rec-spectrum-sportsnet-la', 'rec-spectrum-sportsnet-plus']) {
+  for (const expectedConnectedId of [
+    'rec-ufc-network',
+    'rec-disney-channel',
+    'rec-disney-xd',
+    'rec-disney-junior',
+    'rec-cartoon-network',
+    'rec-boomerang',
+    'rec-pbs-kids',
+    'rec-teennick',
+    'rec-fx',
+    'rec-amc',
+    'rec-e-entertainment',
+  ]) {
+    const item = guide.items.find((i) => i.channel.id === expectedConnectedId);
+    assert.ok(item, `Missing recommended definition ${expectedConnectedId}`);
+    assert.ok(
+      item.connected && item.channel.url,
+      `Expected ${expectedConnectedId} to resolve a live stream across public FAST playlists`
+    );
+  }
+
+  // Confirm recommended guide never injects ESPN fallback URLs into UFC or Spectrum
+  for (const id of [
+    'rec-ufc-ppv',
+    'rec-ufc-fight-pass',
+    'rec-ufc-fight-night',
+    'rec-ufc-network',
+    'rec-spectrum-sportsnet',
+    'rec-spectrum-sportsnet-la',
+    'rec-spectrum-sportsnet-plus',
+  ]) {
     const item = guide.items.find((i) => i.channel.id === id);
     if (item && item.connected) {
-      assert.equal(item.channel.url.includes('ESPN-HD'), false);
+      assert.equal(item.channel.url.includes('ESPN'), false);
     }
+  }
+
+  // AMC must stay US-aligned (tvgId AMC.us) and never serve Hungarian AMC
+  const amcItem = guide.items.find((i) => i.channel.id === 'rec-amc');
+  assert.equal(amcItem?.channel.tvgId, 'AMC.us');
+  assert.equal(/\.hu\b|hungar/i.test(amcItem?.channel.url || ''), false);
+});
+
+test('Case (j): US/English scoring blocks Hungarian AMC.hu in favor of AMC (United States) & resolves base EPG', () => {
+  const mixedChannels = [
+    {
+      id: 'hu-amc',
+      name: 'AMC',
+      tvgName: 'AMC',
+      tvgId: 'AMC.hu',
+      tvgCountry: 'HU',
+      tvgLanguage: 'Hungarian',
+      group: 'Hungary',
+      category: 'live',
+      url: 'https://hu-stream.example.test/amc-hungary.m3u8',
+      isLive: true,
+      sourceId: 'builtin-free-tv-master',
+    },
+    {
+      id: 'us-amc',
+      name: 'AMC (United States) (1080p) [Geo-blocked]',
+      tvgName: 'AMC',
+      tvgId: 'AMC.us@EastHD',
+      tvgCountry: 'US',
+      tvgLanguage: 'English',
+      group: 'Entertainment',
+      category: 'live',
+      url: 'https://us-stream.example.test/amc-us.m3u8',
+      isLive: true,
+      sourceId: 'builtin-iptv-org-us',
+    },
+  ];
+
+  const guide = buildRecommendedGuide(mixedChannels);
+  const amc = guide.items.find((i) => i.channel.id === 'rec-amc');
+  assert.ok(amc?.connected);
+  assert.equal(amc.channel.url, 'https://us-stream.example.test/amc-us.m3u8');
+  assert.equal(amc.serverCount, 1);
+
+  const epg = {
+    'AMC.us': {
+      channelId: 'AMC.us',
+      now: {
+        channelId: 'AMC.us',
+        title: 'Better Call Saul',
+        start: new Date(Date.now() - 600_000).toISOString(),
+        end: new Date(Date.now() + 600_000).toISOString(),
+      },
+      upcoming: [],
+    },
+  };
+  const sched = lookupEpgSchedule(epg, amc.channel);
+  assert.equal(sched?.now?.title, 'Better Call Saul');
+});
+
+test('Case (k): Direct per-channel stream binding (kino:customChannelBindings) persists across scopes & binds Server I', () => {
+  const store = new Map();
+  const prevWindow = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+    },
+    dispatchEvent: () => true,
+  };
+  globalThis.CustomEvent =
+    globalThis.CustomEvent ||
+    class CustomEventMock {
+      constructor(type, init = {}) {
+        this.type = type;
+        this.detail = init.detail;
+      }
+    };
+
+  try {
+    setActiveUserScope('viewer@kinostream.test');
+    const saved = setCustomChannelBinding({
+      channelId: 'rec-spectrum-sportsnet',
+      channelName: 'Spectrum SportsNet',
+      url: 'https://custom-cdn.example.test/specsn/master.m3u8',
+      label: 'My Lakers Direct Feed',
+    });
+    assert.ok(store.has(CUSTOM_CHANNEL_BINDINGS_KEY));
+    assert.equal(
+      saved['rec-spectrum-sportsnet']?.url,
+      'https://custom-cdn.example.test/specsn/master.m3u8'
+    );
+
+    // Survives null scope before OAuth hydration
+    setActiveUserScope(null);
+    const bindingsBeforeHydrate = getCustomChannelBindings();
+    assert.equal(
+      bindingsBeforeHydrate['rec-spectrum-sportsnet']?.url,
+      'https://custom-cdn.example.test/specsn/master.m3u8'
+    );
+
+    const guide = buildRecommendedGuide([], bindingsBeforeHydrate);
+    const spec = guide.items.find((i) => i.channel.id === 'rec-spectrum-sportsnet');
+    assert.equal(spec?.connected, true);
+    assert.equal(spec?.channel.url, 'https://custom-cdn.example.test/specsn/master.m3u8');
+
+    const resolved = resolveRecommendedChannelById('rec-spectrum-sportsnet', [], bindingsBeforeHydrate);
+    assert.equal(resolved?.url, 'https://custom-cdn.example.test/specsn/master.m3u8');
+
+    removeCustomChannelBinding('rec-spectrum-sportsnet');
+    assert.equal(getCustomChannelBindings()['rec-spectrum-sportsnet'], undefined);
+  } finally {
+    setActiveUserScope(null);
+    globalThis.window = prevWindow;
   }
 });

@@ -13,31 +13,29 @@ function formatChannelResponse(
   errors: Array<{ sourceId: string; name: string; error: string }>,
   discoveredEpgUrls: string[] = []
 ) {
-  const groupsMap = new Map<string, Channel[]>();
+  const groupsMap = new Map<string, number>();
+  let sportsCount = 0;
+  let liveCount = 0;
+
   for (const ch of channels) {
-    const list = groupsMap.get(ch.group) || [];
-    list.push(ch);
-    groupsMap.set(ch.group, list);
+    groupsMap.set(ch.group, (groupsMap.get(ch.group) || 0) + 1);
+    if (ch.category === 'sports') sportsCount++;
+    else liveCount++;
   }
 
-  const groups = Array.from(groupsMap.entries()).map(([name, items]) => ({
+  const groups = Array.from(groupsMap.entries()).map(([name, count]) => ({
     name,
-    count: items.length,
+    count,
   }));
-
-  const sportsChannels = channels.filter((ch) => ch.category === 'sports');
-  const liveChannels = channels.filter((ch) => ch.category === 'live');
 
   return {
     channels,
-    sportsChannels,
-    liveChannels,
     groups,
     discoveredEpgUrls,
     stats: {
       total: channels.length,
-      sports: sportsChannels.length,
-      live: liveChannels.length,
+      sports: sportsCount,
+      live: liveCount,
     },
     errors,
   };

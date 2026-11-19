@@ -1,18 +1,21 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
   CalendarClock,
+  Check,
   EyeOff,
   Layers,
   LayoutGrid,
+  Link2,
   Play,
   Plus,
   Radio,
   Search,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
@@ -23,27 +26,322 @@ import {
   RECOMMENDED_SECTIONS,
   buildRecommendedGuide,
   channelMatchesLiveFilter,
+  lookupEpgSchedule,
   searchAllLiveChannels,
 } from '@/lib/live-guide';
 import { stopGlobalPlayback } from '@/lib/playback-cleanup';
+import {
+  addCustomSource,
+  removeCustomChannelBinding,
+  setCustomChannelBinding,
+} from '@/lib/storage';
 import {
   calculateEpgProgress,
   cn,
   formatClockTime,
   getInitials,
 } from '@/lib/utils';
-import type { Channel, EpgChannelSchedule } from '@/types/media';
+import type {
+  Channel,
+  CustomChannelBinding,
+  EpgChannelSchedule,
+} from '@/types/media';
+
+function ChannelLogo({ logo, name }: { logo?: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [logo]);
+
+  if (!logo || failed) {
+    return (
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#f59e0b]/25 bg-[#09090b]">
+        <span className="font-sans text-sm font-semibold tracking-tight text-[#f59e0b]">
+          {getInitials(name)}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#09090b]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        key={logo}
+        src={logo}
+        alt={name}
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+        className="h-full w-full object-contain p-1"
+        loading="lazy"
+      />
+    </div>
+  );
+}
+
+function ConnectStreamModal({
+  channel,
+  existingBinding,
+  onClose,
+  onOpenSourceManager,
+  onPlaylistAdded,
+}: {
+  channel: Channel | null;
+  existingBinding?: CustomChannelBinding;
+  onClose: () => void;
+  onOpenSourceManager: () => void;
+  onPlaylistAdded: () => void;
+}) {
+  const [mode, setMode] = useState<'direct' | 'm3u'>('direct');
+  const [streamUrl, setStreamUrl] = useState('');
+  const [streamLabel, setStreamLabel] = useState('');
+  const [referrer, setReferrer] = useState('');
+  const [playlistName, setPlaylistName] = useState('Custom IPTV Playlist');
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [epgUrl, setEpgUrl] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!channel) return;
+    setMode('direct');
+    setStreamUrl(existingBinding?.url || '');
+    setStreamLabel(existingBinding?.label || `${channel.name} Custom Stream`);
+    setReferrer(existingBinding?.referrer || '');
+    setPlaylistUrl('');
+    setEpgUrl('');
+    setError('');
+  }, [channel, existingBinding]);
+
+  if (!channel) return null;
+
+  const handleBindDirect = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = streamUrl.trim();
+    if (!cleaned || !/^https?:\/\//i.test(cleaned)) {
+      setError('Enter a valid stream URL starting with http:// or https://');
+      return;
+    }
+    setCustomChannelBinding({
+      channelId: channel.id,
+      channelName: channel.name,
+      url: cleaned,
+      label: streamLabel.trim() || `${channel.name} Custom Stream`,
+      referrer: referrer.trim() || undefined,
+    });
+    onClose();
+  };
+
+  const handleImportM3u = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleaned = playlistUrl.trim();
+    if (!cleaned || !/^https?:\/\//i.test(cleaned)) {
+      setError('Enter a valid .m3u or .m3u8 playlist URL starting with http:// or https://');
+      return;
+    }
+    addCustomSource({
+      name: playlistName.trim() || `${channel.name} Playlist`,
+      type: 'm3u',
+      url: cleaned,
+      epgUrl: epgUrl.trim() || undefined,
+      referrer: referrer.trim() || undefined,
+      enabled: true,
+    });
+    onPlaylistAdded();
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Connect stream for ${channel.name}`}
+    >
+      <div className="w-full max-w-lg rounded-2xl border border-white/[0.1] bg-[#121215] p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
+          <div className="flex items-center gap-3">
+            <ChannelLogo logo={channel.logo} name={channel.name} />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#f59e0b]">
+                Connect Live Stream
+              </p>
+              <h2 className="font-sans text-lg font-medium text-[#FAFAFA]">
+                {channel.name}
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close connect stream modal"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.08] bg-[#18181b] text-[#A1A1AA] transition hover:text-[#FAFAFA]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Mode Switch */}
+        <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-white/[0.08] bg-[#09090b] p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setMode('direct');
+              setError('');
+            }}
+            className={cn(
+              'rounded-lg px-3 py-2 text-xs font-semibold transition',
+              mode === 'direct'
+                ? 'bg-[#f59e0b] text-[#09090b]'
+                : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
+            )}
+          >
+            Bind Direct .m3u8 Stream
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setMode('m3u');
+              setError('');
+            }}
+            className={cn(
+              'rounded-lg px-3 py-2 text-xs font-semibold transition',
+              mode === 'm3u'
+                ? 'bg-[#f59e0b] text-[#09090b]'
+                : 'text-[#A1A1AA] hover:text-[#FAFAFA]'
+            )}
+          >
+            Paste .m3u Playlist URL
+          </button>
+        </div>
+
+        {mode === 'direct' ? (
+          <form onSubmit={handleBindDirect} className="mt-4 space-y-3">
+            <p className="text-xs text-[#A1A1AA]">
+              Attach a direct stream URL (<code className="text-[#f59e0b]">.m3u8</code> /{' '}
+              <code className="text-[#f59e0b]">.ts</code>) directly to{' '}
+              <strong className="text-[#FAFAFA]">{channel.name}</strong> as Server I. Saved locally in browser storage across redeploys.
+            </p>
+            <input
+              type="url"
+              value={streamUrl}
+              onChange={(e) => setStreamUrl(e.target.value)}
+              placeholder="https://example.com/live/channel/index.m3u8"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+              autoFocus
+            />
+            <input
+              type="text"
+              value={streamLabel}
+              onChange={(e) => setStreamLabel(e.target.value)}
+              placeholder="Source label (e.g. Custom HD Feed)"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+            />
+            <input
+              type="url"
+              value={referrer}
+              onChange={(e) => setReferrer(e.target.value)}
+              placeholder="Optional HTTP Referer header"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+            />
+
+            {error && <p className="text-xs font-medium text-[#EF4444]">{error}</p>}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="submit"
+                className="inline-flex min-h-[42px] flex-1 items-center justify-center gap-1.5 rounded-full bg-[#f59e0b] px-5 text-xs font-semibold text-[#09090b] transition hover:bg-[#fbbf24]"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Save Stream Binding
+              </button>
+              {existingBinding && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    removeCustomChannelBinding(channel.id);
+                    onClose();
+                  }}
+                  className="inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-full border border-[#EF4444]/40 bg-[#EF4444]/10 px-4 text-xs font-semibold text-[#FCA5A5] transition hover:bg-[#EF4444]/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Remove
+                </button>
+              )}
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleImportM3u} className="mt-4 space-y-3">
+            <p className="text-xs text-[#A1A1AA]">
+              Import a full <code className="text-[#f59e0b]">.m3u</code> playlist URL. KinoStream automatically matches channels and merges them into this guide and persisted browser sources.
+            </p>
+            <input
+              type="text"
+              value={playlistName}
+              onChange={(e) => setPlaylistName(e.target.value)}
+              placeholder="Playlist Name (e.g. Sports & Cable IPTV)"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+            />
+            <input
+              type="url"
+              value={playlistUrl}
+              onChange={(e) => setPlaylistUrl(e.target.value)}
+              placeholder="https://example.com/playlist.m3u"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+              autoFocus
+            />
+            <input
+              type="url"
+              value={epgUrl}
+              onChange={(e) => setEpgUrl(e.target.value)}
+              placeholder="Optional XMLTV EPG URL (.xml / .xml.gz)"
+              className="w-full rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none"
+            />
+
+            {error && <p className="text-xs font-medium text-[#EF4444]">{error}</p>}
+
+            <button
+              type="submit"
+              className="inline-flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-full bg-[#f59e0b] px-5 text-xs font-semibold text-[#09090b] transition hover:bg-[#fbbf24]"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Import &amp; Sync Playlist
+            </button>
+          </form>
+        )}
+
+        <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3 text-xs">
+          <span className="text-[#71717A]">
+            Manage built-in FAST feeds &amp; saved sources:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenSourceManager();
+            }}
+            className="font-semibold text-[#f59e0b] hover:underline"
+          >
+            Open M3U / EPG Manager →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LiveChannelCard({
   channel,
   schedule,
   serverCount,
-  onConnectM3u,
+  hasCustomBinding,
+  onConnectStream,
 }: {
   channel: Channel;
   schedule?: EpgChannelSchedule;
   serverCount?: number;
-  onConnectM3u?: (channelName: string) => void;
+  hasCustomBinding?: boolean;
+  onConnectStream: (channel: Channel) => void;
 }) {
   const isConnected = Boolean(channel.url && channel.url.trim());
   const nowProg = schedule?.now;
@@ -52,72 +350,103 @@ function LiveChannelCard({
   const effectiveServers = isConnected
     ? serverCount ?? 1 + (channel.backupUrls?.length || 0)
     : 0;
+  const watchHref = `/watch/${channel.category}/${encodeURIComponent(channel.id)}`;
 
-  const cardInner = (
+  const headerMeta = (
     <>
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3.5">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#09090b]">
-            {channel.logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={channel.logo}
-                alt={channel.name}
-                className="h-full w-full object-contain p-1"
-                loading="lazy"
-              />
-            ) : (
-              <span className="font-sans text-sm font-semibold text-[#f59e0b]">
-                {getInitials(channel.name)}
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="truncate font-sans text-lg font-medium text-[#FAFAFA] group-hover:text-[#e4e4e7]">
-                {channel.name}
-              </h3>
-              {isConnected ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
-                  LIVE
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/12 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
-                  Offline / Connect M3U
-                </span>
-              )}
-              {effectiveServers > 1 && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/35 bg-[#f59e0b]/10 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
-                  <Layers className="h-2.5 w-2.5" />
-                  {effectiveServers} Feeds
-                </span>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs text-[#71717A]">
-              {channel.group}
-              {channel.league ? ` · ${channel.league}` : ''}
-              {isConnected && channel.quality ? ` · ${channel.quality}` : ''}
-              {channel.sourceName ? ` · ${channel.sourceName}` : ''}
-            </p>
-          </div>
+      <ChannelLogo logo={channel.logo} name={channel.name} />
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="truncate font-sans text-lg font-medium text-[#FAFAFA] group-hover:text-[#e4e4e7]">
+            {channel.name}
+          </h3>
+          {isConnected ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
+              LIVE
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/12 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
+              Offline / Connect M3U
+            </span>
+          )}
+          {hasCustomBinding && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/50 bg-[#f59e0b]/15 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
+              Custom Bound
+            </span>
+          )}
+          {effectiveServers > 1 && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/35 bg-[#f59e0b]/10 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
+              <Layers className="h-2.5 w-2.5" />
+              {effectiveServers} Feeds
+            </span>
+          )}
         </div>
+        <p className="mt-0.5 text-xs text-[#71717A]">
+          {channel.group}
+          {channel.league ? ` · ${channel.league}` : ''}
+          {isConnected && channel.quality ? ` · ${channel.quality}` : ''}
+          {channel.sourceName ? ` · ${channel.sourceName}` : ''}
+        </p>
+      </div>
+    </>
+  );
 
+  return (
+    <div className="group relative flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5">
+      <div className="flex items-start justify-between gap-3">
         {isConnected ? (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]">
-            <Play className="ml-0.5 h-4 w-4 fill-current" />
-          </div>
+          <Link
+            href={watchHref}
+            onClickCapture={stopGlobalPlayback}
+            className="flex min-w-0 flex-1 items-center gap-3.5"
+          >
+            {headerMeta}
+          </Link>
         ) : (
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#f59e0b]/50 bg-[#09090b] text-[#f59e0b] transition-colors group-hover:bg-[#f59e0b] group-hover:text-[#09090b]">
-            <Plus className="h-4 w-4" />
-          </div>
+          <button
+            type="button"
+            onClick={() => onConnectStream(channel)}
+            className="flex min-w-0 flex-1 items-center gap-3.5 text-left"
+          >
+            {headerMeta}
+          </button>
         )}
+
+        <div className="relative z-20 flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onConnectStream(channel);
+            }}
+            title={`Connect or override M3U stream for ${channel.name}`}
+            aria-label={`Connect or override M3U stream for ${channel.name}`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#f59e0b]/45 bg-[#09090b] text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          {isConnected && (
+            <Link
+              href={watchHref}
+              onClickCapture={stopGlobalPlayback}
+              aria-label={`Watch ${channel.name}`}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]"
+            >
+              <Play className="ml-0.5 h-4 w-4 fill-current" />
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Connected Stream Now/Next EPG vs Unconnected M3U Prompt */}
       {isConnected ? (
-        <div className="mt-4 rounded-xl border border-white/[0.06] bg-[#09090b]/75 p-3.5">
+        <Link
+          href={watchHref}
+          onClickCapture={stopGlobalPlayback}
+          className="mt-4 block rounded-xl border border-white/[0.06] bg-[#09090b]/75 p-3.5 transition hover:border-white/[0.12]"
+        >
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="truncate font-semibold text-[#e4e4e7]">
               ON NOW: {nowProg?.title || `${channel.name} Live`}
@@ -153,60 +482,48 @@ function LiveChannelCard({
               </span>
             </div>
           )}
-        </div>
+        </Link>
       ) : (
-        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#f59e0b]/25 bg-[#09090b]/75 px-3.5 py-3 text-left text-xs">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onConnectStream(channel);
+          }}
+          className="relative z-20 mt-4 flex w-full items-center justify-between gap-3 rounded-xl border border-[#f59e0b]/25 bg-[#09090b]/75 px-3.5 py-3 text-left text-xs transition hover:border-[#f59e0b]/55"
+        >
           <span className="line-clamp-2 text-[#A1A1AA]">
-            No verified stream connected. Tap to connect an M3U playlist containing{' '}
+            No stream bound yet. Tap to bind a direct `.m3u8` URL or paste an `.m3u` playlist containing{' '}
             <span className="font-medium text-[#FAFAFA]">{channel.name}</span>.
           </span>
-          <span className="shrink-0 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/10 px-2.5 py-1 text-[10px] font-semibold text-[#f59e0b]">
+          <span className="shrink-0 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/15 px-3 py-1 text-[10px] font-semibold text-[#f59e0b]">
             Connect M3U
           </span>
-        </div>
+        </button>
       )}
-    </>
-  );
-
-  if (!isConnected) {
-    return (
-      <button
-        type="button"
-        onClick={() => onConnectM3u?.(channel.name)}
-        className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 text-left transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
-      >
-        {cardInner}
-      </button>
-    );
-  }
-
-  return (
-    <Link
-      href={`/watch/${channel.category}/${encodeURIComponent(channel.id)}`}
-      onClickCapture={stopGlobalPlayback}
-      className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
-    >
-      {cardInner}
-    </Link>
+    </div>
   );
 }
 
 export default function LiveTvPage() {
-  const { channels, epgSchedules, openSources, channelsLoading } = useKino();
+  const {
+    channels,
+    epgSchedules,
+    customBindings,
+    openSources,
+    refreshChannels,
+    channelsLoading,
+  } = useKino();
   const [selectedFilter, setSelectedFilter] = useState<LiveFilterCategory>('recommended');
   const [filterText, setFilterText] = useState('');
   const [hideUnconnected, setHideUnconnected] = useState(false);
   const [allChannelsLimit, setAllChannelsLimit] = useState(120);
-  const [connectPromptChannel, setConnectPromptChannel] = useState<string | null>(null);
-
-  const handleConnectChannelPrompt = (channelName: string) => {
-    setConnectPromptChannel(channelName);
-    openSources();
-  };
+  const [connectTargetChannel, setConnectTargetChannel] = useState<Channel | null>(null);
 
   const recommendedGuide = useMemo(
-    () => buildRecommendedGuide(channels),
-    [channels]
+    () => buildRecommendedGuide(channels, customBindings),
+    [channels, customBindings]
   );
 
   const hasImportedSources = useMemo(
@@ -218,9 +535,9 @@ export default function LiveTvPage() {
 
   const searchResults = useMemo(() => {
     if (!isSearching) return [];
-    const raw = searchAllLiveChannels(channels, filterText, epgSchedules);
+    const raw = searchAllLiveChannels(channels, filterText, epgSchedules, customBindings);
     return hideUnconnected ? raw.filter((ch) => Boolean(ch.url && ch.url.trim())) : raw;
-  }, [isSearching, channels, filterText, epgSchedules, hideUnconnected]);
+  }, [isSearching, channels, filterText, epgSchedules, customBindings, hideUnconnected]);
 
   const categoryChannels = useMemo(() => {
     if (selectedFilter === 'recommended' || selectedFilter === 'all') {
@@ -242,20 +559,50 @@ export default function LiveTvPage() {
       curatedForCategory.map((c) => c.channel.url).filter(Boolean)
     );
     const extras = channels
-      .filter(
-        (ch) =>
-          Boolean(ch.url && ch.url.trim()) &&
+      .filter((ch) => {
+        const effectiveUrl = customBindings[ch.id]?.url || ch.url;
+        return (
+          Boolean(effectiveUrl && effectiveUrl.trim()) &&
           !recommendedGuide.matchedSourceChannelIds.has(ch.id) &&
-          !seenUrls.has(ch.url) &&
+          !seenUrls.has(effectiveUrl) &&
           channelMatchesLiveFilter(ch, selectedFilter)
-      )
-      .map((ch) => ({
-        channel: ch,
-        serverCount: 1 + (ch.backupUrls?.length || 0),
-      }));
+        );
+      })
+      .map((ch) => {
+        const binding = customBindings[ch.id];
+        const merged = binding?.url
+          ? {
+              ...ch,
+              url: binding.url,
+              backupUrls: ch.url
+                ? [{ label: ch.name, url: ch.url, referrer: ch.referrer, userAgent: ch.userAgent }, ...(ch.backupUrls || [])]
+                : ch.backupUrls,
+            }
+          : ch;
+        return {
+          channel: merged,
+          serverCount: 1 + (merged.backupUrls?.length || 0),
+        };
+      });
 
     return [...curatedForCategory, ...extras];
-  }, [selectedFilter, recommendedGuide, channels, hideUnconnected]);
+  }, [selectedFilter, recommendedGuide, channels, customBindings, hideUnconnected]);
+
+  const effectiveAllChannels = useMemo(
+    () =>
+      channels.map((ch) => {
+        const binding = customBindings[ch.id];
+        if (!binding?.url) return ch;
+        return {
+          ...ch,
+          url: binding.url,
+          backupUrls: ch.url
+            ? [{ label: ch.name, url: ch.url, referrer: ch.referrer, userAgent: ch.userAgent }, ...(ch.backupUrls || [])]
+            : ch.backupUrls,
+        };
+      }),
+    [channels, customBindings]
+  );
 
   const pillCounts = useMemo<Record<LiveFilterCategory, number>>(() => {
     const counts: Record<LiveFilterCategory, number> = {
@@ -423,23 +770,6 @@ export default function LiveTvPage() {
           </button>
         </div>
 
-        {connectPromptChannel && (
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#151517] px-4 py-2.5 text-xs text-[#A1A1AA]">
-            <span>
-              Paste or enable an <strong className="text-[#f59e0b]">.m3u</strong> playlist containing{' '}
-              <strong className="text-[#FAFAFA]">{connectPromptChannel}</strong> to unlock live playback.
-            </span>
-            <button
-              type="button"
-              onClick={() => setConnectPromptChannel(null)}
-              aria-label="Dismiss connect hint"
-              className="rounded-full p-1 text-[#71717A] hover:text-[#FAFAFA]"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        )}
-
         {/* Loading Skeleton */}
         {channelsLoading && channels.length === 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -475,8 +805,9 @@ export default function LiveTvPage() {
                   <LiveChannelCard
                     key={channel.id}
                     channel={channel}
-                    schedule={epgSchedules[channel.tvgId || channel.id]}
-                    onConnectM3u={handleConnectChannelPrompt}
+                    schedule={lookupEpgSchedule(epgSchedules, channel)}
+                    hasCustomBinding={Boolean(customBindings[channel.id])}
+                    onConnectStream={setConnectTargetChannel}
                   />
                 ))}
               </div>
@@ -536,11 +867,10 @@ export default function LiveTvPage() {
                       <LiveChannelCard
                         key={item.channel.id}
                         channel={item.channel}
-                        schedule={
-                          epgSchedules[item.channel.tvgId || item.channel.id]
-                        }
+                        schedule={lookupEpgSchedule(epgSchedules, item.channel)}
                         serverCount={item.serverCount}
-                        onConnectM3u={handleConnectChannelPrompt}
+                        hasCustomBinding={Boolean(customBindings[item.channel.id])}
+                        onConnectStream={setConnectTargetChannel}
                       />
                     ))}
                   </div>
@@ -580,12 +910,13 @@ export default function LiveTvPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {channels.slice(0, allChannelsLimit).map((channel) => (
+              {effectiveAllChannels.slice(0, allChannelsLimit).map((channel) => (
                 <LiveChannelCard
                   key={channel.id}
                   channel={channel}
-                  schedule={epgSchedules[channel.tvgId || channel.id]}
-                  onConnectM3u={handleConnectChannelPrompt}
+                  schedule={lookupEpgSchedule(epgSchedules, channel)}
+                  hasCustomBinding={Boolean(customBindings[channel.id])}
+                  onConnectStream={setConnectTargetChannel}
                 />
               ))}
             </div>
@@ -635,9 +966,10 @@ export default function LiveTvPage() {
                   <LiveChannelCard
                     key={entry.channel.id}
                     channel={entry.channel}
-                    schedule={epgSchedules[entry.channel.tvgId || entry.channel.id]}
+                    schedule={lookupEpgSchedule(epgSchedules, entry.channel)}
                     serverCount={entry.serverCount}
-                    onConnectM3u={handleConnectChannelPrompt}
+                    hasCustomBinding={Boolean(customBindings[entry.channel.id])}
+                    onConnectStream={setConnectTargetChannel}
                   />
                 ))}
               </div>
@@ -645,6 +977,18 @@ export default function LiveTvPage() {
           </section>
         )}
       </div>
+
+      <ConnectStreamModal
+        channel={connectTargetChannel}
+        existingBinding={
+          connectTargetChannel ? customBindings[connectTargetChannel.id] : undefined
+        }
+        onClose={() => setConnectTargetChannel(null)}
+        onOpenSourceManager={openSources}
+        onPlaylistAdded={() => {
+          void refreshChannels();
+        }}
+      />
     </main>
   );
 }

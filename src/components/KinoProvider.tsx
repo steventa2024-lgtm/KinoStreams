@@ -7,6 +7,7 @@ import {
   M3U_SOURCES_STORAGE_KEY,
   STORAGE_CHANGE_EVENT,
   getBuiltinSourceStates,
+  getCustomChannelBindings,
   getCustomSources,
   getProxyMode,
   getWatchHistory,
@@ -15,6 +16,7 @@ import {
 } from '@/lib/storage';
 import type {
   Channel,
+  CustomChannelBinding,
   EpgChannelSchedule,
   MediaCategory,
   ProxyMode,
@@ -52,6 +54,7 @@ interface KinoContextValue {
   sourceErrors: Array<{ sourceId: string; name: string; error: string }>;
   watchlist: WatchlistItem[];
   watchHistory: WatchHistoryItem[];
+  customBindings: Record<string, CustomChannelBinding>;
   proxyMode: ProxyMode;
   isSearchOpen: boolean;
   isSourcesOpen: boolean;
@@ -100,6 +103,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
   >([]);
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [watchHistory, setWatchHistory] = useState<WatchHistoryItem[]>([]);
+  const [customBindings, setCustomBindings] = useState<Record<string, CustomChannelBinding>>({});
   const [proxyMode, setProxyModeState] = useState<ProxyMode>('auto');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSourcesOpen, setIsSourcesOpen] = useState(false);
@@ -108,6 +112,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
   const syncLocalState = useCallback(() => {
     setWatchlist(getWatchlist());
     setWatchHistory(getWatchHistory());
+    setCustomBindings(getCustomChannelBindings());
     setProxyModeState(getProxyMode());
   }, []);
 
@@ -259,6 +264,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
         sourceErrors,
         watchlist,
         watchHistory,
+        customBindings,
         proxyMode,
         isSearchOpen,
         isSourcesOpen,

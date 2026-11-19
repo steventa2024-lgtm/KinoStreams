@@ -1,4 +1,5 @@
 import type {
+  CustomChannelBinding,
   CustomSourceConfig,
   ProxyMode,
   WatchHistoryItem,
@@ -7,6 +8,7 @@ import type {
 
 const BASE_KEYS = {
   SOURCES: 'custom_sources.v1',
+  CHANNEL_BINDINGS: 'channel_bindings.v1',
   WATCHLIST: 'watchlist.v1',
   HISTORY: 'watch_history.v1',
   PROXY_MODE: 'proxy_mode.v1',
@@ -97,6 +99,7 @@ function writeJson<T>(baseKey: string, value: T): void {
 
 export const M3U_SOURCES_STORAGE_KEY = 'kino:m3uSources';
 export const BUILTIN_SOURCE_STATES_KEY = 'kino:builtinSourceStates';
+export const CUSTOM_CHANNEL_BINDINGS_KEY = 'kino:customChannelBindings';
 
 // Custom Sources (M3U, Xtream, Direct) persisted in kino:m3uSources + account scope
 export function getCustomSources(): CustomSourceConfig[] {
@@ -183,6 +186,101 @@ export function setBuiltinSourceEnabled(id: string, enabled: boolean): void {
   } catch {
     // Ignore storage quota errors gracefully
   }
+}
+
+// Per-channel direct `.m3u8` bindings persisted in `kino:customChannelBindings` + account scope
+export function getCustomChannelBindings(): Record<string, CustomChannelBinding> {
+  if (!isBrowser()) return {};
+  let globalMap: Record<string, CustomChannelBinding> = {};
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_CHANNEL_BINDINGS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        globalMap = parsed as Record<string, CustomChannelBinding>;
+      }
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
+  const scopedMap = readJson<Record<string, CustomChannelBinding>>(
+    BASE_KEYS.CHANNEL_BINDINGS,
+    {}
+  );
+  const merged = { ...scopedMap, ...globalMap };
+  if (Object.keys(globalMap).length === 0 && Object.keys(scopedMap).length > 0) {
+    try {
+      window.localStorage.setItem(
+        CUSTOM_CHANNEL_BINDINGS_KEY,
+        JSON.stringify(scopedMap)
+      );
+    } catch {
+      // Ignore storage quota errors
+    }
+  }
+  return merged;
+}
+
+export function setCustomChannelBinding(
+  binding: Omit<CustomChannelBinding, 'updatedAt'>
+): Record<string, CustomChannelBinding> {
+  const current = getCustomChannelBindings();
+  const next: Record<string, CustomChannelBinding> = {
+    ...current,
+    [binding.channelId]: {
+      ...binding,
+      url: binding.url.trim(),
+      updatedAt: Date.now(),
+    },
+  };
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(
+        CUSTOM_CHANNEL_BINDINGS_KEY,
+        JSON.stringify(next)
+      );
+    } catch {
+      // Ignore storage quota errors
+    }
+    if (scopedKey(BASE_KEYS.CHANNEL_BINDINGS)) {
+      writeJson(BASE_KEYS.CHANNEL_BINDINGS, next);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent(STORAGE_CHANGE_EVENT, {
+          detail: { key: CUSTOM_CHANNEL_BINDINGS_KEY },
+        })
+      );
+    }
+  }
+  return next;
+}
+
+export function removeCustomChannelBinding(
+  channelId: string
+): Record<string, CustomChannelBinding> {
+  const next = { ...getCustomChannelBindings() };
+  delete next[channelId];
+  if (isBrowser()) {
+    try {
+      window.localStorage.setItem(
+        CUSTOM_CHANNEL_BINDINGS_KEY,
+        JSON.stringify(next)
+      );
+    } catch {
+      // Ignore storage quota errors
+    }
+    if (scopedKey(BASE_KEYS.CHANNEL_BINDINGS)) {
+      writeJson(BASE_KEYS.CHANNEL_BINDINGS, next);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent(STORAGE_CHANGE_EVENT, {
+          detail: { key: CUSTOM_CHANNEL_BINDINGS_KEY },
+        })
+      );
+    }
+  }
+  return next;
 }
 
 export function addCustomSource(

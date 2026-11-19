@@ -32,6 +32,8 @@ export interface Channel {
   backupUrls?: ChannelBackupSource[];
   tvgId?: string;
   tvgName?: string;
+  tvgCountry?: string;
+  tvgLanguage?: string;
   referrer?: string;
   userAgent?: string;
   headers?: Record<string, string>;
@@ -161,6 +163,16 @@ export interface StreamSource {
   headers?: Record<string, string>;
   subtitles?: SubtitleTrack[];
   isDefault?: boolean;
+}
+
+export interface CustomChannelBinding {
+  channelId: string;
+  channelName: string;
+  url: string;
+  label?: string;
+  referrer?: string;
+  userAgent?: string;
+  updatedAt: number;
 }
 
 export interface CustomSourceConfig {

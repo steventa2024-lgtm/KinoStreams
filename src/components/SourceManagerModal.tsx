@@ -348,16 +348,22 @@ export function SourceManagerModal() {
           </button>
         </form>
 
-        {/* Source Load Warnings */}
-        {sourceErrors.length > 0 && (
-          <div className="mt-4 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 p-3 text-xs text-[#FCA5A5]">
-            {sourceErrors.map((err) => (
-              <p key={err.sourceId}>
-                {err.name}: {err.error}
-              </p>
-            ))}
-          </div>
-        )}
+        {/* Source Load Warnings (custom user sources only; transient built-in 404s stay quiet) */}
+        {(() => {
+          const visibleErrors = sourceErrors.filter(
+            (err) => !err.sourceId.startsWith('builtin-')
+          );
+          if (visibleErrors.length === 0) return null;
+          return (
+            <div className="mt-4 rounded-xl border border-[#EF4444]/30 bg-[#EF4444]/10 p-3 text-xs text-[#FCA5A5]">
+              {visibleErrors.map((err) => (
+                <p key={err.sourceId}>
+                  {err.name}: {err.error}
+                </p>
+              ))}
+            </div>
+          );
+        })()}
 
         {/* Saved Custom Sources */}
         <div className="mt-6">

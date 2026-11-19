@@ -1,5 +1,10 @@
 import { networkArtwork } from '@/lib/sports-networks';
-import type { Channel, ChannelBackupSource, EpgChannelSchedule } from '@/types/media';
+import type {
+  Channel,
+  ChannelBackupSource,
+  CustomChannelBinding,
+  EpgChannelSchedule,
+} from '@/types/media';
 
 export type LiveFilterCategory =
   | 'recommended'
@@ -125,7 +130,8 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Warner Bros. Sports',
     description: 'NBA on TNT marquee doubleheaders, Inside the NBA, and Stanley Cup NHL.',
     tvgId: 'TNT.us',
-    matchPhrases: ['tnt', 'tnt sports', 'tnt us', 'tnt usa'],
+    matchPhrases: ['tnt', 'tnt east', 'tnt west', 'tnt us', 'tnt usa'],
+    excludePhrases: ['tnt kids', 'tnt international', 'tnt sports'],
     accent: '#D4AF37',
   },
   {
@@ -323,7 +329,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: '24/7 · UFC Español',
     description: '24/7 UFC Network, UFC Español, UFC Live fight coverage, and Embedded series.',
     tvgId: 'UFCNetwork.us',
-    matchPhrases: ['ufc network', 'ufc espanol', 'ufc live', 'ufc tv'],
+    matchPhrases: ['ufc', 'ufc network', 'ufc espanol', 'ufc live', 'ufc tv'],
     rawRegexes: [/\bufc\s*(?:network|espa[nñ]ol|live|tv)\b/i],
     requiredRawRegexes: [/\bufc\b/i],
     excludePhrases: ['ppv', 'fight pass', 'fight night', 'prelims', 'espn', 'espn2', 'espn plus'],
@@ -428,7 +434,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Disney Television',
     description: 'Family series, animated adventures, and Disney Channel Original Movies.',
     tvgId: 'DisneyChannel.us',
-    matchPhrases: ['disney channel', 'disney'],
+    matchPhrases: ['disney channel', 'disney channel east', 'disney channel west', 'disney'],
     excludePhrases: ['disney xd', 'disney jr', 'disney junior', 'disney+'],
   },
   {
@@ -442,7 +448,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Action Animation',
     description: 'Animated action series, gaming showcases, and youth comedy.',
     tvgId: 'DisneyXD.us',
-    matchPhrases: ['disney xd'],
+    matchPhrases: ['disney xd', 'disneyxd'],
   },
   {
     id: 'rec-disney-junior',
@@ -468,7 +474,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Kids & Animation',
     description: 'Flagship Nickelodeon animated series, live-action comedies, and specials.',
     tvgId: 'Nickelodeon.us',
-    matchPhrases: ['nickelodeon', 'nick'],
+    matchPhrases: ['nickelodeon', 'nickelodeon pluto tv', 'nick'],
     excludePhrases: ['nick jr', 'nick junior', 'teennick', 'teen nick', 'nicktoons'],
   },
   {
@@ -482,7 +488,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Preschool Play',
     description: 'Early-learning animation and gentle preschool adventures.',
     tvgId: 'NickJr.us',
-    matchPhrases: ['nick jr', 'nick junior'],
+    matchPhrases: ['nick jr', 'nick junior', 'nick jr pluto tv'],
   },
   {
     id: 'rec-teennick',
@@ -508,8 +514,8 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Animation Studio',
     description: 'Original animated series, comedy blocks, and Adult Swim late-night.',
     tvgId: 'CartoonNetwork.us',
-    matchPhrases: ['cartoon network', 'cn'],
-    excludePhrases: ['cnn', 'boomerang'],
+    matchPhrases: ['cartoon network', 'cartoon network east', 'cartoon network west', 'cn'],
+    excludePhrases: ['cnn', 'cnbc', 'boomerang', 'cartoonito'],
   },
   {
     id: 'rec-boomerang',
@@ -535,7 +541,14 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Public Educational',
     description: 'Award-winning educational animation, science discovery, and family stories.',
     tvgId: 'PBSKids.us',
-    matchPhrases: ['pbs kids'],
+    matchPhrases: [
+      'pbs kids',
+      'pbskids',
+      'pbs kids eastern',
+      'pbs kids eastern central',
+      'pbs kids pacific',
+      'pbs kids mountain',
+    ],
   },
 
   // ── Cable Entertainment & Lifestyle (19) ───────────────────────────
@@ -550,7 +563,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Prestige Drama',
     description: 'Acclaimed original drama series, limited anthologies, and blockbuster films.',
     tvgId: 'FX.us',
-    matchPhrases: ['fx', 'fx hd', 'fx us', 'fx east', 'fx west'],
+    matchPhrases: ['fx', 'fx hd', 'fx us', 'fx east', 'fx west', 'fx networks'],
     excludePhrases: ['fxx', 'fxm', 'fox', 'fs1', 'fs2'],
   },
   {
@@ -564,7 +577,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Comedy & Animation',
     description: 'Original comedies, animated sitcoms, and late-night favorites.',
     tvgId: 'FXX.us',
-    matchPhrases: ['fxx'],
+    matchPhrases: ['fxx', 'fxx hd', 'fxx east', 'fxx west'],
   },
   {
     id: 'rec-amc',
@@ -577,7 +590,8 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Cinema & Drama',
     description: 'Signature dramatic series and curated American cinema classics.',
     tvgId: 'AMC.us',
-    matchPhrases: ['amc'],
+    matchPhrases: ['amc', 'amc east', 'amc west', 'amc thrillers', 'stories by amc'],
+    excludePhrases: ['amc en espanol', 'amc en español'],
   },
   {
     id: 'rec-usa-network',
@@ -683,7 +697,7 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Pop Culture',
     description: 'Red carpet coverage, entertainment news, and lifestyle series.',
     tvgId: 'E.us',
-    matchPhrases: ['e entertainment'],
+    matchPhrases: ['e entertainment', 'e entertainment television', 'e keeping up'],
     rawRegexes: [/(?:^|[\s|:_-])e!(?:$|[\s|:_-])/i],
   },
   {
@@ -917,6 +931,12 @@ const IPTV_NOISE_TOKENS = new Set([
   'fhd',
   'uhd',
   '4k',
+  '1080p',
+  '720p',
+  '480p',
+  '432p',
+  '576p',
+  '360p',
   'sd',
   'raw',
   'hevc',
@@ -927,10 +947,39 @@ const IPTV_NOISE_TOKENS = new Set([
   'alt',
   'live',
   'tv',
+  'east',
+  'west',
+  'united',
+  'states',
+]);
+
+const ALLOWED_ENGLISH_COUNTRY_CODES = new Set([
+  'us',
+  'ca',
+  'uk',
+  'gb',
+  'au',
+  'nz',
+  'ie',
+  'int',
+]);
+
+const US_FAST_SOURCE_IDS = new Set([
+  'builtin-pluto-us',
+  'builtin-samsung-us',
+  'builtin-plex-us',
+  'builtin-roku-all',
+  'builtin-stirr-all',
+  'builtin-iptv-org-us',
 ]);
 
 function normalizeChannelTitle(raw: string): string {
   return raw
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(
+      /\((?:united\s+states|usa|us|uk|ca|east|west|hd|sd|1080p|720p|480p|432p|576p|360p)\)/gi,
+      ' '
+    )
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -955,8 +1004,56 @@ function hasPhrase(haystack: string, phrase: string): boolean {
   return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(haystack);
 }
 
+function isForeignNonEnglishFeed(ch: Channel, defId: string): boolean {
+  const allowSpanishFallback = defId === 'rec-ufc-network';
+
+  if (ch.tvgCountry?.trim()) {
+    const codes = ch.tvgCountry
+      .toLowerCase()
+      .split(/[,;\s/|]+/)
+      .map((c) => c.trim())
+      .filter((c) => /^[a-z]{2}$/.test(c));
+    if (codes.length > 0 && !codes.some((c) => ALLOWED_ENGLISH_COUNTRY_CODES.has(c))) {
+      return true;
+    }
+  }
+
+  const tvgBase = (ch.tvgId || '').split('@')[0].trim().toLowerCase();
+  const idCountryMatch = tvgBase.match(/\.([a-z]{2})$/);
+  if (idCountryMatch && !ALLOWED_ENGLISH_COUNTRY_CODES.has(idCountryMatch[1])) {
+    return true;
+  }
+
+  const lang = (ch.tvgLanguage || '').trim().toLowerCase();
+  if (lang) {
+    const isEnglishLang = /\b(?:en|eng|english)\b/i.test(lang) || lang === 'en';
+    const isSpanishLang = /\b(?:es|spa|spanish|espanol)\b/i.test(lang);
+    if (!isEnglishLang && !(allowSpanishFallback && isSpanishLang)) {
+      return true;
+    }
+  }
+
+  const combinedText = `${ch.name || ''} ${ch.tvgName || ''}`;
+  const isSpanishNamed = /\b(?:en\s+espa[nñ]ol|espa[nñ]ol|deportes|latino(?:america)?)\b/i.test(
+    combinedText
+  );
+  if (isSpanishNamed && !allowSpanishFallback) {
+    return true;
+  }
+  if (
+    /\b(?:hungarian|magyar|polska|polish|deutsch|german|italiano|italian|russian|portugues|brasil|arabic|turkish|francais|french)\b/i.test(
+      combinedText
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number {
   if (!ch.url || !ch.url.trim()) return 0;
+  if (isForeignNonEnglishFeed(ch, def.id)) return 0;
 
   const rawName = (ch.name || '').trim();
   const rawTvg = (ch.tvgName || '').trim();
@@ -1005,9 +1102,28 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
   if (!matched) return 0;
 
   let score = exactMatch ? 100 : 60;
-  if (ch.tvgId && def.tvgId && ch.tvgId.toLowerCase() === def.tvgId.toLowerCase()) {
-    score += 30;
+  const tvgBase = (ch.tvgId || '').split('@')[0].trim().toLowerCase();
+  const defTvgBase = (def.tvgId || '').split('@')[0].trim().toLowerCase();
+  if (tvgBase && defTvgBase && tvgBase === defTvgBase) {
+    score += 40;
   }
+  if (ch.tvgId && def.tvgId && ch.tvgId.toLowerCase() === def.tvgId.toLowerCase()) {
+    score += 10;
+  }
+
+  const isExplicitUsFeed =
+    ch.tvgCountry?.trim().toUpperCase() === 'US' ||
+    /\.us$/.test(tvgBase) ||
+    (ch.sourceId ? US_FAST_SOURCE_IDS.has(ch.sourceId) : false) ||
+    /\((?:united\s+states|usa|us)\)/i.test(rawName);
+  if (isExplicitUsFeed) {
+    score += 85;
+  }
+
+  if (def.id === 'rec-ufc-network' && /\b(?:espa[nñ]ol|spanish)\b/i.test(rawCombined)) {
+    score -= 35;
+  }
+
   if (ch.sourceId) {
     // User-imported / public playlist streams outrank built-in defaults so fresh M3Us become Server I
     score += 60;
@@ -1017,6 +1133,19 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
   }
   if (/\b(fhd|1080p|4k|uhd)\b/i.test(rawName)) score += 8;
   return score;
+}
+
+export function lookupEpgSchedule(
+  epgSchedules: Record<string, EpgChannelSchedule>,
+  channel: Pick<Channel, 'id' | 'tvgId'>
+): EpgChannelSchedule | undefined {
+  const rawTvgId = (channel.tvgId || '').trim();
+  const baseTvgId = rawTvgId.split('@')[0].trim();
+  return (
+    (rawTvgId ? epgSchedules[rawTvgId] : undefined) ||
+    (baseTvgId ? epgSchedules[baseTvgId] : undefined) ||
+    epgSchedules[channel.id]
+  );
 }
 
 export interface RecommendedChannelItem {
@@ -1037,7 +1166,10 @@ export interface RecommendedGuideResult {
  * built-in and imported M3U streams into one card per flagship network (`Server I / II / III`),
  * never pulling cross-network fallbacks when a channel has zero matching streams.
  */
-export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResult {
+export function buildRecommendedGuide(
+  channels: Channel[],
+  customBindings: Record<string, CustomChannelBinding> = {}
+): RecommendedGuideResult {
   const items: RecommendedChannelItem[] = [];
   const bySection: Record<RecommendedSectionId, RecommendedChannelItem[]> = {
     major_sports: [],
@@ -1068,6 +1200,18 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
       userAgent?: string;
     }> = [];
 
+    const customBinding = customBindings[def.id];
+    if (customBinding?.url?.trim()) {
+      const boundUrl = customBinding.url.trim();
+      seenUrls.add(boundUrl);
+      orderedUrls.push({
+        url: boundUrl,
+        label: customBinding.label || 'Custom M3U Stream',
+        referrer: customBinding.referrer,
+        userAgent: customBinding.userAgent,
+      });
+    }
+
     for (const { ch } of candidates) {
       matchedSourceChannelIds.add(ch.id);
       if (ch.url && !seenUrls.has(ch.url)) {
@@ -1095,7 +1239,7 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
     const connected = orderedUrls.length > 0;
     const mainFeed = orderedUrls[0];
     const backupUrls: ChannelBackupSource[] = connected
-      ? orderedUrls.slice(1, 3).map((b) => ({
+      ? orderedUrls.slice(1, 4).map((b) => ({
           label: b.label,
           url: b.url,
           referrer: b.referrer,
@@ -1111,7 +1255,7 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
       category: def.category,
       url: mainFeed?.url || '',
       backupUrls: backupUrls.length > 0 ? backupUrls : undefined,
-      tvgId: primary?.tvgId || def.tvgId,
+      tvgId: def.tvgId || primary?.tvgId,
       tvgName: primary?.tvgName || def.name,
       referrer: mainFeed?.referrer,
       userAgent: mainFeed?.userAgent,
@@ -1152,10 +1296,11 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
  */
 export function resolveRecommendedChannelById(
   channelId: string,
-  channels: Channel[]
+  channels: Channel[],
+  customBindings: Record<string, CustomChannelBinding> = {}
 ): Channel | undefined {
   if (!channelId.startsWith('rec-')) return undefined;
-  const guide = buildRecommendedGuide(channels);
+  const guide = buildRecommendedGuide(channels, customBindings);
   return guide.items.find((item) => item.channel.id === channelId)?.channel;
 }
 
@@ -1219,12 +1364,13 @@ export function channelMatchesLiveFilter(
 export function searchAllLiveChannels(
   channels: Channel[],
   query: string,
-  epgSchedules: Record<string, EpgChannelSchedule> = {}
+  epgSchedules: Record<string, EpgChannelSchedule> = {},
+  customBindings: Record<string, CustomChannelBinding> = {}
 ): Channel[] {
   const q = query.trim().toLowerCase();
   if (!q) return channels;
 
-  const guide = buildRecommendedGuide(channels);
+  const guide = buildRecommendedGuide(channels, customBindings);
   const results: Channel[] = [];
   const seenIds = new Set<string>();
   const seenUrls = new Set<string>();
@@ -1232,7 +1378,7 @@ export function searchAllLiveChannels(
   // Put curated matches first so clean flagship cards rank at the top of search results
   for (const item of guide.items) {
     const ch = item.channel;
-    const sched = epgSchedules[ch.tvgId || ch.id];
+    const sched = lookupEpgSchedule(epgSchedules, ch);
     const hay = `${ch.name} ${ch.group} ${ch.league || ''} ${sched?.now?.title || ''}`.toLowerCase();
     if (hay.includes(q)) {
       seenIds.add(ch.id);
@@ -1243,15 +1389,28 @@ export function searchAllLiveChannels(
 
   for (const ch of channels) {
     if (seenIds.has(ch.id) || (ch.url && seenUrls.has(ch.url))) continue;
-    const sched = epgSchedules[ch.tvgId || ch.id];
-    const aliasText = (ch.aliases || []).join(' ').toLowerCase();
-    const hay = `${ch.name} ${ch.tvgName || ''} ${ch.group} ${aliasText} ${ch.league || ''} ${
+    const binding = customBindings[ch.id];
+    const effective = binding?.url?.trim()
+      ? {
+          ...ch,
+          url: binding.url.trim(),
+          backupUrls: [
+            ...(ch.url ? [{ label: ch.name, url: ch.url, referrer: ch.referrer, userAgent: ch.userAgent }] : []),
+            ...(ch.backupUrls || []),
+          ],
+          referrer: binding.referrer ?? ch.referrer,
+          userAgent: binding.userAgent ?? ch.userAgent,
+        }
+      : ch;
+    const sched = lookupEpgSchedule(epgSchedules, effective);
+    const aliasText = (effective.aliases || []).join(' ').toLowerCase();
+    const hay = `${effective.name} ${effective.tvgName || ''} ${effective.group} ${aliasText} ${effective.league || ''} ${
       sched?.now?.title || ''
     }`.toLowerCase();
     if (hay.includes(q)) {
-      seenIds.add(ch.id);
-      if (ch.url) seenUrls.add(ch.url);
-      results.push(ch);
+      seenIds.add(effective.id);
+      if (effective.url) seenUrls.add(effective.url);
+      results.push(effective);
     }
   }
 

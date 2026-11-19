@@ -32,7 +32,7 @@ import { TopBar } from '@/components/TopBar';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { resolveVodSources } from '@/config/sources';
 import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/anime';
-import { resolveRecommendedChannelById } from '@/lib/live-guide';
+import { lookupEpgSchedule, resolveRecommendedChannelById } from '@/lib/live-guide';
 import {
   type BroadcasterFeedGroup,
   buildChannelStreamSources,
@@ -77,6 +77,7 @@ function WatchViewContent() {
   const {
     channels,
     epgSchedules,
+    customBindings,
     isSaved,
     toggleSaved,
     channelsLoading,
@@ -162,18 +163,36 @@ function WatchViewContent() {
     }
   }, [mediaId, mediaType, seasonParam, episodeParam]);
 
-  // Resolve live/sports channel from context (curated Recommended channel merge or exact ID match)
+  // Resolve live/sports channel from context (curated Recommended channel merge, direct custom binding, or exact ID match)
   const activeChannel = useMemo(() => {
     if (!isChannelType) return undefined;
-    return (
-      resolveRecommendedChannelById(mediaId, channels) ||
+    const rec = resolveRecommendedChannelById(mediaId, channels, customBindings);
+    if (rec) return rec;
+    const base =
       channels.find((c) => c.id === mediaId) ||
-      channels.find((c) => c.tvgId === mediaId)
-    );
-  }, [isChannelType, channels, mediaId]);
+      channels.find((c) => c.tvgId === mediaId);
+    if (!base) return undefined;
+    const binding = customBindings[base.id] || customBindings[mediaId];
+    if (!binding?.url?.trim()) return base;
+    const boundUrl = binding.url.trim();
+    const backups = [
+      ...(base.url && base.url !== boundUrl
+        ? [{ label: base.name, url: base.url, referrer: base.referrer, userAgent: base.userAgent }]
+        : []),
+      ...(base.backupUrls || []).filter((bk) => bk.url !== boundUrl),
+    ];
+    return {
+      ...base,
+      url: boundUrl,
+      backupUrls: backups.length > 0 ? backups : undefined,
+      referrer: binding.referrer ?? base.referrer,
+      userAgent: binding.userAgent ?? base.userAgent,
+      badge: base.badge === 'OFFLINE' ? 'LIVE HD' : base.badge,
+    };
+  }, [isChannelType, channels, mediaId, customBindings]);
 
   const channelSchedule = activeChannel
-    ? epgSchedules[activeChannel.tvgId || activeChannel.id]
+    ? lookupEpgSchedule(epgSchedules, activeChannel)
     : undefined;
 
   const fetchSportsMatch = useCallback(

@@ -191,6 +191,8 @@ export function parseM3uPlaylist(
     name?: string;
     tvgId?: string;
     tvgName?: string;
+    tvgCountry?: string;
+    tvgLanguage?: string;
     logo?: string;
     group?: string;
     referrer?: string;
@@ -206,6 +208,8 @@ export function parseM3uPlaylist(
 
       const tvgId = extractAttribute(metaPart, 'tvg-id');
       const tvgName = extractAttribute(metaPart, 'tvg-name');
+      const tvgCountry = extractAttribute(metaPart, 'tvg-country');
+      const tvgLanguage = extractAttribute(metaPart, 'tvg-language');
       const logo = extractAttribute(metaPart, 'tvg-logo') || extractAttribute(metaPart, 'logo');
       const group = extractAttribute(metaPart, 'group-title') || 'General';
       const httpReferrer = extractAttribute(metaPart, 'http-referrer');
@@ -215,6 +219,8 @@ export function parseM3uPlaylist(
         name: titlePart || tvgName || 'Live Channel',
         tvgId,
         tvgName,
+        tvgCountry,
+        tvgLanguage,
         logo,
         group,
         referrer: httpReferrer || currentMeta.referrer,
@@ -279,6 +285,8 @@ export function parseM3uPlaylist(
         url: safeStreamUrl,
         tvgId: currentMeta.tvgId,
         tvgName: currentMeta.tvgName,
+        tvgCountry: currentMeta.tvgCountry,
+        tvgLanguage: currentMeta.tvgLanguage,
         referrer,
         userAgent,
         isLive: true,

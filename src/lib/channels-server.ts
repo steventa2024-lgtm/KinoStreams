@@ -217,8 +217,19 @@ async function loadBuiltinPlaylist(def: BuiltinPublicPlaylist): Promise<{
     sourceName: def.name,
     forcedCategory: def.category === 'sports' ? 'sports' : undefined,
   });
+
+  const normalized = parsed.slice(0, def.maxChannels).map((ch) => {
+    if (def.region !== 'us' || ch.tvgCountry) return ch;
+    // Tag US FAST channels unless explicit non-US suffix (e.g. .de, .ru, .hu) is on tvgId
+    const countrySuffixMatch = /\.([a-z]{2})(?:@|$)/i.exec(ch.tvgId || '');
+    if (countrySuffixMatch && countrySuffixMatch[1].toLowerCase() !== 'us') {
+      return ch;
+    }
+    return { ...ch, tvgCountry: 'US' };
+  });
+
   return {
-    channels: parsed.slice(0, def.maxChannels),
+    channels: normalized,
     epgUrls,
   };
 }
