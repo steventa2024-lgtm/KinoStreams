@@ -336,10 +336,6 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     badge: 'LIVE HD',
     quality: '1080p',
     url: 'http://23.237.104.106:8080/USA_NBA/index.m3u8',
-    backupUrls: [
-      { label: 'ESPN NBA Companion', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
-      { label: 'TNT NBA Companion', url: 'https://turnerlive.warnermediacdn.com/hls/live/2023170/tntwest/slate/VIDEO_0_3564000.m3u8' },
-    ],
     tvgId: 'NBATV.us',
     tvgName: 'NBA TV',
     isLive: true,
@@ -421,10 +417,6 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     badge: 'LIVE HD',
     quality: '1080p',
     url: 'https://d4whmvwm0rdvi.cloudfront.net/10007/99993008/hls/master.m3u8?ads.xumo_channelId=99993008',
-    backupUrls: [
-      { label: 'ESPN Live Simulcast', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
-      { label: 'CBS Sports HQ Feed', url: 'https://jmp2.uk/plu-5e9f2c05172a0f0007db4786.m3u8' },
-    ],
     tvgId: 'NBCSports.us',
     tvgName: 'NBC Sports',
     isLive: true,
@@ -495,177 +487,6 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     description: 'ATP & WTA Tour court feeds, Masters 1000 tournaments, and Grand Slam studio shows.',
     logo: networkArtwork('TENNIS', 'ATP & WTA Tour', '#E2C275', '#121E18', 'logo'),
     backdrop: networkArtwork('Tennis Channel', 'Live ATP · WTA · Masters Coverage', '#E2C275', '#122019', 'wide'),
-  },
-
-  // Combat Sports & Spectrum LA Regional Showcase (showcase URLs excluded from automated sports match routing)
-  {
-    id: 'net-ufc-ppv',
-    name: 'UFC PPV / Main Event',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: ['ufc ppv', 'ufc main event', 'ufc ppv main event', 'mma ppv'],
-    category: 'sports',
-    league: 'UFC',
-    badge: 'PPV HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8',
-    backupUrls: [
-      { label: 'ESPN+ Fight Companion', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
-      { label: 'TNT Combat Companion', url: 'https://turnerlive.warnermediacdn.com/hls/live/2023170/tntwest/slate/VIDEO_0_3564000.m3u8' },
-    ],
-    tvgId: 'UFCPPV.us',
-    tvgName: 'UFC PPV / Main Event',
-    isLive: true,
-    description: 'UFC Numbered PPV Main Card, Championship bouts, and Octagon Studio Desk.',
-    logo: networkArtwork('UFC PPV', 'Octagon Main Card', '#EF4444', '#1E1113', 'logo'),
-    backdrop: networkArtwork('UFC PPV · Main Event', 'Championship Bouts & Main Card', '#f59e0b', '#1B1113', 'wide'),
-  },
-  {
-    id: 'net-ufc-fight-pass',
-    name: 'UFC Fight Pass',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
-    category: 'sports',
-    league: 'UFC',
-    badge: 'LIVE HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8',
-    backupUrls: [
-      { label: 'UFC Early Prelims Mirror', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
-    ],
-    tvgId: 'UFCFightPass.us',
-    tvgName: 'UFC Fight Pass',
-    isLive: true,
-    description: 'UFC Early Prelims, Dana White Contender Series, Cage Warriors, and combat archives.',
-    logo: networkArtwork('FIGHT PASS', 'UFC Prelims & MMA', '#f59e0b', '#141418', 'logo'),
-    backdrop: networkArtwork('UFC Fight Pass', 'Early Prelims · Contender Series · MMA Vault', '#f59e0b', '#16161C', 'wide'),
-  },
-  {
-    id: 'net-ufc-fight-night',
-    name: 'UFC Fight Night',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: ['ufc fight night', 'ufc prelims', 'ufc on espn'],
-    category: 'sports',
-    league: 'UFC',
-    badge: 'LIVE HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8',
-    backupUrls: [
-      { label: 'UFC Prelims Feed II', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
-    ],
-    tvgId: 'UFCFightNight.us',
-    tvgName: 'UFC Fight Night',
-    isLive: true,
-    description: 'Weekly UFC Fight Night Apex & international arena cards and live weigh-ins.',
-    logo: networkArtwork('FIGHT NIGHT', 'UFC on ESPN / Apex', '#D4AF37', '#171418', 'logo'),
-    backdrop: networkArtwork('UFC Fight Night', 'Live Fight Cards & Weigh-Ins', '#D4AF37', '#18141A', 'wide'),
-  },
-  {
-    id: 'net-ufc-network',
-    name: 'UFC Network',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: ['ufc network', 'ufc espanol', 'ufc español', 'ufc live', 'ufc tv'],
-    category: 'sports',
-    league: 'UFC',
-    badge: '24/7 HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8',
-    backupUrls: [
-      { label: 'UFC Espanol Companion', url: 'https://dc1644a9jazgj.cloudfront.net/beIN_Sports_Xtra_Espanol.m3u8' },
-    ],
-    tvgId: 'UFCNetwork.us',
-    tvgName: 'UFC Network',
-    isLive: true,
-    description: '24/7 UFC Network, UFC Español, live fight previews, and Embedded series.',
-    logo: networkArtwork('UFC NET', '24/7 · UFC Español', '#E2C275', '#151519', 'logo'),
-    backdrop: networkArtwork('UFC Network', '24/7 Octagon · UFC Live · Español', '#E2C275', '#16161C', 'wide'),
-  },
-  {
-    id: 'net-spectrum-sportsnet',
-    name: 'Spectrum SportsNet',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: [
-      'spectrum sportsnet',
-      'spectrum sportsnet hd',
-      'specsn',
-      'sportsnet lakers',
-      'twc sportsnet',
-    ],
-    category: 'sports',
-    league: 'NBA · Lakers / Sparks',
-    badge: 'RSN HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://23.237.104.106:8080/USA_NBA/index.m3u8',
-    backupUrls: [
-      { label: 'Lakers Studio Companion', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
-    ],
-    tvgId: 'SpectrumSportsNet.us',
-    tvgName: 'Spectrum SportsNet',
-    isLive: true,
-    description: 'Home of Los Angeles Lakers basketball, LA Sparks, LA Galaxy, and Access SportsNet.',
-    logo: networkArtwork('SPECSN', 'Lakers & LA Sports', '#f59e0b', '#171222', 'logo'),
-    backdrop: networkArtwork('Spectrum SportsNet', 'Los Angeles Lakers · Sparks · Galaxy', '#f59e0b', '#191326', 'wide'),
-  },
-  {
-    id: 'net-spectrum-sportsnet-la',
-    name: 'Spectrum SportsNet LA',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: [
-      'spectrum sportsnet la',
-      'sportsnet la',
-      'snla',
-      'dodgers tv',
-      'dodger network',
-      'spectrum dodgers',
-      'spectrum snla',
-    ],
-    category: 'sports',
-    league: 'MLB · Dodgers',
-    badge: 'RSN HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'https://jmp2.uk/plu-5e66968a70f34c0007d050be.m3u8',
-    backupUrls: [
-      { label: 'Dodgers Broadcast Companion', url: 'https://turnerlive.warnermediacdn.com/hls/live/2023172/tbseast/slate/VIDEO_0_3564000.m3u8' },
-    ],
-    tvgId: 'SportsNetLA.us',
-    tvgName: 'Spectrum SportsNet LA',
-    isLive: true,
-    description: 'Exclusive Los Angeles Dodgers regional games, Backstage: Dodgers, and Access SportsNet LA.',
-    logo: networkArtwork('SNLA', 'Dodgers Network', '#E2C275', '#0D1729', 'logo'),
-    backdrop: networkArtwork('Spectrum SportsNet LA', 'Los Angeles Dodgers · SNLA Official', '#E2C275', '#0D192E', 'wide'),
-  },
-  {
-    id: 'net-spectrum-sportsnet-plus',
-    name: 'Spectrum SportsNet+',
-    group: 'Combat & Regional Sports',
-    networkGroup: 'league_networks',
-    aliases: ['spectrum sportsnet+', 'spectrum sportsnet plus', 'specsn+'],
-    category: 'sports',
-    league: 'NBA · Regional LA',
-    badge: 'PLUS HD',
-    quality: '1080p',
-    excludeFromMatchRouting: true,
-    url: 'http://23.237.104.106:8080/USA_NBA/index.m3u8',
-    backupUrls: [
-      { label: 'Spectrum LA Alternate', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
-    ],
-    tvgId: 'SpectrumSportsNetPlus.us',
-    tvgName: 'Spectrum SportsNet+',
-    isLive: true,
-    description: 'Spectrum SportsNet+ direct-to-consumer Lakers & SoCal regional live feeds and alternate courtside angles.',
-    logo: networkArtwork('SPECSN+', 'Lakers DTC Feed', '#D4AF37', '#151220', 'logo'),
-    backdrop: networkArtwork('Spectrum SportsNet+', 'SoCal Direct & Courtside Streams', '#D4AF37', '#181424', 'wide'),
   },
 
   // National Broadcast & Entertainment (local news affiliates excluded from sports match routing)
@@ -772,9 +593,6 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     quality: '1080p',
     excludeFromMatchRouting: true,
     url: 'https://d4whmvwm0rdvi.cloudfront.net/10007/99993008/hls/master.m3u8?ads.xumo_channelId=99993008',
-    backupUrls: [
-      { label: 'NBC Sports Simulcast', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
-    ],
     tvgId: 'USANetwork.us',
     tvgName: 'USA Network',
     isLive: true,
@@ -2310,8 +2128,9 @@ function classifyFormat(url: string): 'hls' | 'mp4' | 'embed' {
  * Build primary + backup Server I / Server II / Server III streams for a Channel.
  */
 export function buildChannelStreamSources(channel: Channel): StreamSource[] {
-  const sources: StreamSource[] = [
-    {
+  const sources: StreamSource[] = [];
+  if (channel.url && channel.url.trim()) {
+    sources.push({
       id: `${channel.id}-s1`,
       name: `Server I · ${channel.name}`,
       label: channel.quality || 'LIVE HD',
@@ -2320,22 +2139,26 @@ export function buildChannelStreamSources(channel: Channel): StreamSource[] {
       url: channel.url,
       referrer: channel.referrer,
       isDefault: true,
-    },
-  ];
-
-  (channel.backupUrls || []).slice(0, 2).forEach((backup, idx) => {
-    const serverLabel = idx === 0 ? 'Server II' : 'Server III';
-    sources.push({
-      id: `${channel.id}-s${idx + 2}`,
-      name: `${serverLabel} · ${backup.label}`,
-      label: backup.label,
-      quality: 'Backup HD',
-      format: classifyFormat(backup.url),
-      url: backup.url,
-      referrer: backup.referrer || channel.referrer,
-      isDefault: false,
     });
-  });
+  }
+
+  (channel.backupUrls || [])
+    .filter((backup) => Boolean(backup.url && backup.url.trim()))
+    .slice(0, 2)
+    .forEach((backup, idx) => {
+      const serverLabel =
+        sources.length === 0 ? 'Server I' : idx === 0 ? 'Server II' : 'Server III';
+      sources.push({
+        id: `${channel.id}-s${sources.length + 1}`,
+        name: `${serverLabel} · ${backup.label}`,
+        label: backup.label,
+        quality: 'Backup HD',
+        format: classifyFormat(backup.url),
+        url: backup.url,
+        referrer: backup.referrer || channel.referrer,
+        isDefault: sources.length === 0,
+      });
+    });
 
   return sources;
 }

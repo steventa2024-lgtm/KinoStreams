@@ -1307,23 +1307,34 @@ export function VideoPlayer({
             </div>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center bg-[#080809] px-6 text-center">
-              <Radio className="h-10 w-10 text-[#fb5272]/70" />
-              <p className="mt-3 font-sans text-lg text-[#FAFAFA]">
-                No Active Broadcast Feed Matched
+              <Radio className="h-10 w-10 text-[#f59e0b]/80" />
+              <p className="mt-3 font-sans text-lg font-medium text-[#FAFAFA]">
+                Offline / Connect M3U Playlist
               </p>
               <p className="mt-1 max-w-md text-xs text-[#A1A1AA]">
-                Select a matching live feed below or paste a direct `.m3u8` stream URL to start watching.
+                No verified stream is currently connected for {title}. Connect an M3U playlist containing this channel or paste a direct `.m3u8` URL.
               </p>
-              {onAddCustomStreamUrl && (
-                <button
-                  type="button"
-                  onClick={() => setShowCustomInput(true)}
-                  className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#FAFAFA] px-5 py-2.5 text-xs font-semibold text-[#080809]"
-                >
-                  <Link2 className="h-3.5 w-3.5" />
-                  Paste Direct .m3u8 Link
-                </button>
-              )}
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5">
+                {onOpenSources && (
+                  <button
+                    type="button"
+                    onClick={onOpenSources}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-[#f59e0b] px-5 py-2.5 text-xs font-semibold text-[#09090b] transition hover:bg-[#e2e2e2]"
+                  >
+                    + Connect M3U Playlist
+                  </button>
+                )}
+                {onAddCustomStreamUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomInput(true)}
+                    className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/15 bg-[#151517] px-5 py-2.5 text-xs font-semibold text-[#FAFAFA] hover:border-[#f59e0b]/50"
+                  >
+                    <Link2 className="h-3.5 w-3.5 text-[#f59e0b]" />
+                    Paste Direct .m3u8 Link
+                  </button>
+                )}
+              </div>
             </div>
           )
         ) : activeSource?.format === 'embed' ? (

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowRight,
   CalendarClock,
+  EyeOff,
   Layers,
   LayoutGrid,
   Play,
@@ -37,22 +38,23 @@ function LiveChannelCard({
   channel,
   schedule,
   serverCount,
+  onConnectM3u,
 }: {
   channel: Channel;
   schedule?: EpgChannelSchedule;
   serverCount?: number;
+  onConnectM3u?: (channelName: string) => void;
 }) {
+  const isConnected = Boolean(channel.url && channel.url.trim());
   const nowProg = schedule?.now;
   const nextProg = schedule?.next;
   const progress = calculateEpgProgress(nowProg?.start, nowProg?.end);
-  const effectiveServers = serverCount ?? 1 + (channel.backupUrls?.length || 0);
+  const effectiveServers = isConnected
+    ? serverCount ?? 1 + (channel.backupUrls?.length || 0)
+    : 0;
 
-  return (
-    <Link
-      href={`/watch/${channel.category}/${encodeURIComponent(channel.id)}`}
-      onClickCapture={stopGlobalPlayback}
-      className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
-    >
+  const cardInner = (
+    <>
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3.5">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#09090b]">
@@ -76,10 +78,16 @@ function LiveChannelCard({
               <h3 className="truncate font-sans text-lg font-medium text-[#FAFAFA] group-hover:text-[#e4e4e7]">
                 {channel.name}
               </h3>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
-                LIVE
-              </span>
+              {isConnected ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#EF4444]/15 px-2 py-0.5 text-[10px] font-bold text-[#EF4444]">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#EF4444]" />
+                  LIVE
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/12 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
+                  Offline / Connect M3U
+                </span>
+              )}
               {effectiveServers > 1 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[#f59e0b]/35 bg-[#f59e0b]/10 px-2 py-0.5 text-[10px] font-semibold text-[#f59e0b]">
                   <Layers className="h-2.5 w-2.5" />
@@ -90,55 +98,95 @@ function LiveChannelCard({
             <p className="mt-0.5 text-xs text-[#71717A]">
               {channel.group}
               {channel.league ? ` · ${channel.league}` : ''}
-              {channel.quality ? ` · ${channel.quality}` : ''}
+              {isConnected && channel.quality ? ` · ${channel.quality}` : ''}
               {channel.sourceName ? ` · ${channel.sourceName}` : ''}
             </p>
           </div>
         </div>
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]">
-          <Play className="ml-0.5 h-4 w-4 fill-current" />
-        </div>
-      </div>
-
-      {/* Now & Next EPG Timeline */}
-      <div className="mt-4 rounded-xl border border-white/[0.06] bg-[#09090b]/75 p-3.5">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="truncate font-semibold text-[#e4e4e7]">
-            ON NOW: {nowProg?.title || `${channel.name} Live`}
-          </span>
-          {nowProg && (
-            <span className="shrink-0 tabular-nums text-[#71717A]">
-              {formatClockTime(nowProg.start)} – {formatClockTime(nowProg.end)}
-            </span>
-          )}
-        </div>
-
-        {nowProg?.description && (
-          <p className="mt-1 line-clamp-1 text-xs text-[#A1A1AA]">
-            {nowProg.description}
-          </p>
-        )}
-
-        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-[#e50935] to-[#f59e0b]"
-            style={{ width: `${Math.max(progress, 15)}%` }}
-          />
-        </div>
-
-        {nextProg && (
-          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2 text-[11px] text-[#71717A]">
-            <span className="flex items-center gap-1.5 truncate">
-              <CalendarClock className="h-3 w-3 text-[#fb5272]" />
-              Next: <span className="text-[#A1A1AA]">{nextProg.title}</span>
-            </span>
-            <span className="shrink-0 tabular-nums">
-              {formatClockTime(nextProg.start)}
-            </span>
+        {isConnected ? (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#09090b] shadow-lg transition-transform group-hover:scale-105 group-hover:bg-[#f59e0b]">
+            <Play className="ml-0.5 h-4 w-4 fill-current" />
+          </div>
+        ) : (
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#f59e0b]/50 bg-[#09090b] text-[#f59e0b] transition-colors group-hover:bg-[#f59e0b] group-hover:text-[#09090b]">
+            <Plus className="h-4 w-4" />
           </div>
         )}
       </div>
+
+      {/* Connected Stream Now/Next EPG vs Unconnected M3U Prompt */}
+      {isConnected ? (
+        <div className="mt-4 rounded-xl border border-white/[0.06] bg-[#09090b]/75 p-3.5">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="truncate font-semibold text-[#e4e4e7]">
+              ON NOW: {nowProg?.title || `${channel.name} Live`}
+            </span>
+            {nowProg && (
+              <span className="shrink-0 tabular-nums text-[#71717A]">
+                {formatClockTime(nowProg.start)} – {formatClockTime(nowProg.end)}
+              </span>
+            )}
+          </div>
+
+          {nowProg?.description && (
+            <p className="mt-1 line-clamp-1 text-xs text-[#A1A1AA]">
+              {nowProg.description}
+            </p>
+          )}
+
+          <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-white/[0.08]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#e50935] to-[#f59e0b]"
+              style={{ width: `${Math.max(progress, 15)}%` }}
+            />
+          </div>
+
+          {nextProg && (
+            <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-white/[0.06] pt-2 text-[11px] text-[#71717A]">
+              <span className="flex items-center gap-1.5 truncate">
+                <CalendarClock className="h-3 w-3 text-[#fb5272]" />
+                Next: <span className="text-[#A1A1AA]">{nextProg.title}</span>
+              </span>
+              <span className="shrink-0 tabular-nums">
+                {formatClockTime(nextProg.start)}
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#f59e0b]/25 bg-[#09090b]/75 px-3.5 py-3 text-left text-xs">
+          <span className="line-clamp-2 text-[#A1A1AA]">
+            No verified stream connected. Tap to connect an M3U playlist containing{' '}
+            <span className="font-medium text-[#FAFAFA]">{channel.name}</span>.
+          </span>
+          <span className="shrink-0 rounded-full border border-[#f59e0b]/45 bg-[#f59e0b]/10 px-2.5 py-1 text-[10px] font-semibold text-[#f59e0b]">
+            Connect M3U
+          </span>
+        </div>
+      )}
+    </>
+  );
+
+  if (!isConnected) {
+    return (
+      <button
+        type="button"
+        onClick={() => onConnectM3u?.(channel.name)}
+        className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 text-left transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
+      >
+        {cardInner}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href={`/watch/${channel.category}/${encodeURIComponent(channel.id)}`}
+      onClickCapture={stopGlobalPlayback}
+      className="group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition hover:border-[#f59e0b]/45 hover:bg-[#16161A] sm:p-5"
+    >
+      {cardInner}
     </Link>
   );
 }
@@ -147,7 +195,14 @@ export default function LiveTvPage() {
   const { channels, epgSchedules, openSources, channelsLoading } = useKino();
   const [selectedFilter, setSelectedFilter] = useState<LiveFilterCategory>('recommended');
   const [filterText, setFilterText] = useState('');
+  const [hideUnconnected, setHideUnconnected] = useState(false);
   const [allChannelsLimit, setAllChannelsLimit] = useState(120);
+  const [connectPromptChannel, setConnectPromptChannel] = useState<string | null>(null);
+
+  const handleConnectChannelPrompt = (channelName: string) => {
+    setConnectPromptChannel(channelName);
+    openSources();
+  };
 
   const recommendedGuide = useMemo(
     () => buildRecommendedGuide(channels),
@@ -155,7 +210,7 @@ export default function LiveTvPage() {
   );
 
   const hasImportedSources = useMemo(
-    () => channels.some((ch) => Boolean(ch.sourceId)),
+    () => channels.some((ch) => Boolean(ch.sourceId) && !ch.sourceId?.startsWith('builtin-')),
     [channels]
   );
 
@@ -163,8 +218,9 @@ export default function LiveTvPage() {
 
   const searchResults = useMemo(() => {
     if (!isSearching) return [];
-    return searchAllLiveChannels(channels, filterText, epgSchedules);
-  }, [isSearching, channels, filterText, epgSchedules]);
+    const raw = searchAllLiveChannels(channels, filterText, epgSchedules);
+    return hideUnconnected ? raw.filter((ch) => Boolean(ch.url && ch.url.trim())) : raw;
+  }, [isSearching, channels, filterText, epgSchedules, hideUnconnected]);
 
   const categoryChannels = useMemo(() => {
     if (selectedFilter === 'recommended' || selectedFilter === 'all') {
@@ -172,16 +228,23 @@ export default function LiveTvPage() {
     }
 
     const curatedForCategory = recommendedGuide.items
-      .filter((item) => item.def.filterCategory === selectedFilter)
+      .filter(
+        (item) =>
+          item.def.filterCategory === selectedFilter &&
+          (!hideUnconnected || item.connected)
+      )
       .map((item) => ({
         channel: item.channel,
         serverCount: item.serverCount,
       }));
 
-    const seenUrls = new Set(curatedForCategory.map((c) => c.channel.url));
+    const seenUrls = new Set(
+      curatedForCategory.map((c) => c.channel.url).filter(Boolean)
+    );
     const extras = channels
       .filter(
         (ch) =>
+          Boolean(ch.url && ch.url.trim()) &&
           !recommendedGuide.matchedSourceChannelIds.has(ch.id) &&
           !seenUrls.has(ch.url) &&
           channelMatchesLiveFilter(ch, selectedFilter)
@@ -192,11 +255,13 @@ export default function LiveTvPage() {
       }));
 
     return [...curatedForCategory, ...extras];
-  }, [selectedFilter, recommendedGuide, channels]);
+  }, [selectedFilter, recommendedGuide, channels, hideUnconnected]);
 
   const pillCounts = useMemo<Record<LiveFilterCategory, number>>(() => {
     const counts: Record<LiveFilterCategory, number> = {
-      recommended: recommendedGuide.items.length,
+      recommended: hideUnconnected
+        ? recommendedGuide.items.filter((i) => i.connected).length
+        : recommendedGuide.items.length,
       sports: 0,
       kids: 0,
       entertainment: 0,
@@ -207,11 +272,13 @@ export default function LiveTvPage() {
 
     for (const cat of ['sports', 'kids', 'entertainment', 'news', 'broadcast'] as const) {
       const curated = recommendedGuide.items.filter(
-        (item) => item.def.filterCategory === cat
+        (item) =>
+          item.def.filterCategory === cat && (!hideUnconnected || item.connected)
       );
-      const seenUrls = new Set(curated.map((c) => c.channel.url));
+      const seenUrls = new Set(curated.map((c) => c.channel.url).filter(Boolean));
       const extras = channels.filter(
         (ch) =>
+          Boolean(ch.url && ch.url.trim()) &&
           !recommendedGuide.matchedSourceChannelIds.has(ch.id) &&
           !seenUrls.has(ch.url) &&
           channelMatchesLiveFilter(ch, cat)
@@ -220,7 +287,7 @@ export default function LiveTvPage() {
     }
 
     return counts;
-  }, [recommendedGuide, channels]);
+  }, [recommendedGuide, channels, hideUnconnected]);
 
   const handleViewAllChannels = () => {
     setSelectedFilter('all');
@@ -339,7 +406,39 @@ export default function LiveTvPage() {
               </button>
             );
           })}
+
+          <button
+            type="button"
+            onClick={() => setHideUnconnected((prev) => !prev)}
+            aria-pressed={hideUnconnected}
+            className={cn(
+              'inline-flex min-h-[44px] shrink-0 snap-start items-center gap-1.5 rounded-full border px-4 text-xs font-semibold transition',
+              hideUnconnected
+                ? 'border-[#f59e0b] bg-[#f59e0b]/20 text-[#f59e0b]'
+                : 'border-white/[0.08] bg-[#151517] text-[#A1A1AA] hover:border-[#f59e0b]/45 hover:text-[#FAFAFA]'
+            )}
+          >
+            <EyeOff className="h-3.5 w-3.5" />
+            Hide Unconnected Channels
+          </button>
         </div>
+
+        {connectPromptChannel && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#f59e0b]/40 bg-[#151517] px-4 py-2.5 text-xs text-[#A1A1AA]">
+            <span>
+              Paste or enable an <strong className="text-[#f59e0b]">.m3u</strong> playlist containing{' '}
+              <strong className="text-[#FAFAFA]">{connectPromptChannel}</strong> to unlock live playback.
+            </span>
+            <button
+              type="button"
+              onClick={() => setConnectPromptChannel(null)}
+              aria-label="Dismiss connect hint"
+              className="rounded-full p-1 text-[#71717A] hover:text-[#FAFAFA]"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Loading Skeleton */}
         {channelsLoading && channels.length === 0 ? (
@@ -377,6 +476,7 @@ export default function LiveTvPage() {
                     key={channel.id}
                     channel={channel}
                     schedule={epgSchedules[channel.tvgId || channel.id]}
+                    onConnectM3u={handleConnectChannelPrompt}
                   />
                 ))}
               </div>
@@ -389,10 +489,10 @@ export default function LiveTvPage() {
               <div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[#f59e0b]/30 bg-[#151517] px-5 py-4">
                 <div className="min-w-0">
                   <p className="font-sans text-base font-medium text-[#FAFAFA]">
-                    Curated Flagship Lineup Active
+                    Curated Flagship Lineup Active ({channels.length} Total Streams Indexed)
                   </p>
                   <p className="mt-0.5 text-xs text-[#A1A1AA]">
-                    Import your `.m3u` playlist via <strong className="text-[#f59e0b]">M3U / EPG</strong> to unlock Disney, Nickelodeon, Cartoon Network, FX, AMC, CNN &amp; backup servers automatically.
+                    Built-in public FAST playlists are active automatically. Import your `.m3u` playlist via <strong className="text-[#f59e0b]">M3U / EPG</strong> for UFC, Spectrum SportsNet, SNLA &amp; cable networks.
                   </p>
                 </div>
                 <button
@@ -407,7 +507,10 @@ export default function LiveTvPage() {
             )}
 
             {RECOMMENDED_SECTIONS.map((section) => {
-              const sectionItems = recommendedGuide.bySection[section.id];
+              const rawItems = recommendedGuide.bySection[section.id];
+              const sectionItems = hideUnconnected
+                ? rawItems.filter((item) => item.connected)
+                : rawItems;
               if (!sectionItems || sectionItems.length === 0) return null;
 
               return (
@@ -437,6 +540,7 @@ export default function LiveTvPage() {
                           epgSchedules[item.channel.tvgId || item.channel.id]
                         }
                         serverCount={item.serverCount}
+                        onConnectM3u={handleConnectChannelPrompt}
                       />
                     ))}
                   </div>
@@ -454,7 +558,7 @@ export default function LiveTvPage() {
                 onClick={handleViewAllChannels}
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#f59e0b]/45 bg-[#09090b] px-5 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
               >
-                View All {channels.length} Imported Channels
+                View All {channels.length} Channels
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -481,6 +585,7 @@ export default function LiveTvPage() {
                   key={channel.id}
                   channel={channel}
                   schedule={epgSchedules[channel.tvgId || channel.id]}
+                  onConnectM3u={handleConnectChannelPrompt}
                 />
               ))}
             </div>
@@ -532,6 +637,7 @@ export default function LiveTvPage() {
                     channel={entry.channel}
                     schedule={epgSchedules[entry.channel.tvgId || entry.channel.id]}
                     serverCount={entry.serverCount}
+                    onConnectM3u={handleConnectChannelPrompt}
                   />
                 ))}
               </div>

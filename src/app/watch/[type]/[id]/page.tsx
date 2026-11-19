@@ -993,7 +993,7 @@ function WatchViewContent() {
               }
               allowCustomUrlInput={isChannelType}
               onAddCustomStreamUrl={isChannelType ? handleAddCustomStreamUrl : undefined}
-              onOpenSources={sportsMatch ? openSources : undefined}
+              onOpenSources={isChannelType ? openSources : undefined}
               onRefreshFeeds={sportsMatch ? handleRefreshFeeds : undefined}
               refreshingFeeds={refreshingFeeds}
               importedFeedsCount={sportsMatch ? importedFeedChannels.length : 0}

@@ -12,10 +12,13 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthGate';
 import { useKino } from '@/components/KinoProvider';
+import { BUILTIN_PUBLIC_PLAYLISTS } from '@/config/public-playlists';
 import {
   addCustomSource,
+  getBuiltinSourceStates,
   getCustomSources,
   removeCustomSource,
+  setBuiltinSourceEnabled,
   setProxyMode,
   toggleCustomSource,
 } from '@/lib/storage';
@@ -29,6 +32,7 @@ export function SourceManagerModal() {
   const { isSourcesOpen, closeSources, proxyMode, refreshChannels, sourceErrors } =
     useKino();
   const [sources, setSources] = useState<CustomSourceConfig[]>([]);
+  const [builtinStates, setBuiltinStates] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<SourceTab>('m3u');
 
   // Form states
@@ -46,6 +50,7 @@ export function SourceManagerModal() {
   useEffect(() => {
     if (isSourcesOpen) {
       setSources(getCustomSources());
+      setBuiltinStates(getBuiltinSourceStates());
       setFormError(null);
     }
   }, [isSourcesOpen]);
@@ -119,6 +124,12 @@ export function SourceManagerModal() {
   const handleRemove = (id: string) => {
     removeCustomSource(id);
     setSources(getCustomSources());
+    void refreshChannels();
+  };
+
+  const handleToggleBuiltin = (id: string, nextEnabled: boolean) => {
+    setBuiltinSourceEnabled(id, nextEnabled);
+    setBuiltinStates(getBuiltinSourceStates());
     void refreshChannels();
   };
 
@@ -355,7 +366,7 @@ export function SourceManagerModal() {
           </h3>
           {sources.length === 0 ? (
             <p className="mt-2 rounded-xl border border-white/[0.06] bg-[#080809]/50 p-4 text-xs text-[#71717A]">
-              No custom playlists added yet. KinoStream includes built-in legal FTA channels out of the box.
+              No custom playlists added yet. Custom M3U URLs save in browser storage across deploys. Built-in public FAST feeds below stay active out of the box.
             </p>
           ) : (
             <ul className="mt-2.5 space-y-2">
@@ -414,6 +425,57 @@ export function SourceManagerModal() {
               ))}
             </ul>
           )}
+        </div>
+
+        {/* Pre-Configured Public FAST Playlists (Default Enabled) */}
+        <div className="mt-6 border-t border-white/[0.08] pt-5">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-widest text-[#f59e0b]">
+              Built-In Public FAST Playlists
+            </h3>
+            <span className="text-[11px] text-[#71717A]">15m server cache</span>
+          </div>
+          <ul className="mt-2.5 space-y-2">
+            {BUILTIN_PUBLIC_PLAYLISTS.map((def) => {
+              const isEnabled =
+                builtinStates[def.id] !== undefined
+                  ? builtinStates[def.id]
+                  : def.defaultEnabled;
+              return (
+                <li
+                  key={def.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#09090b] px-3.5 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-medium text-[#FAFAFA]">
+                        {def.name}
+                      </span>
+                      <span className="rounded border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[#f59e0b]">
+                        FAST
+                      </span>
+                    </div>
+                    <p className="truncate text-xs text-[#71717A]">
+                      {def.description}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleBuiltin(def.id, !isEnabled)}
+                    className={cn(
+                      'shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-medium transition',
+                      isEnabled
+                        ? 'border-[#f59e0b]/50 bg-[#f59e0b]/15 text-[#f59e0b]'
+                        : 'border-white/10 text-[#71717A]'
+                    )}
+                  >
+                    {isEnabled ? 'Enabled' : 'Paused'}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
     </div>

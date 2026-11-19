@@ -95,13 +95,94 @@ function writeJson<T>(baseKey: string, value: T): void {
   }
 }
 
-// Custom Sources (M3U, Xtream, Direct)
+export const M3U_SOURCES_STORAGE_KEY = 'kino:m3uSources';
+export const BUILTIN_SOURCE_STATES_KEY = 'kino:builtinSourceStates';
+
+// Custom Sources (M3U, Xtream, Direct) persisted in kino:m3uSources + account scope
 export function getCustomSources(): CustomSourceConfig[] {
-  return readJson<CustomSourceConfig[]>(BASE_KEYS.SOURCES, []);
+  if (!isBrowser()) return [];
+  let globalSources: CustomSourceConfig[] = [];
+  try {
+    const rawGlobal = window.localStorage.getItem(M3U_SOURCES_STORAGE_KEY);
+    if (rawGlobal) {
+      const parsed = JSON.parse(rawGlobal);
+      if (Array.isArray(parsed)) globalSources = parsed;
+    }
+  } catch {
+    // Ignore parse errors
+  }
+
+  const scopedSources = readJson<CustomSourceConfig[]>(BASE_KEYS.SOURCES, []);
+  if (globalSources.length === 0 && scopedSources.length > 0) {
+    try {
+      window.localStorage.setItem(
+        M3U_SOURCES_STORAGE_KEY,
+        JSON.stringify(scopedSources)
+      );
+    } catch {
+      // Ignore quota errors
+    }
+    return scopedSources;
+  }
+
+  if (scopedSources.length > 0 && globalSources.length > 0) {
+    const seenIds = new Set(globalSources.map((s) => s.id));
+    const merged = [...globalSources];
+    for (const s of scopedSources) {
+      if (s?.id && !seenIds.has(s.id)) {
+        seenIds.add(s.id);
+        merged.push(s);
+      }
+    }
+    return merged;
+  }
+
+  return globalSources;
 }
 
 export function saveCustomSources(sources: CustomSourceConfig[]): void {
-  writeJson(BASE_KEYS.SOURCES, sources);
+  if (!isBrowser()) return;
+  try {
+    window.localStorage.setItem(M3U_SOURCES_STORAGE_KEY, JSON.stringify(sources));
+  } catch {
+    // Ignore storage quota errors gracefully
+  }
+  if (scopedKey(BASE_KEYS.SOURCES)) {
+    writeJson(BASE_KEYS.SOURCES, sources);
+  } else {
+    window.dispatchEvent(
+      new CustomEvent(STORAGE_CHANGE_EVENT, {
+        detail: { key: M3U_SOURCES_STORAGE_KEY },
+      })
+    );
+  }
+}
+
+export function getBuiltinSourceStates(): Record<string, boolean> {
+  if (!isBrowser()) return {};
+  try {
+    const raw = window.localStorage.getItem(BUILTIN_SOURCE_STATES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setBuiltinSourceEnabled(id: string, enabled: boolean): void {
+  if (!isBrowser()) return;
+  const next = { ...getBuiltinSourceStates(), [id]: enabled };
+  try {
+    window.localStorage.setItem(BUILTIN_SOURCE_STATES_KEY, JSON.stringify(next));
+    window.dispatchEvent(
+      new CustomEvent(STORAGE_CHANGE_EVENT, {
+        detail: { key: BUILTIN_SOURCE_STATES_KEY },
+      })
+    );
+  } catch {
+    // Ignore storage quota errors gracefully
+  }
 }
 
 export function addCustomSource(

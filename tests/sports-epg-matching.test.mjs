@@ -87,11 +87,26 @@ const {
 } = loadTsModule(path.join(SRC_DIR, 'lib', 'epg-matcher.ts'));
 const {
   MAJOR_NETWORK_CHANNELS,
+  buildChannelStreamSources,
   matchBroadcastChannelsForMatch,
   groupMatchedLiveFeeds,
   findEpgVerifiedMatchSummary,
   resolveSportsMatchStreamSources,
 } = loadTsModule(path.join(SRC_DIR, 'lib', 'sports-networks.ts'));
+const { BUILTIN_PUBLIC_PLAYLISTS } = loadTsModule(
+  path.join(SRC_DIR, 'config', 'public-playlists.ts')
+);
+const { resolveAllChannelSources } = loadTsModule(
+  path.join(SRC_DIR, 'lib', 'channels-server.ts')
+);
+const {
+  M3U_SOURCES_STORAGE_KEY,
+  setActiveUserScope,
+  addCustomSource,
+  getCustomSources,
+  getBuiltinSourceStates,
+  setBuiltinSourceEnabled,
+} = loadTsModule(path.join(SRC_DIR, 'lib', 'storage.ts'));
 const { FALLBACK_CHANNELS, FALLBACK_SPORTS_MATCHES } = loadTsModule(
   path.join(SRC_DIR, 'config', 'fallback-streams.ts')
 );
@@ -794,6 +809,44 @@ test('Case (g): Live TV Recommended & Sports tabs surface UFC & Spectrum cards c
     },
   ];
 
+  // First verify with ONLY FALLBACK_CHANNELS (no M3U): zero cross-network ESPN/NBA streams leak into UFC or Spectrum cards!
+  const emptyGuide = buildRecommendedGuide(FALLBACK_CHANNELS);
+  for (const isolatedId of [
+    'rec-ufc-ppv',
+    'rec-ufc-fight-pass',
+    'rec-ufc-fight-night',
+    'rec-ufc-network',
+    'rec-spectrum-sportsnet',
+    'rec-spectrum-sportsnet-la',
+    'rec-spectrum-sportsnet-plus',
+  ]) {
+    const entry = emptyGuide.items.find((i) => i.channel.id === isolatedId);
+    assert.ok(entry, `Isolated offline entry missing: ${isolatedId}`);
+    assert.equal(entry.connected, false, `${isolatedId} must be offline without an M3U stream`);
+    assert.equal(entry.serverCount, 0, `${isolatedId} must have serverCount 0 when unconnected`);
+    assert.equal(entry.channel.url, '', `${isolatedId} must NEVER pull an ESPN/cross-network URL`);
+    assert.equal(entry.channel.badge, 'OFFLINE');
+    assert.equal(buildChannelStreamSources(entry.channel).length, 0);
+  }
+
+  // Also ensure an ESPN+ UFC labeled channel does NOT hijack UFC PPV / Fight Night Live TV cards
+  const poisonedEspnGuide = buildRecommendedGuide([
+    ...FALLBACK_CHANNELS,
+    {
+      id: 'm3u-espn-plus-ufc',
+      name: 'ESPN+ UFC Prelims',
+      group: 'Sports',
+      category: 'sports',
+      sourceId: 'src-poison',
+      url: 'https://example-cdn.test/espn-plus-ufc/index.m3u8',
+    },
+  ]);
+  for (const ufcId of ['rec-ufc-ppv', 'rec-ufc-fight-pass', 'rec-ufc-fight-night', 'rec-ufc-network']) {
+    const entry = poisonedEspnGuide.items.find((i) => i.channel.id === ufcId);
+    assert.equal(entry?.connected, false, `${ufcId} must reject ESPN+ streams`);
+    assert.equal(entry?.channel.url, '');
+  }
+
   const guide = buildRecommendedGuide(m3uChannels);
   assert.ok(RECOMMENDED_SECTIONS.some((s) => s.id === 'combat_regional_sports'));
 
@@ -817,34 +870,39 @@ test('Case (g): Live TV Recommended & Sports tabs surface UFC & Spectrum cards c
     );
   }
 
-  // Verify imported Spectrum SportsNet merges mirrors & keeps built-in showcase excluded from sports match routing
+  // Verify imported Spectrum SportsNet merges mirrors strictly (without ESPN contamination)
   const specItem = guide.bySection.combat_regional_sports.find(
     (i) => i.channel.id === 'rec-spectrum-sportsnet'
   );
   assert.ok(specItem);
+  assert.equal(specItem.connected, true);
   assert.equal(specItem.channel.url, 'https://example-cdn.test/live-specsn-1/index.m3u8');
-  assert.ok(specItem.serverCount >= 2, 'Imported mirrors merge as backup Server I/II/III feeds');
+  assert.equal(specItem.serverCount, 2, 'Should merge the two imported SpecSN mirrors');
 
   const snlaItem = guide.bySection.combat_regional_sports.find(
     (i) => i.channel.id === 'rec-spectrum-sportsnet-la'
   );
+  assert.equal(snlaItem?.connected, true);
   assert.equal(snlaItem?.channel.url, 'https://example-cdn.test/live-snla-1/index.m3u8');
 
   const plusItem = guide.bySection.combat_regional_sports.find(
     (i) => i.channel.id === 'rec-spectrum-sportsnet-plus'
   );
+  assert.equal(plusItem?.connected, true);
   assert.equal(plusItem?.channel.url, 'https://example-cdn.test/live-specsn-plus/index.m3u8');
 
   const ufcNetItem = guide.bySection.combat_regional_sports.find(
     (i) => i.channel.id === 'rec-ufc-network'
   );
+  assert.equal(ufcNetItem?.connected, true);
   assert.equal(ufcNetItem?.channel.url, 'https://example-cdn.test/live-ufc-es/index.m3u8');
 
   // Verify Sports filter pill includes all 7 curated entries & zero duplicates from matched imported channels
   const curatedSports = guide.items.filter((i) => i.def.filterCategory === 'sports');
-  const seenUrls = new Set(curatedSports.map((i) => i.channel.url));
+  const seenUrls = new Set(curatedSports.map((i) => i.channel.url).filter(Boolean));
   const extraSports = m3uChannels.filter(
     (ch) =>
+      Boolean(ch.url) &&
       !guide.matchedSourceChannelIds.has(ch.id) &&
       !seenUrls.has(ch.url) &&
       channelMatchesLiveFilter(ch, 'sports')
@@ -872,4 +930,92 @@ test('Case (g): Live TV Recommended & Sports tabs surface UFC & Spectrum cards c
     'Spectrum News 1 belongs under News'
   );
   assert.ok(RECOMMENDED_CHANNELS.length >= expectedIds.length);
+});
+
+test('Case (h): User M3U sources & FAST toggles persist across reload/redeploy scopes in localStorage (kino:m3uSources)', () => {
+  const store = new Map();
+  const prevWindow = globalThis.window;
+  globalThis.window = {
+    localStorage: {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, String(v)),
+      removeItem: (k) => store.delete(k),
+    },
+    dispatchEvent: () => true,
+  };
+  globalThis.CustomEvent =
+    globalThis.CustomEvent ||
+    class CustomEventMock {
+      constructor(type, init = {}) {
+        this.type = type;
+        this.detail = init.detail;
+      }
+    };
+
+  try {
+    setActiveUserScope('viewer@kinostream.test');
+    const created = addCustomSource({
+      name: 'My Custom LA M3U',
+      type: 'm3u',
+      url: 'https://example-cdn.test/my-la.m3u',
+      enabled: true,
+    });
+
+    assert.ok(store.has(M3U_SOURCES_STORAGE_KEY), 'Must write directly to localStorage["kino:m3uSources"]');
+    assert.equal(getCustomSources().length, 1);
+    assert.equal(getCustomSources()[0].url, created.url);
+
+    // Simulate page reload / post-redeploy mount BEFORE auth scope finishes hydrating (activeScopeId = null)
+    setActiveUserScope(null);
+    const beforeAuthList = getCustomSources();
+    assert.equal(beforeAuthList.length, 1, 'Custom M3U sources must remain intact before scope hydration');
+    assert.equal(beforeAuthList[0].url, 'https://example-cdn.test/my-la.m3u');
+
+    // Simulate logging back in after Vercel redeploy (possibly with different email casing)
+    setActiveUserScope('VIEWER@KinoStream.Test');
+    const afterAuthList = getCustomSources();
+    assert.equal(afterAuthList.length, 1);
+    assert.equal(afterAuthList[0].name, 'My Custom LA M3U');
+
+    // Built-in FAST source toggle persistence
+    setBuiltinSourceEnabled('builtin-free-tv-master', false);
+    assert.equal(getBuiltinSourceStates()['builtin-free-tv-master'], false);
+  } finally {
+    setActiveUserScope(null);
+    globalThis.window = prevWindow;
+  }
+});
+
+test('Case (i): resolveAllChannelSources loads 300+ live channels from built-in FAST playlists & isolates slow failures', async () => {
+  assert.equal(BUILTIN_PUBLIC_PLAYLISTS.length, 3);
+  const { channels, errors } = await resolveAllChannelSources({
+    includeBuiltins: true,
+    includeFallback: true,
+    sources: [
+      {
+        id: 'src-unreachable',
+        name: 'Slow Unreachable Mock',
+        type: 'm3u',
+        url: 'https://127.0.0.1:9/does-not-exist.m3u',
+        enabled: true,
+        addedAt: Date.now(),
+      },
+    ],
+  });
+
+  // Partial SSRF/timeout failure on one source must NEVER wipe out healthy FAST playlists
+  assert.ok(errors.some((e) => e.sourceId === 'src-unreachable'));
+  assert.ok(
+    channels.length >= 300,
+    `Expected >= 300 live channels from public FAST playlists, got ${channels.length}`
+  );
+
+  // Confirm recommended guide keeps UFC & Spectrum offline unless present & never injects ESPN urls
+  const guide = buildRecommendedGuide(channels);
+  for (const id of ['rec-spectrum-sportsnet', 'rec-spectrum-sportsnet-la', 'rec-spectrum-sportsnet-plus']) {
+    const item = guide.items.find((i) => i.channel.id === id);
+    if (item && item.connected) {
+      assert.equal(item.channel.url.includes('ESPN-HD'), false);
+    }
+  }
 });

@@ -3,7 +3,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { FALLBACK_CHANNELS, generateFallbackEpg } from '@/config/fallback-streams';
 import {
+  BUILTIN_SOURCE_STATES_KEY,
+  M3U_SOURCES_STORAGE_KEY,
   STORAGE_CHANGE_EVENT,
+  getBuiltinSourceStates,
   getCustomSources,
   getProxyMode,
   getWatchHistory,
@@ -112,6 +115,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     setChannelsLoading(true);
     try {
       const customSources = getCustomSources();
+      const builtinStates = getBuiltinSourceStates();
       const manualEpgUrls = customSources
         .filter((s) => s.enabled && s.epgUrl)
         .map((s) => s.epgUrl as string);
@@ -119,7 +123,12 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
       const channelsRes = await fetch('/api/channels', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sources: customSources, includeFallback: true }),
+        body: JSON.stringify({
+          sources: customSources,
+          builtinStates,
+          includeFallback: true,
+          includeBuiltins: true,
+        }),
       });
 
       let discoveredEpgUrls: string[] = [];
@@ -174,7 +183,23 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     const handleStorageUpdate = (event: Event) => {
       syncLocalState();
       const detail = (event as CustomEvent<{ key?: string }>).detail;
-      if (detail?.key?.includes('custom_sources')) {
+      if (
+        detail?.key?.includes('custom_sources') ||
+        detail?.key === M3U_SOURCES_STORAGE_KEY ||
+        detail?.key === BUILTIN_SOURCE_STATES_KEY ||
+        detail?.key === 'scope'
+      ) {
+        void refreshChannels();
+      }
+    };
+
+    const handleCrossTabStorage = (event: StorageEvent) => {
+      syncLocalState();
+      if (
+        event.key === M3U_SOURCES_STORAGE_KEY ||
+        event.key === BUILTIN_SOURCE_STATES_KEY ||
+        event.key?.includes('custom_sources')
+      ) {
         void refreshChannels();
       }
     };
@@ -187,11 +212,11 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     };
 
     window.addEventListener(STORAGE_CHANGE_EVENT, handleStorageUpdate);
-    window.addEventListener('storage', syncLocalState);
+    window.addEventListener('storage', handleCrossTabStorage);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
       window.removeEventListener(STORAGE_CHANGE_EVENT, handleStorageUpdate);
-      window.removeEventListener('storage', syncLocalState);
+      window.removeEventListener('storage', handleCrossTabStorage);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [refreshChannels, syncLocalState]);

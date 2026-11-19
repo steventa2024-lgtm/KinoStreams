@@ -77,6 +77,7 @@ export interface RecommendedChannelDef {
   excludePhrases?: string[];
   /** Custom punctuation-aware regexes for symbols like E! or A&E */
   rawRegexes?: RegExp[];
+  requiredRawRegexes?: RegExp[];
   excludeRawRegexes?: RegExp[];
   accent?: string;
 }
@@ -270,9 +271,11 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'Octagon Main Card',
     description: 'UFC Numbered PPV Main Card, Championship bouts, and Octagon Studio Desk.',
     tvgId: 'UFCPPV.us',
-    matchPhrases: ['ufc ppv main event', 'ufc ppv', 'ufc main event', 'mma ppv'],
-    rawRegexes: [/\bufc\s*(?:ppv|main\s*event)\b/i],
-    excludePhrases: ['fight pass', 'fight night'],
+    matchPhrases: ['ufc ppv main event', 'ufc ppv', 'ufc main event'],
+    rawRegexes: [/\bufc\b.*\b(?:ppv|main\s*event)\b/i],
+    requiredRawRegexes: [/\bufc\b/i],
+    excludePhrases: ['fight pass', 'fight night', 'espn', 'espn2', 'espn plus'],
+    excludeRawRegexes: [/\bespn/i],
     accent: '#EF4444',
   },
   {
@@ -286,8 +289,10 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     subtitle: 'UFC Prelims & MMA',
     description: 'UFC Early Prelims, Dana White Contender Series, Cage Warriors, and combat archives.',
     tvgId: 'UFCFightPass.us',
-    matchPhrases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
-    excludePhrases: ['ppv', 'fight night'],
+    matchPhrases: ['ufc fight pass', 'ufcfightpass'],
+    requiredRawRegexes: [/\bufc/i],
+    excludePhrases: ['ppv', 'fight night', 'espn', 'espn2', 'espn plus'],
+    excludeRawRegexes: [/\bespn/i],
     accent: '#f59e0b',
   },
   {
@@ -298,11 +303,13 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     category: 'sports',
     group: 'Combat & Regional Sports',
     logoCode: 'FIGHT NIGHT',
-    subtitle: 'UFC on ESPN / Apex',
+    subtitle: 'UFC Prelim & Apex Cards',
     description: 'Weekly UFC Fight Night Apex & international arena cards and live weigh-ins.',
     tvgId: 'UFCFightNight.us',
-    matchPhrases: ['ufc fight night', 'ufc prelims', 'ufc on espn'],
-    excludePhrases: ['ppv', 'fight pass', 'ufc network'],
+    matchPhrases: ['ufc fight night', 'ufc prelims'],
+    requiredRawRegexes: [/\bufc\b/i],
+    excludePhrases: ['ppv', 'fight pass', 'ufc network', 'espn', 'espn2', 'espn plus'],
+    excludeRawRegexes: [/\bespn/i],
     accent: '#D4AF37',
   },
   {
@@ -318,7 +325,9 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     tvgId: 'UFCNetwork.us',
     matchPhrases: ['ufc network', 'ufc espanol', 'ufc live', 'ufc tv'],
     rawRegexes: [/\bufc\s*(?:network|espa[nñ]ol|live|tv)\b/i],
-    excludePhrases: ['ppv', 'fight pass', 'fight night', 'prelims'],
+    requiredRawRegexes: [/\bufc\b/i],
+    excludePhrases: ['ppv', 'fight pass', 'fight night', 'prelims', 'espn', 'espn2', 'espn plus'],
+    excludeRawRegexes: [/\bespn/i],
     accent: '#E2C275',
   },
   {
@@ -336,13 +345,17 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
       'spectrum sportsnet',
       'spectrum sportsnet hd',
       'specsn',
-      'sportsnet lakers',
       'twc sportsnet',
     ],
     excludePhrases: [
+      'espn',
+      'espn2',
+      'espn plus',
       'spectrum sportsnet la',
       'sportsnet la',
       'snla',
+      'dodger',
+      'dodgers',
       'dodgers tv',
       'dodger network',
       'spectrum dodgers',
@@ -351,7 +364,12 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
       'spectrum bay news',
       'spectrum oc16',
     ],
-    excludeRawRegexes: [/spectrum\s+sportsnet\s*(?:\+|plus)/i, /\bsportsnet\s+plus\b/i, /\bspecsn\s*\+/i],
+    excludeRawRegexes: [
+      /spectrum\s+sportsnet\s*(?:\+|plus)/i,
+      /\bsportsnet\s+plus\b/i,
+      /\bspecsn\s*\+/i,
+      /\bespn/i,
+    ],
     accent: '#f59e0b',
   },
   {
@@ -373,8 +391,11 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
       'dodger network',
       'spectrum dodgers',
       'spectrum snla',
+      'dodger',
     ],
-    excludePhrases: ['spectrum news', 'spectrum bay news', 'spectrum oc16'],
+    rawRegexes: [/\b(?:spectrum\s+)?sportsnet\s+la\b/i, /\bsnla\b/i, /\bdodgers?\b/i],
+    excludePhrases: ['espn', 'espn2', 'espn plus', 'spectrum news', 'spectrum bay news', 'spectrum oc16'],
+    excludeRawRegexes: [/\bespn/i, /\bspectrum\s+(?:bay\s+)?news/i],
     accent: '#E2C275',
   },
   {
@@ -390,7 +411,8 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     tvgId: 'SpectrumSportsNetPlus.us',
     matchPhrases: ['spectrum sportsnet plus', 'specsn plus'],
     rawRegexes: [/spectrum\s+sportsnet\s*(?:\+|plus)/i, /\bspecsn\s*(?:\+|plus)/i],
-    excludePhrases: ['spectrum sportsnet la', 'sportsnet la', 'snla', 'spectrum news'],
+    excludePhrases: ['espn', 'espn2', 'espn plus', 'spectrum sportsnet la', 'sportsnet la', 'snla', 'spectrum news'],
+    excludeRawRegexes: [/\bespn/i],
     accent: '#D4AF37',
   },
 
@@ -934,6 +956,8 @@ function hasPhrase(haystack: string, phrase: string): boolean {
 }
 
 function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number {
+  if (!ch.url || !ch.url.trim()) return 0;
+
   const rawName = (ch.name || '').trim();
   const rawTvg = (ch.tvgName || '').trim();
   const rawCombined = `${rawName} ${rawTvg}`.trim();
@@ -942,6 +966,12 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
   const normTvg = normalizeChannelTitle(rawTvg);
   const cleanTvg = stripIptvNoisePrefixSuffix(normTvg);
 
+  if (
+    def.requiredRawRegexes &&
+    !def.requiredRawRegexes.every((rx) => rx.test(rawCombined))
+  ) {
+    return 0;
+  }
   if (def.excludeRawRegexes?.some((rx) => rx.test(rawCombined))) {
     return 0;
   }
@@ -979,11 +1009,10 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
     score += 30;
   }
   if (ch.sourceId) {
-    // User-imported M3U streams always outrank built-in channels so real streams become Server I
+    // User-imported / public playlist streams outrank built-in defaults so fresh M3Us become Server I
     score += 60;
   }
   if (ch.excludeFromMatchRouting) {
-    // Prefer real verified streams ahead of static showcase placeholders
     score -= 25;
   }
   if (/\b(fhd|1080p|4k|uhd)\b/i.test(rawName)) score += 8;
@@ -993,6 +1022,7 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
 export interface RecommendedChannelItem {
   def: RecommendedChannelDef;
   channel: Channel;
+  connected: boolean;
   serverCount: number;
 }
 
@@ -1004,8 +1034,8 @@ export interface RecommendedGuideResult {
 
 /**
  * Builds the deduplicated flagship Recommended channel guide by binding matching
- * built-in and user-imported M3U streams into a single card per flagship network
- * with Server I / II / III backup URLs merged.
+ * built-in and imported M3U streams into one card per flagship network (`Server I / II / III`),
+ * never pulling cross-network fallbacks when a channel has zero matching streams.
  */
 export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResult {
   const items: RecommendedChannelItem[] = [];
@@ -1027,10 +1057,9 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
       }
     }
 
-    if (candidates.length === 0) continue;
     candidates.sort((a, b) => b.score - a.score);
 
-    const primary = candidates[0].ch;
+    const primary = candidates[0]?.ch;
     const seenUrls = new Set<string>();
     const orderedUrls: Array<{
       url: string;
@@ -1063,15 +1092,16 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
       }
     }
 
-    if (orderedUrls.length === 0) continue;
-
+    const connected = orderedUrls.length > 0;
     const mainFeed = orderedUrls[0];
-    const backupUrls: ChannelBackupSource[] = orderedUrls.slice(1, 3).map((b) => ({
-      label: b.label,
-      url: b.url,
-      referrer: b.referrer,
-      userAgent: b.userAgent,
-    }));
+    const backupUrls: ChannelBackupSource[] = connected
+      ? orderedUrls.slice(1, 3).map((b) => ({
+          label: b.label,
+          url: b.url,
+          referrer: b.referrer,
+          userAgent: b.userAgent,
+        }))
+      : [];
 
     const accent = def.accent || '#D4AF37';
     const mergedChannel: Channel = {
@@ -1079,22 +1109,22 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
       name: def.name,
       group: def.group,
       category: def.category,
-      url: mainFeed.url,
+      url: mainFeed?.url || '',
       backupUrls: backupUrls.length > 0 ? backupUrls : undefined,
-      tvgId: primary.tvgId || def.tvgId,
-      tvgName: primary.tvgName || def.name,
-      referrer: mainFeed.referrer,
-      userAgent: mainFeed.userAgent,
+      tvgId: primary?.tvgId || def.tvgId,
+      tvgName: primary?.tvgName || def.name,
+      referrer: mainFeed?.referrer,
+      userAgent: mainFeed?.userAgent,
       isLive: true,
-      league: primary.league || def.subtitle,
-      badge: primary.badge || 'LIVE HD',
-      quality: primary.quality || '1080p',
+      league: primary?.league || def.subtitle,
+      badge: connected ? primary?.badge || 'LIVE HD' : 'OFFLINE',
+      quality: connected ? primary?.quality || '1080p' : undefined,
       description: def.description,
       logo:
-        primary.logo ||
+        primary?.logo ||
         networkArtwork(def.logoCode, def.subtitle, accent, '#141418', 'logo'),
       backdrop:
-        primary.backdrop ||
+        primary?.backdrop ||
         networkArtwork(def.name, def.subtitle, accent, '#141418', 'wide'),
       excludeFromMatchRouting: true,
     };
@@ -1102,10 +1132,15 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
     const item: RecommendedChannelItem = {
       def,
       channel: mergedChannel,
-      serverCount: 1 + backupUrls.length,
+      connected,
+      serverCount: connected ? 1 + backupUrls.length : 0,
     };
     items.push(item);
     bySection[def.section].push(item);
+  }
+
+  for (const sectionId of Object.keys(bySection) as RecommendedSectionId[]) {
+    bySection[sectionId].sort((a, b) => Number(b.connected) - Number(a.connected));
   }
 
   return { items, bySection, matchedSourceChannelIds };
@@ -1201,13 +1236,13 @@ export function searchAllLiveChannels(
     const hay = `${ch.name} ${ch.group} ${ch.league || ''} ${sched?.now?.title || ''}`.toLowerCase();
     if (hay.includes(q)) {
       seenIds.add(ch.id);
-      seenUrls.add(ch.url);
+      if (ch.url) seenUrls.add(ch.url);
       results.push(ch);
     }
   }
 
   for (const ch of channels) {
-    if (seenIds.has(ch.id) || seenUrls.has(ch.url)) continue;
+    if (seenIds.has(ch.id) || (ch.url && seenUrls.has(ch.url))) continue;
     const sched = epgSchedules[ch.tvgId || ch.id];
     const aliasText = (ch.aliases || []).join(' ').toLowerCase();
     const hay = `${ch.name} ${ch.tvgName || ''} ${ch.group} ${aliasText} ${ch.league || ''} ${
@@ -1215,7 +1250,7 @@ export function searchAllLiveChannels(
     }`.toLowerCase();
     if (hay.includes(q)) {
       seenIds.add(ch.id);
-      seenUrls.add(ch.url);
+      if (ch.url) seenUrls.add(ch.url);
       results.push(ch);
     }
   }
