@@ -128,7 +128,11 @@ export interface MediaItem {
   matchPreview?: SportsMatch;
 }
 
-export type SportsMatchTier = 'direct_match' | 'broadcaster_match' | 'league_slot';
+export type SportsMatchTier =
+  | 'direct_match'
+  | 'epg_verified'
+  | 'broadcaster_match'
+  | 'league_slot';
 
 export interface SubtitleTrack {
   url: string;
@@ -143,6 +147,7 @@ export interface StreamSource {
   label: string;
   tier?: SportsMatchTier;
   tierLabel?: string;
+  epgWindow?: string;
   quality?: string;
   language?: string;
   audioTrack?: 'sub' | 'dub' | 'both';
@@ -178,6 +183,7 @@ export interface MatchupSummary {
   league: SportsLeague;
   awayTeam: SportsCompetitor;
   homeTeam: SportsCompetitor;
+  broadcast?: string;
 }
 
 export interface WatchHistoryItem {

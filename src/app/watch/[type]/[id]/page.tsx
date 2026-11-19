@@ -7,6 +7,8 @@ import {
   Bookmark,
   CalendarClock,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Film,
   Loader2,
@@ -32,8 +34,9 @@ import { resolveVodSources } from '@/config/sources';
 import { type AnimeResolutionMeta, computeAbsoluteEpisodeNumber } from '@/lib/anime';
 import { resolveRecommendedChannelById } from '@/lib/live-guide';
 import {
+  type BroadcasterFeedGroup,
   buildChannelStreamSources,
-  matchBroadcastChannelsForMatch,
+  findEpgVerifiedMatchSummary,
   normalizeSportsMatch,
   resolveSportsMatchStreamSources,
 } from '@/lib/sports-networks';
@@ -91,6 +94,8 @@ function WatchViewContent() {
   const [initialTime, setInitialTime] = useState<number>(0);
   const [animeAudio, setAnimeAudioState] = useState<'sub' | 'dub'>('sub');
   const [selectedMatchedFeedId, setSelectedMatchedFeedId] = useState<string | null>(null);
+  const [selectedSourceUrl, setSelectedSourceUrl] = useState<string | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [mediaDetails, setMediaDetails] = useState<MediaItem | null>(null);
   const [sportsMatch, setSportsMatch] = useState<SportsMatch | null>(null);
   const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
@@ -125,6 +130,8 @@ function WatchViewContent() {
   useEffect(() => {
     setManualImportedChannel(null);
     setSelectedMatchedFeedId(null);
+    setSelectedSourceUrl(null);
+    setExpandedGroupId(null);
     setShowImportedPicker(false);
     setImportedSearch('');
     setResolvingDirectStream(false);
@@ -290,7 +297,7 @@ function WatchViewContent() {
     }
   }, [refreshingFeeds, refreshChannels, fetchSportsMatch, fetchProviderFeeds]);
 
-  const eventCandidateChannels = useMemo(() => {
+  const importedFeedChannels = useMemo(() => {
     const seenUrls = new Set<string>();
     const combined: Channel[] = [];
     for (const ch of [...providerChannels, ...channels]) {
@@ -301,14 +308,50 @@ function WatchViewContent() {
     return combined;
   }, [providerChannels, channels]);
 
-  const matchedMatchFeeds = useMemo(() => {
-    if (!sportsMatch) return [];
-    return matchBroadcastChannelsForMatch(sportsMatch, eventCandidateChannels, epgSchedules);
-  }, [sportsMatch, eventCandidateChannels, epgSchedules]);
+  const matchCandidateChannels = useMemo(() => {
+    const seenUrls = new Set<string>();
+    const combined: Channel[] = [];
+    for (const ch of [...providerChannels, ...channels]) {
+      if (!ch.url || seenUrls.has(ch.url)) continue;
+      seenUrls.add(ch.url);
+      combined.push(ch);
+    }
+    return combined;
+  }, [providerChannels, channels]);
 
-  const directMatchedFeeds = useMemo(
-    () => matchedMatchFeeds.filter((f) => f.tier === 'direct_match'),
-    [matchedMatchFeeds]
+  const sportsResolution = useMemo(() => {
+    if (!sportsMatch) return null;
+    return resolveSportsMatchStreamSources({
+      match: sportsMatch,
+      channels: matchCandidateChannels,
+      epgSchedules,
+      selectedFeedChannelId: selectedMatchedFeedId,
+      selectedSourceUrl,
+    });
+  }, [
+    sportsMatch,
+    matchCandidateChannels,
+    epgSchedules,
+    selectedMatchedFeedId,
+    selectedSourceUrl,
+  ]);
+
+  const matchedMatchFeeds = useMemo(
+    () => sportsResolution?.matchedFeeds ?? [],
+    [sportsResolution]
+  );
+
+  const broadcasterGroups = useMemo<BroadcasterFeedGroup[]>(
+    () => sportsResolution?.broadcasterGroups ?? [],
+    [sportsResolution]
+  );
+
+  const epgActiveSummary = useMemo(
+    () =>
+      sportsMatch
+        ? findEpgVerifiedMatchSummary(sportsMatch, matchCandidateChannels, epgSchedules)
+        : null,
+    [sportsMatch, matchCandidateChannels, epgSchedules]
   );
 
   const activeMatchedFeed = useMemo(() => {
@@ -316,20 +359,38 @@ function WatchViewContent() {
     if (selectedMatchedFeedId) {
       return matchedMatchFeeds.find((f) => f.channel.id === selectedMatchedFeedId);
     }
-    return directMatchedFeeds[0];
-  }, [manualImportedChannel, selectedMatchedFeedId, matchedMatchFeeds, directMatchedFeeds]);
+    const firstAutoGroup = broadcasterGroups.find((g) => g.isAutoPlayEligible);
+    if (!firstAutoGroup) return undefined;
+    return matchedMatchFeeds.find(
+      (f) => f.channel.id === firstAutoGroup.primaryChannel.id
+    );
+  }, [
+    manualImportedChannel,
+    selectedMatchedFeedId,
+    matchedMatchFeeds,
+    broadcasterGroups,
+  ]);
+
+  const selectedGroupSource = useMemo(() => {
+    if (!selectedSourceUrl) return undefined;
+    for (const g of broadcasterGroups) {
+      const hit = g.sources.find((s) => s.url === selectedSourceUrl);
+      if (hit) return hit;
+    }
+    return undefined;
+  }, [broadcasterGroups, selectedSourceUrl]);
 
   const filteredImportedChannels = useMemo(() => {
     const q = importedSearch.trim().toLowerCase();
-    if (!q) return eventCandidateChannels;
-    return eventCandidateChannels.filter(
+    if (!q) return importedFeedChannels;
+    return importedFeedChannels.filter(
       (ch) =>
         ch.name.toLowerCase().includes(q) ||
         (ch.tvgName || '').toLowerCase().includes(q) ||
         ch.group.toLowerCase().includes(q) ||
         (ch.sourceName || '').toLowerCase().includes(q)
     );
-  }, [eventCandidateChannels, importedSearch]);
+  }, [importedFeedChannels, importedSearch]);
 
   const handleBrowseImportedFeeds = useCallback(() => {
     setShowImportedPicker(true);
@@ -656,12 +717,7 @@ function WatchViewContent() {
     }
 
     if (sportsMatch) {
-      const { streams: resolvedSports } = resolveSportsMatchStreamSources({
-        match: sportsMatch,
-        channels: eventCandidateChannels,
-        epgSchedules,
-        selectedFeedChannelId: selectedMatchedFeedId,
-      });
+      const resolvedSports = sportsResolution?.streams ?? [];
 
       const manualSource: StreamSource[] = manualImportedChannel
         ? [
@@ -716,9 +772,7 @@ function WatchViewContent() {
     resolvedDirectSources,
     activeChannel,
     sportsMatch,
-    eventCandidateChannels,
-    epgSchedules,
-    selectedMatchedFeedId,
+    sportsResolution,
     manualImportedChannel,
     mediaDetails,
     mediaType,
@@ -736,6 +790,7 @@ function WatchViewContent() {
     const nextFeed = matchedMatchFeeds[(curIdx + 1) % matchedMatchFeeds.length];
     if (nextFeed) {
       setSelectedMatchedFeedId(nextFeed.channel.id);
+      setSelectedSourceUrl(null);
     }
   }, [matchedMatchFeeds, selectedMatchedFeedId]);
 
@@ -920,17 +975,20 @@ function WatchViewContent() {
                       league: sportsMatch.league,
                       awayTeam: sportsMatch.awayTeam,
                       homeTeam: sportsMatch.homeTeam,
+                      broadcast: sportsMatch.broadcast,
                     }
                   : undefined
               }
               referrer={
                 activeChannel?.referrer ||
                 manualImportedChannel?.referrer ||
+                selectedGroupSource?.referrer ||
                 activeMatchedFeed?.channel.referrer
               }
               userAgent={
                 activeChannel?.userAgent ||
                 manualImportedChannel?.userAgent ||
+                selectedGroupSource?.userAgent ||
                 activeMatchedFeed?.channel.userAgent
               }
               allowCustomUrlInput={isChannelType}
@@ -938,7 +996,7 @@ function WatchViewContent() {
               onOpenSources={sportsMatch ? openSources : undefined}
               onRefreshFeeds={sportsMatch ? handleRefreshFeeds : undefined}
               refreshingFeeds={refreshingFeeds}
-              importedFeedsCount={sportsMatch ? eventCandidateChannels.length : 0}
+              importedFeedsCount={sportsMatch ? importedFeedChannels.length : 0}
               onBrowseImportedFeeds={sportsMatch ? handleBrowseImportedFeeds : undefined}
               hasNextEpisode={Boolean(nextEpisodeTarget)}
               nextEpisodeLabel={nextEpisodeTarget?.label}
@@ -951,17 +1009,17 @@ function WatchViewContent() {
               minimizeBackHref={backTarget}
             />
 
-            {/* Smart Live Feed Matcher Cards (when viewing a SportsMatch) */}
+            {/* Official Broadcasters & EPG-Verified Event Feeds */}
             {sportsMatch && (
               <section className="rounded-xl border border-white/[0.08] bg-[#151517] p-4 sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
                     <h2 className="flex items-center gap-2 font-sans text-lg font-medium text-[#FAFAFA] sm:text-xl">
                       <Radio className="h-4 w-4 text-[#fb5272]" />
-                      Matching Live Feeds
+                      Official Broadcasters
                     </h2>
                     <p className="mt-0.5 text-xs text-[#A1A1AA]">
-                      Only Tier 1 team-matched streams auto-play on game load; optional RSN / Network and League Pass feeds below open when clicked.
+                      Tier 1 EPG-verified feeds and verified scheduled broadcasters auto-play with server failover. Expand any group to pick a mirror.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
@@ -975,7 +1033,7 @@ function WatchViewContent() {
                       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#f59e0b]/55 bg-[#09090b] px-4 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
                     >
                       <Server className="h-3.5 w-3.5" />
-                      Browse Imported Feeds ({eventCandidateChannels.length})
+                      Browse Imported Feeds ({importedFeedChannels.length})
                     </button>
                     <button
                       type="button"
@@ -1008,88 +1066,209 @@ function WatchViewContent() {
                   </div>
                 </div>
 
-                {matchedMatchFeeds.length > 0 ? (
-                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {matchedMatchFeeds.map((feed) => {
-                      const activeFeedId = manualImportedChannel
-                        ? null
-                        : selectedMatchedFeedId || directMatchedFeeds[0]?.channel.id || null;
-                      const active = activeFeedId === feed.channel.id;
+                {broadcasterGroups.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {broadcasterGroups.map((group) => {
+                      const isGroupSelected =
+                        !manualImportedChannel &&
+                        (selectedMatchedFeedId
+                          ? group.sources.some((s) => s.channelId === selectedMatchedFeedId)
+                          : group.isAutoPlayEligible &&
+                            broadcasterGroups[0]?.groupId === group.groupId);
+                      const isExpanded = expandedGroupId === group.groupId;
+                      const sourceCountLabel = `${group.sources.length} ${
+                        group.sources.length === 1 ? 'source' : 'sources'
+                      }`;
+
                       return (
-                        <button
-                          key={feed.channel.id}
-                          type="button"
-                          onClick={() => {
-                            setManualImportedChannel(null);
-                            setSelectedMatchedFeedId(feed.channel.id);
-                          }}
+                        <div
+                          key={group.groupId}
                           className={cn(
-                            'flex min-h-[64px] items-center justify-between gap-3 rounded-lg border p-3.5 text-left transition active:scale-[0.99]',
-                            active
-                              ? 'border-[#e50935] bg-[#e50935]/12'
+                            'rounded-lg border transition',
+                            isGroupSelected
+                              ? 'border-[#e50935] bg-[#e50935]/10'
                               : 'border-white/[0.08] bg-[#080809]/70 hover:border-[#e50935]/45'
                           )}
                         >
-                          <div className="flex min-w-0 items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#151517]">
-                              {feed.channel.logo ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={feed.channel.logo}
-                                  alt={feed.channel.name}
-                                  className="h-full w-full object-contain p-1"
-                                />
-                              ) : (
-                                <span className="font-sans text-xs font-bold text-[#fb5272]">
-                                  {getInitials(feed.channel.name)}
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-medium text-[#FAFAFA]">
-                                {feed.channel.name}
-                              </p>
-                              <p className="truncate text-[11px] text-[#A1A1AA]">
-                                {feed.nowTitle || feed.channel.group}
-                              </p>
-                              <div className="mt-1 flex flex-wrap gap-1">
-                                <span
-                                  className={cn(
-                                    'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                                    feed.tier === 'direct_match'
-                                      ? 'border-[#e50935]/50 bg-[#e50935]/20 text-[#e4e4e7]'
-                                      : feed.tier === 'broadcaster_match'
-                                      ? 'border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[#f59e0b]'
-                                      : 'border-white/15 bg-[#151517] text-[#A1A1AA]'
-                                  )}
-                                >
-                                  {feed.tierLabel}
-                                </span>
-                                {feed.reasons.map((r) => (
-                                  <span
-                                    key={r}
-                                    className="rounded-full bg-[#e50935]/15 px-2 py-0.5 text-[10px] font-medium text-[#e4e4e7]"
-                                  >
-                                    {r}
+                          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 sm:flex-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setManualImportedChannel(null);
+                                setSelectedSourceUrl(null);
+                                setSelectedMatchedFeedId(group.primaryChannel.id);
+                              }}
+                              className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                            >
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/[0.08] bg-[#151517]">
+                                {group.primaryChannel.logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={group.primaryChannel.logo}
+                                    alt={group.networkName}
+                                    className="h-full w-full object-contain p-1"
+                                  />
+                                ) : (
+                                  <span className="font-sans text-xs font-bold text-[#fb5272]">
+                                    {getInitials(group.networkName)}
                                   </span>
-                                ))}
+                                )}
                               </div>
+
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="truncate text-sm font-semibold text-[#FAFAFA]">
+                                    {group.networkName}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      'rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wide',
+                                      group.tier === 'epg_verified' ||
+                                        group.tier === 'direct_match'
+                                        ? 'border-[#D4AF37]/60 bg-[#D4AF37]/20 text-[#E2C275]'
+                                        : group.tier === 'broadcaster_match'
+                                        ? 'border-[#f59e0b]/45 bg-[#f59e0b]/15 text-[#f59e0b]'
+                                        : 'border-white/15 bg-[#121215] text-[#A1A1AA]'
+                                    )}
+                                  >
+                                    {group.badgeTag}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-[#121215] px-2 py-0.5 text-[10px] font-medium text-[#A1A1AA]">
+                                    {sourceCountLabel}
+                                  </span>
+                                  {group.bestQuality && (
+                                    <span className="rounded-full border border-white/10 bg-[#121215] px-2 py-0.5 text-[10px] font-medium text-[#FAFAFA]">
+                                      {group.bestQuality}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p className="mt-0.5 truncate text-xs text-[#A1A1AA]">
+                                  {group.epgWindow && group.nowTitle
+                                    ? `${group.epgWindow} · ${group.nowTitle}`
+                                    : group.nowTitle ||
+                                      `${group.networkName} · ${group.badgeTag} · ${sourceCountLabel}`}
+                                </p>
+
+                                {group.reasons.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1">
+                                    {group.reasons.map((reason) => (
+                                      <span
+                                        key={reason}
+                                        className="rounded-full bg-[#D4AF37]/12 px-2 py-0.5 text-[10px] text-[#E2C275]"
+                                      >
+                                        {reason}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </button>
+
+                            <div className="flex shrink-0 items-center gap-2">
+                              {group.sources.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandedGroupId(isExpanded ? null : group.groupId)
+                                  }
+                                  aria-expanded={isExpanded}
+                                  className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-white/12 bg-[#121215] px-3 text-xs font-medium text-[#A1A1AA] transition hover:border-[#D4AF37]/45 hover:text-[#FAFAFA]"
+                                >
+                                  {isExpanded ? (
+                                    <>
+                                      <span>Hide</span>
+                                      <ChevronUp className="h-3.5 w-3.5" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>Servers</span>
+                                      <ChevronDown className="h-3.5 w-3.5" />
+                                    </>
+                                  )}
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setManualImportedChannel(null);
+                                  setSelectedSourceUrl(null);
+                                  setSelectedMatchedFeedId(group.primaryChannel.id);
+                                }}
+                                aria-label={`Play ${group.networkName}`}
+                                className={cn(
+                                  'inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full px-4 text-xs font-semibold transition active:scale-95',
+                                  isGroupSelected
+                                    ? 'bg-[#f59e0b] text-[#09090b] shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+                                    : 'bg-[#D4AF37] text-[#09090B] hover:bg-[#E2C275]'
+                                )}
+                              >
+                                <Play className="h-3.5 w-3.5 fill-current" />
+                                <span>{isGroupSelected ? 'Playing' : 'Play'}</span>
+                              </button>
                             </div>
                           </div>
 
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#080809]">
-                            <Play className="ml-0.5 h-4 w-4 fill-current" />
-                          </div>
-                        </button>
+                          {isExpanded && (
+                            <div className="space-y-1.5 border-t border-white/[0.06] px-3.5 py-2.5">
+                              <p className="text-[10px] font-semibold tracking-wider text-[#71717A] uppercase">
+                                Individual Failover Servers ({group.sources.length})
+                              </p>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                {group.sources.map((src, srcIdx) => {
+                                  const isSourceActive =
+                                    selectedSourceUrl === src.url ||
+                                    (!selectedSourceUrl &&
+                                      isGroupSelected &&
+                                      srcIdx === 0);
+                                  return (
+                                    <button
+                                      key={src.id}
+                                      type="button"
+                                      onClick={() => {
+                                        setManualImportedChannel(null);
+                                        setSelectedMatchedFeedId(src.channelId);
+                                        setSelectedSourceUrl(src.url);
+                                      }}
+                                      className={cn(
+                                        'flex min-h-[44px] items-center justify-between gap-2 rounded-xl border px-3 py-2 text-left text-xs transition',
+                                        isSourceActive
+                                          ? 'border-[#f59e0b] bg-[#f59e0b]/15 text-[#FAFAFA]'
+                                          : 'border-white/[0.08] bg-[#151517] text-[#A1A1AA] hover:border-[#e50935]/40 hover:text-[#FAFAFA]'
+                                      )}
+                                    >
+                                      <div className="min-w-0">
+                                        <p className="truncate font-medium text-[#FAFAFA]">
+                                          Server {srcIdx + 1} · {src.name}
+                                        </p>
+                                        <p className="truncate text-[11px] text-[#71717A]">
+                                          {src.epgWindow
+                                            ? `${src.epgWindow} · ${src.tierLabel}`
+                                            : src.sourceName || src.label}
+                                        </p>
+                                      </div>
+                                      <span className="shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-[#e4e4e7]">
+                                        {src.quality || 'HD'}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>
                 ) : (
                   <p className="mt-4 rounded-lg border border-white/[0.06] bg-[#080809]/60 p-4 text-xs text-[#A1A1AA]">
-                    No automatic Match, RSN, or League Pass feeds matched {sportsMatch.awayTeam.shortName} vs.{' '}
-                    {sportsMatch.homeTeam.shortName}.
-                    {eventCandidateChannels.length > 0
-                      ? ' Tap Browse Imported Feeds to pick an unlabeled channel from your playlist, or paste a direct .m3u8 URL above.'
+                    No verified Official Broadcaster or Tier 1 EPG feed matched{' '}
+                    {sportsMatch.awayTeam.shortName} vs.{' '}
+                    {sportsMatch.homeTeam.shortName}
+                    {sportsMatch.broadcast ? ` (${sportsMatch.broadcast})` : ''}.
+                    {importedFeedChannels.length > 0
+                      ? ' Tap Browse Imported Feeds to pick a channel from your playlist, or paste a direct .m3u8 URL above.'
                       : ' Connect an M3U playlist via Custom M3U or paste a direct .m3u8 URL in the source bar above.'}
                   </p>
                 )}
@@ -1117,7 +1296,7 @@ function WatchViewContent() {
                       </button>
                     </div>
 
-                    {eventCandidateChannels.length === 0 ? (
+                    {importedFeedChannels.length === 0 ? (
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-[#151517] p-3.5 text-xs text-[#A1A1AA]">
                         <span>No custom M3U playlist imported yet.</span>
                         <button
@@ -1243,6 +1422,11 @@ function WatchViewContent() {
                           Network: {sportsMatch.broadcast}
                         </span>
                       )}
+                      {epgActiveSummary && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-3 py-1 text-xs font-medium text-[#E2C275]">
+                          EPG LIVE · {epgActiveSummary.channelName} ({epgActiveSummary.timeWindow})
+                        </span>
+                      )}
                     </>
                   ) : (
                     <span className="rounded-full border border-[#e50935]/35 bg-[#e50935]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-[#e4e4e7]">
@@ -1295,11 +1479,21 @@ function WatchViewContent() {
                       `Live broadcast from ${activeChannel.name}.`
                     : sportsMatch
                     ? `${sportsMatch.name}${sportsMatch.venue ? ` at ${sportsMatch.venue}` : ''}. ${
-                        directMatchedFeeds.length > 0
-                          ? `Auto-playing from ${directMatchedFeeds.length} direct team-matched stream(s).`
-                          : matchedMatchFeeds.length > 0
-                          ? 'No direct team-matched stream found — select an optional network/league feed or Browse Imported Feeds above.'
-                          : 'No direct match stream connected yet. Browse Imported Feeds or connect an M3U event feed above.'
+                        epgActiveSummary
+                          ? `Verified via XMLTV EPG on ${epgActiveSummary.channelName} (${epgActiveSummary.timeWindow}) — ${epgActiveSummary.programTitle}.`
+                          : broadcasterGroups.some((g) => g.isAutoPlayEligible)
+                          ? `Auto-playing from ${broadcasterGroups
+                              .filter((g) => g.isAutoPlayEligible)
+                              .map(
+                                (g) =>
+                                  `${g.networkName} (${g.sources.length} ${
+                                    g.sources.length === 1 ? 'source' : 'sources'
+                                  })`
+                              )
+                              .join(', ')}.`
+                          : broadcasterGroups.length > 0
+                          ? 'Select an optional league feed or Browse Imported Feeds above.'
+                          : 'No event feed connected yet. Browse Imported Feeds or connect an M3U playlist + XMLTV guide above.'
                       }`
                     : mediaDetails?.overview}
                 </p>

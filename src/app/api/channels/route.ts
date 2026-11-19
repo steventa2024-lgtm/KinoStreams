@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FALLBACK_CHANNELS } from '@/config/fallback-streams';
 import { requireApiSession } from '@/lib/auth-crypto';
-import { classifyChannelCategory, parseM3uPlaylist } from '@/lib/m3u-parser';
+import {
+  classifyChannelCategory,
+  parseM3uPlaylistWithMeta,
+} from '@/lib/m3u-parser';
 import {
   SsrfBlockedError,
   assertSafeExternalUrl,
@@ -101,15 +104,20 @@ async function resolveSources(
   includeFallback = true
 ): Promise<{
   channels: Channel[];
+  discoveredEpgUrls: string[];
   errors: Array<{ sourceId: string; name: string; error: string }>;
 }> {
   const customChannels: Channel[] = [];
+  const discoveredEpgSet = new Set<string>();
   const errors: Array<{ sourceId: string; name: string; error: string }> = [];
 
   const activeSources = sources.filter((s) => s.enabled !== false);
 
   await Promise.all(
     activeSources.map(async (src) => {
+      if (src.epgUrl && /^https?:\/\//i.test(src.epgUrl.trim())) {
+        discoveredEpgSet.add(src.epgUrl.trim());
+      }
       try {
         if (src.type === 'direct' && src.url) {
           const safeDirectUrl = sanitizeMediaUrl(src.url);
@@ -135,7 +143,7 @@ async function resolveSources(
           });
         } else if (src.type === 'm3u' && src.url) {
           const m3uText = await fetchTextWithTimeout(src.url, 12000);
-          const parsed = parseM3uPlaylist(m3uText, {
+          const { channels: parsed, epgUrls } = parseM3uPlaylistWithMeta(m3uText, {
             sourceId: src.id,
             sourceName: src.name,
             forcedCategory: src.category,
@@ -143,6 +151,9 @@ async function resolveSources(
             defaultUserAgent: src.userAgent,
           });
           customChannels.push(...parsed.slice(0, 2000));
+          for (const epgUrl of epgUrls) {
+            discoveredEpgSet.add(epgUrl);
+          }
         } else if (src.type === 'xtream') {
           const parsed = await loadXtreamChannels(src);
           customChannels.push(...parsed);
@@ -161,11 +172,14 @@ async function resolveSources(
   if (envM3u) {
     try {
       const m3uText = await fetchTextWithTimeout(envM3u, 12000);
-      const parsed = parseM3uPlaylist(m3uText, {
+      const { channels: parsed, epgUrls } = parseM3uPlaylistWithMeta(m3uText, {
         sourceId: 'env-default',
         sourceName: 'Default Playlist',
       });
       customChannels.push(...parsed.slice(0, 500));
+      for (const epgUrl of epgUrls) {
+        discoveredEpgSet.add(epgUrl);
+      }
     } catch (err) {
       errors.push({
         sourceId: 'env-default',
@@ -188,10 +202,18 @@ async function resolveSources(
     }
   }
 
-  return { channels: deduped, errors };
+  return {
+    channels: deduped,
+    discoveredEpgUrls: Array.from(discoveredEpgSet),
+    errors,
+  };
 }
 
-function formatChannelResponse(channels: Channel[], errors: Array<{ sourceId: string; name: string; error: string }>) {
+function formatChannelResponse(
+  channels: Channel[],
+  errors: Array<{ sourceId: string; name: string; error: string }>,
+  discoveredEpgUrls: string[] = []
+) {
   const groupsMap = new Map<string, Channel[]>();
   for (const ch of channels) {
     const list = groupsMap.get(ch.group) || [];
@@ -212,6 +234,7 @@ function formatChannelResponse(channels: Channel[], errors: Array<{ sourceId: st
     sportsChannels,
     liveChannels,
     groups,
+    discoveredEpgUrls,
     stats: {
       total: channels.length,
       sports: sportsChannels.length,
@@ -270,8 +293,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { channels, errors } = await resolveSources(adHocSources, true);
-  return NextResponse.json(formatChannelResponse(channels, errors));
+  const { channels, discoveredEpgUrls, errors } = await resolveSources(adHocSources, true);
+  return NextResponse.json(formatChannelResponse(channels, errors, discoveredEpgUrls));
 }
 
 export async function POST(request: NextRequest) {
@@ -285,8 +308,11 @@ export async function POST(request: NextRequest) {
     };
     const sources = Array.isArray(body.sources) ? body.sources : [];
     const includeFallback = body.includeFallback !== false;
-    const { channels, errors } = await resolveSources(sources, includeFallback);
-    return NextResponse.json(formatChannelResponse(channels, errors));
+    const { channels, discoveredEpgUrls, errors } = await resolveSources(
+      sources,
+      includeFallback
+    );
+    return NextResponse.json(formatChannelResponse(channels, errors, discoveredEpgUrls));
   } catch {
     return NextResponse.json(
       formatChannelResponse(FALLBACK_CHANNELS, [

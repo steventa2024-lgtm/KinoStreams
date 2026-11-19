@@ -20,6 +20,7 @@ import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
 import {
   NETWORK_FILTER_PILLS,
   channelMatchesNetworkFilter,
+  findEpgVerifiedMatchSummary,
   matchMatchesNetworkFilter,
   normalizeSportsMatch,
 } from '@/lib/sports-networks';
@@ -38,7 +39,7 @@ const LEAGUE_TABS: Array<{ id: LeagueTab; label: string }> = [
 ];
 
 export default function SportsPage() {
-  const { openSources, channels } = useKino();
+  const { openSources, channels, epgSchedules } = useKino();
   const [selectedLeague, setSelectedLeague] = useState<LeagueTab>('ALL');
   const [statusFilter, setStatusFilter] = useState<MatchStatusFilter>('all');
   const [networkFilter, setNetworkFilter] = useState<NetworkCategoryFilter>('all');
@@ -270,6 +271,19 @@ export default function SportsPage() {
                       {spotlight.broadcast}
                     </span>
                   )}
+                  {(() => {
+                    const epgSpotlight = findEpgVerifiedMatchSummary(
+                      spotlight,
+                      channels,
+                      epgSchedules
+                    );
+                    if (!epgSpotlight) return null;
+                    return (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D4AF37]/40 bg-[#D4AF37]/15 px-3 py-0.5 text-[11px] font-semibold text-[#E2C275]">
+                        EPG LIVE · {epgSpotlight.channelName} ({epgSpotlight.timeWindow})
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <h2 className="font-sans text-2xl font-medium text-[#FAFAFA] sm:text-3xl">
@@ -378,7 +392,13 @@ export default function SportsPage() {
           ) : filteredMatches.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filteredMatches.map((match) => (
-                <MatchCard key={match.id} match={match} fullWidth />
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  channels={channels}
+                  epgSchedules={epgSchedules}
+                  fullWidth
+                />
               ))}
             </div>
           ) : (

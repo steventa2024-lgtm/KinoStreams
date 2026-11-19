@@ -4,12 +4,22 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Film, Play, Sparkles, Tv } from 'lucide-react';
 import { MatchupArtwork } from '@/components/MatchupArtwork';
-import { normalizeSportsMatch } from '@/lib/sports-networks';
+import {
+  findEpgVerifiedMatchSummary,
+  normalizeSportsMatch,
+} from '@/lib/sports-networks';
 import { cn, formatDuration, getInitials } from '@/lib/utils';
-import type { SportsCompetitor, SportsMatch } from '@/types/media';
+import type {
+  Channel,
+  EpgChannelSchedule,
+  SportsCompetitor,
+  SportsMatch,
+} from '@/types/media';
 
 interface MatchCardProps {
   match: SportsMatch;
+  channels?: Channel[];
+  epgSchedules?: Record<string, EpgChannelSchedule>;
   fullWidth?: boolean;
 }
 
@@ -56,13 +66,26 @@ function SmallCompetitorIcon({
   );
 }
 
-export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps) {
+export function MatchCard({
+  match: rawMatch,
+  channels = [],
+  epgSchedules = {},
+  fullWidth = false,
+}: MatchCardProps) {
   const match = normalizeSportsMatch(rawMatch);
   const isLive = match.statusState === 'in';
   const isFinal = match.statusState === 'post';
   const isUpcoming = match.statusState === 'pre';
   const isUfc = match.league === 'UFC';
   const href = `/watch/sports/${encodeURIComponent(match.id)}`;
+
+  const epgMatch = React.useMemo(
+    () =>
+      channels.length > 0 && Object.keys(epgSchedules).length > 0
+        ? findEpgVerifiedMatchSummary(match, channels, epgSchedules)
+        : null,
+    [match, channels, epgSchedules]
+  );
 
   const localStartTime = React.useMemo(() => {
     if (!match.date) return match.statusText;
@@ -178,6 +201,18 @@ export function MatchCard({ match: rawMatch, fullWidth = false }: MatchCardProps
               </div>
             ))}
           </div>
+
+          {/* EPG Live Verified Program Strip */}
+          {epgMatch && (
+            <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-2.5 py-1.5 text-[11px]">
+              <span className="shrink-0 rounded bg-[#D4AF37]/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-[#E2C275]">
+                EPG LIVE
+              </span>
+              <span className="truncate text-[#FAFAFA]">
+                {epgMatch.channelName} · {epgMatch.timeWindow} · {epgMatch.programTitle}
+              </span>
+            </div>
+          )}
 
           {/* Highlights / Storyline Strip */}
           {match.highlightHeadline && (

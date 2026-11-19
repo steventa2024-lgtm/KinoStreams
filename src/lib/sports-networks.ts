@@ -1,7 +1,13 @@
+import {
+  findLiveEpgScheduleForChannel,
+  formatEpgTimeWindow,
+} from '@/lib/epg-matcher';
+import { slugifyId } from '@/lib/utils';
 import type {
   Channel,
   EpgChannelSchedule,
   NetworkCategoryFilter,
+  SportsLeague,
   SportsMatch,
   SportsMatchTier,
   StreamSource,
@@ -81,7 +87,7 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     name: 'ESPN',
     group: 'ESPN & Disney',
     networkGroup: 'espn_disney',
-    aliases: ['espn', 'espn+', 'espn ppv', 'espn+ ppv', 'espn deportes'],
+    aliases: ['espn', 'espn hd', 'espn us', 'espn usa', 'espn east', 'espn west'],
     category: 'sports',
     league: 'NBA / NFL / UFC',
     badge: 'LIVE HD',
@@ -236,7 +242,7 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     name: 'FS1',
     group: 'FOX & FS1',
     networkGroup: 'fox_fs1',
-    aliases: ['fs1', 'fox sports 1', 'foxsports1', 'fox sports', 'fox', 'fsn'],
+    aliases: ['fs1', 'fox sports 1', 'foxsports1'],
     category: 'sports',
     league: 'MLB / NFL / NASCAR',
     badge: 'LIVE HD',
@@ -324,7 +330,7 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     name: 'NBA TV',
     group: 'League Networks',
     networkGroup: 'league_networks',
-    aliases: ['nba tv', 'nbatv', 'nba league pass', 'league pass', 'nba'],
+    aliases: ['nba tv', 'nbatv'],
     category: 'sports',
     league: 'NBA',
     badge: 'LIVE HD',
@@ -388,7 +394,7 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     name: 'CBS Sports Network',
     group: 'League Networks',
     networkGroup: 'league_networks',
-    aliases: ['cbs sports', 'cbssn', 'cbs sports network', 'cbs', 'paramount+'],
+    aliases: ['cbs sports', 'cbssn', 'cbs sports network', 'cbs sports hq'],
     category: 'sports',
     league: 'Soccer / NCAA / NFL',
     badge: 'LIVE HD',
@@ -409,18 +415,7 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     name: 'NBC Sports',
     group: 'League Networks',
     networkGroup: 'league_networks',
-    aliases: [
-      'nbc sports',
-      'peacock',
-      'nbcsn',
-      'nbcsb',
-      'nbc sports boston',
-      'nbc sports bay area',
-      'nbc sports california',
-      'nbc sports philadelphia',
-      'nbc sports chicago',
-      'nbc',
-    ],
+    aliases: ['nbcsn', 'nbc sports', 'nbc sports now'],
     category: 'sports',
     league: 'NBA / NFL / Premier League',
     badge: 'LIVE HD',
@@ -777,7 +772,8 @@ export function buildMatchSlug(match: SportsMatch): string {
 
 export const SPORTS_MATCH_TIER_LABELS: Record<SportsMatchTier, string> = {
   direct_match: 'Match Feed',
-  broadcaster_match: 'RSN / Network',
+  epg_verified: 'EPG LIVE',
+  broadcaster_match: 'OFFICIAL',
   league_slot: 'League Pass Slot',
 };
 
@@ -785,9 +781,43 @@ export interface MatchedLiveFeed {
   channel: Channel;
   tier: SportsMatchTier;
   tierLabel: string;
+  networkKey: string;
+  networkName: string;
+  isOfficialBroadcaster: boolean;
+  epgWindow?: string;
   reasons: string[];
   score: number;
   nowTitle?: string;
+}
+
+export interface BroadcasterGroupSource {
+  id: string;
+  channelId: string;
+  name: string;
+  label: string;
+  url: string;
+  quality?: string;
+  sourceName?: string;
+  referrer?: string;
+  userAgent?: string;
+  tier: SportsMatchTier;
+  tierLabel: string;
+  epgWindow?: string;
+}
+
+export interface BroadcasterFeedGroup {
+  groupId: string;
+  networkKey: string;
+  networkName: string;
+  badgeTag: 'EPG LIVE' | 'MATCH FEED' | 'OFFICIAL' | 'LEAGUE SLOT';
+  tier: SportsMatchTier;
+  isAutoPlayEligible: boolean;
+  bestQuality?: string;
+  epgWindow?: string;
+  nowTitle?: string;
+  reasons: string[];
+  primaryChannel: Channel;
+  sources: BroadcasterGroupSource[];
 }
 
 const GENERIC_TEAM_STOP_WORDS = new Set([
@@ -817,15 +847,59 @@ const SHORT_NETWORK_CODES = new Set([
   'abc',
   'sny',
   'masn',
+  'tnt',
+  'tbs',
+  'espn',
+  'fs1',
+  'fs2',
 ]);
 
-const FALSE_POSITIVE_SPORTS_PHRASE_RX =
-  /\b(?:tele\s+sondrio|telesondrio|the\s+ocho|theocho|news|court\s+showcase|feature\s+hour|highlights?|replays?|nightly\s+news|world\s+news|breaking\s+news|abc\s+news|nbc\s+news|cbs\s+news|fox\s+news|fox\s+business|fox\s+weather|fox\s+soul|live\s+now\s+from\s+fox|livenow|cnn|msnbc|cnbc|newsmax|weather\s+channel|yes\s+tv|cbs\s+reality|abc\s+australia|movies|cinema|kids|cartoon)\b/i;
+const IPTV_CHANNEL_DECORATION_TOKENS = new Set([
+  'us',
+  'usa',
+  'united',
+  'states',
+  'uk',
+  'ca',
+  'hd',
+  'fhd',
+  'uhd',
+  '4k',
+  'sd',
+  'raw',
+  'hevc',
+  'h265',
+  '60fps',
+  'vip',
+  'backup',
+  'alt',
+  'live',
+  'tv',
+  '720p',
+  '1080p',
+]);
 
-export function isFalsePositiveSportsTitle(rawText: string): boolean {
+const ALWAYS_FALSE_POSITIVE_PHRASE_RX =
+  /\b(?:tele\s+sondrio|telesondrio|the\s+ocho|theocho|espn\s*8|23abc|ktrk|kero|kiro|nightly\s+news|evening\s+news|world\s+news|breaking\s+news|morning\s+news|abc\s+news|nbc\s+news|cbs\s+news|fox\s+news|fox\s+business|fox\s+weather|fox\s+soul|live\s+now\s+from\s+fox|livenow|weather|court\s+showcase|feature\s+hour|highlights?|replays?|cnn|msnbc|cnbc|newsmax|weather\s+channel|yes\s+tv|cbs\s+reality|abc\s+australia|movies|cinema|kids|cartoon)\b/i;
+
+const GENERIC_NEWS_WORD_RX = /\bnews\b/i;
+
+export function isFalsePositiveSportsTitle(
+  rawText: string,
+  options?: { allowExactEspnews?: boolean }
+): boolean {
   if (!rawText) return false;
   const normalized = normalizeMatchText(rawText);
-  return FALSE_POSITIVE_SPORTS_PHRASE_RX.test(normalized);
+  if (ALWAYS_FALSE_POSITIVE_PHRASE_RX.test(normalized)) {
+    return true;
+  }
+  if (GENERIC_NEWS_WORD_RX.test(normalized)) {
+    if (options?.allowExactEspnews && /\b(?:espnews|espn news)\b/i.test(normalized)) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 export function normalizeMatchText(value: string): string {
@@ -835,6 +909,18 @@ export function normalizeMatchText(value: string): string {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+}
+
+function stripChannelDecorations(raw: string): string {
+  const normalized = normalizeMatchText(raw);
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  while (parts.length > 1 && IPTV_CHANNEL_DECORATION_TOKENS.has(parts[0])) {
+    parts.shift();
+  }
+  while (parts.length > 1 && IPTV_CHANNEL_DECORATION_TOKENS.has(parts[parts.length - 1])) {
+    parts.pop();
+  }
+  return parts.join(' ');
 }
 
 function escapeRegExp(value: string): string {
@@ -878,125 +964,382 @@ export function buildCompetitorMatchTerms(competitor: SportsMatch['awayTeam']): 
   );
 }
 
-interface BroadcastAliasSpec {
-  matchTokens: string[];
-  channelPhrases: string[];
+export interface OfficialBroadcasterSpec {
+  key: string;
   label: string;
+  scheduleAliases: string[];
+  scrubBroadcastBeforeScheduleMatch?: RegExp;
+  channelPhrases: string[];
+  excludePhrases?: string[];
+  excludeRawRegexes?: RegExp[];
+  allowExactEspnews?: boolean;
 }
 
-const BROADCAST_ALIAS_SPECS: BroadcastAliasSpec[] = [
-  { matchTokens: ['espn on abc', 'abc'], channelPhrases: ['espn on abc', 'abc'], label: 'ABC' },
-  { matchTokens: ['espn2', 'espn 2'], channelPhrases: ['espn2', 'espn 2'], label: 'ESPN2' },
-  { matchTokens: ['espnews', 'espn news'], channelPhrases: ['espnews', 'espn news'], label: 'ESPNews' },
-  { matchTokens: ['espnu', 'espn u'], channelPhrases: ['espnu', 'espn u'], label: 'ESPNU' },
-  { matchTokens: ['espn+', 'espn plus', 'espn+ ppv'], channelPhrases: ['espn plus', 'espn+'], label: 'ESPN+' },
-  { matchTokens: ['espn', 'espn deportes'], channelPhrases: ['espn', 'espn deportes'], label: 'ESPN' },
-  { matchTokens: ['tnt', 'tnt sports'], channelPhrases: ['tnt', 'tnt sports'], label: 'TNT' },
-  { matchTokens: ['tbs', 'tbs sports'], channelPhrases: ['tbs', 'tbs sports'], label: 'TBS' },
-  { matchTokens: ['trutv', 'tru tv'], channelPhrases: ['trutv', 'tru tv'], label: 'truTV' },
+export const OFFICIAL_BROADCASTER_SPECS: OfficialBroadcasterSpec[] = [
   {
-    matchTokens: ['nba tv', 'nbatv'],
-    channelPhrases: ['nba tv', 'nbatv'],
+    key: 'abc',
+    label: 'ABC',
+    scheduleAliases: ['espn on abc', 'abc'],
+    channelPhrases: ['abc', 'abc east', 'abc west', 'abc us', 'abc usa', 'espn on abc'],
+    excludePhrases: [
+      '23abc',
+      'ktrk',
+      'kero',
+      'abc news',
+      'abc7',
+      'abc 7',
+      'abc australia',
+      'abc me',
+      'abc sparks',
+      'freeform',
+    ],
+  },
+  {
+    key: 'espn2',
+    label: 'ESPN2',
+    scheduleAliases: ['espn2', 'espn 2'],
+    channelPhrases: ['espn2', 'espn 2', 'espn2 us', 'espn2 usa', 'espn2 east', 'espn2 west'],
+    excludePhrases: ['espnews', 'espn news', 'espnu', 'espn u', 'espn deportes', 'espn8', 'the ocho'],
+  },
+  {
+    key: 'espnews',
+    label: 'ESPNews',
+    scheduleAliases: ['espnews', 'espn news'],
+    channelPhrases: ['espnews', 'espn news'],
+    allowExactEspnews: true,
+  },
+  {
+    key: 'espnu',
+    label: 'ESPNU',
+    scheduleAliases: ['espnu', 'espn u'],
+    channelPhrases: ['espnu', 'espn u'],
+  },
+  {
+    key: 'espn-deportes',
+    label: 'ESPN Deportes',
+    scheduleAliases: ['espn deportes'],
+    channelPhrases: ['espn deportes'],
+  },
+  {
+    key: 'espn-plus',
+    label: 'ESPN+',
+    scheduleAliases: ['espn+', 'espn plus', 'espn+ ppv', 'espn ppv'],
+    channelPhrases: ['espn+', 'espn plus', 'espn+ ppv', 'espn ppv'],
+  },
+  {
+    key: 'espn',
+    label: 'ESPN',
+    scheduleAliases: ['espn'],
+    scrubBroadcastBeforeScheduleMatch: /\bespn\s+on\s+abc\b/gi,
+    channelPhrases: ['espn', 'espn us', 'espn usa', 'espn east', 'espn west'],
+    excludePhrases: [
+      'espn2',
+      'espn 2',
+      'espnews',
+      'espn news',
+      'espnu',
+      'espn u',
+      'espn deportes',
+      'espn plus',
+      'espn ppv',
+      'espn8',
+      'espn 8',
+      'the ocho',
+      'theocho',
+      'espn extra',
+      'espn3',
+      'espn 3',
+      'espn4',
+      'espn 4',
+    ],
+    excludeRawRegexes: [/\bespn\s*\+/i, /\bespn\s*[2345678]\b/i],
+  },
+  {
+    key: 'tnt',
+    label: 'TNT',
+    scheduleAliases: ['tnt', 'tnt sports', 'max'],
+    channelPhrases: ['tnt', 'tnt sports', 'tnt us', 'tnt usa', 'tnt east', 'tnt west'],
+    excludePhrases: ['trutv', 'tru tv', 'tnt sports argentina', 'tnt sports chile'],
+  },
+  {
+    key: 'tbs',
+    label: 'TBS',
+    scheduleAliases: ['tbs', 'tbs sports'],
+    channelPhrases: ['tbs', 'tbs sports', 'tbs us', 'tbs usa', 'tbs east', 'tbs west'],
+    excludePhrases: ['tnt', 'trutv'],
+  },
+  {
+    key: 'trutv',
+    label: 'truTV',
+    scheduleAliases: ['trutv', 'tru tv'],
+    channelPhrases: ['trutv', 'tru tv', 'trutv us', 'trutv usa'],
+  },
+  {
+    key: 'nba-tv',
     label: 'NBA TV',
+    scheduleAliases: ['nba tv', 'nbatv'],
+    channelPhrases: ['nba tv', 'nbatv', 'nba tv us'],
+    excludePhrases: ['nba league pass', 'league pass'],
   },
   {
-    matchTokens: ['nbc sports boston', 'nbcsb', 'nbcs boston'],
-    channelPhrases: ['nbc sports boston', 'nbcs boston', 'nbcsb'],
+    key: 'nba-league-pass',
+    label: 'NBA League Pass',
+    scheduleAliases: ['nba league pass', 'league pass', 'nba lp'],
+    channelPhrases: ['nba league pass', 'nba lp', 'league pass'],
+  },
+  {
+    key: 'cbs-sports',
+    label: 'CBS Sports Network',
+    scheduleAliases: ['cbs sports network', 'cbssn', 'cbs sports'],
+    channelPhrases: ['cbs sports network', 'cbssn', 'cbs sports', 'cbs sports hq'],
+  },
+  {
+    key: 'cbs',
+    label: 'CBS',
+    scheduleAliases: ['cbs'],
+    channelPhrases: ['cbs', 'cbs east', 'cbs west', 'cbs us', 'cbs usa'],
+    excludePhrases: ['cbs sports', 'cbssn', 'cbs news', 'cbs reality', 'kiro'],
+  },
+  {
+    key: 'fs1',
+    label: 'FS1',
+    scheduleAliases: ['fs1', 'fox sports 1', 'foxsports1'],
+    channelPhrases: ['fs1', 'fox sports 1', 'foxsports1'],
+    excludePhrases: ['fs2', 'fox sports 2', 'fox sports news'],
+  },
+  {
+    key: 'fs2',
+    label: 'FS2',
+    scheduleAliases: ['fs2', 'fox sports 2', 'foxsports2'],
+    channelPhrases: ['fs2', 'fox sports 2', 'foxsports2'],
+    excludePhrases: ['fs1', 'fox sports 1', 'fox sports news'],
+  },
+  {
+    key: 'fox',
+    label: 'FOX',
+    scheduleAliases: ['fox'],
+    channelPhrases: ['fox', 'fox broadcast', 'fox east', 'fox west', 'fox us', 'fox usa'],
+    excludePhrases: [
+      'fs1',
+      'fs2',
+      'fox sports',
+      'fox news',
+      'fox business',
+      'fox weather',
+      'fox soul',
+      'livenow',
+      'fox 4',
+    ],
+  },
+  {
+    key: 'peacock',
+    label: 'Peacock',
+    scheduleAliases: ['peacock'],
+    channelPhrases: ['peacock', 'peacock tv'],
+  },
+  {
+    key: 'nbc-sports-boston',
     label: 'NBC Sports Boston',
+    scheduleAliases: ['nbc sports boston', 'nbcsb', 'nbcs boston'],
+    channelPhrases: ['nbc sports boston', 'nbcs boston', 'nbcsb'],
   },
   {
-    matchTokens: ['nbc sports bay area', 'nbcsba', 'nbcs bay area'],
-    channelPhrases: ['nbc sports bay area', 'nbcs bay area', 'nbcsba'],
+    key: 'nbc-sports-bay-area',
     label: 'NBC Sports Bay Area',
+    scheduleAliases: ['nbc sports bay area', 'nbcsba', 'nbcs bay area'],
+    channelPhrases: ['nbc sports bay area', 'nbcs bay area', 'nbcsba'],
   },
   {
-    matchTokens: ['nbc sports california', 'nbcsca', 'nbcs california'],
-    channelPhrases: ['nbc sports california', 'nbcs california', 'nbcsca'],
+    key: 'nbc-sports-california',
     label: 'NBC Sports California',
+    scheduleAliases: ['nbc sports california', 'nbcsca', 'nbcs california'],
+    channelPhrases: ['nbc sports california', 'nbcs california', 'nbcsca'],
   },
   {
-    matchTokens: ['nbc sports philadelphia', 'nbcsp', 'nbcs philadelphia'],
-    channelPhrases: ['nbc sports philadelphia', 'nbcs philadelphia', 'nbcsp'],
+    key: 'nbc-sports-philadelphia',
     label: 'NBC Sports Philadelphia',
+    scheduleAliases: ['nbc sports philadelphia', 'nbcsp', 'nbcs philadelphia'],
+    channelPhrases: ['nbc sports philadelphia', 'nbcs philadelphia', 'nbcsp'],
   },
   {
-    matchTokens: ['nbcsn', 'nbc sports'],
-    channelPhrases: ['nbcsn', 'nbc sports'],
+    key: 'nbc-sports-chicago',
+    label: 'NBC Sports Chicago',
+    scheduleAliases: ['nbc sports chicago', 'nbcsch', 'nbcs chicago'],
+    channelPhrases: ['nbc sports chicago', 'nbcs chicago', 'nbcsch'],
+  },
+  {
+    key: 'nbc-sports',
     label: 'NBC Sports',
+    scheduleAliases: ['nbcsn', 'nbc sports', 'nbc sports now'],
+    channelPhrases: ['nbcsn', 'nbc sports', 'nbc sports now'],
+    excludePhrases: [
+      'peacock',
+      'nbc sports boston',
+      'nbc sports bay area',
+      'nbc sports california',
+      'nbc sports philadelphia',
+      'nbc sports chicago',
+    ],
   },
-  { matchTokens: ['nbc', 'sunday night football'], channelPhrases: ['nbc'], label: 'NBC' },
-  { matchTokens: ['peacock'], channelPhrases: ['peacock'], label: 'Peacock' },
   {
-    matchTokens: ['cbs sports', 'cbssn', 'cbs sports network'],
-    channelPhrases: ['cbs sports', 'cbs sports network', 'cbssn'],
-    label: 'CBS Sports',
+    key: 'nbc',
+    label: 'NBC',
+    scheduleAliases: ['nbc', 'sunday night football'],
+    channelPhrases: ['nbc', 'nbc east', 'nbc west', 'nbc us', 'nbc usa'],
+    excludePhrases: ['nbc sports', 'nbcsn', 'nbc news', 'msnbc', 'cnbc', 'peacock', 'nbc lx'],
   },
-  { matchTokens: ['cbs'], channelPhrases: ['cbs'], label: 'CBS' },
-  { matchTokens: ['fs1', 'fox sports 1', 'foxsports1'], channelPhrases: ['fs1', 'fox sports 1'], label: 'FS1' },
-  { matchTokens: ['fs2', 'fox sports 2', 'foxsports2'], channelPhrases: ['fs2', 'fox sports 2'], label: 'FS2' },
-  { matchTokens: ['fox', 'fox sports'], channelPhrases: ['fox', 'fox sports'], label: 'FOX' },
-  { matchTokens: ['nfl network', 'nfl net'], channelPhrases: ['nfl network', 'nfl net'], label: 'NFL Network' },
-  { matchTokens: ['nfl redzone', 'redzone', 'red zone'], channelPhrases: ['nfl redzone', 'redzone', 'red zone'], label: 'NFL RedZone' },
-  { matchTokens: ['mlb network', 'mlb net'], channelPhrases: ['mlb network', 'mlb net'], label: 'MLB Network' },
-  { matchTokens: ['monumental', 'monumental sports', 'mnmt'], channelPhrases: ['monumental sports', 'monumental', 'mnmt'], label: 'Monumental Sports' },
-  { matchTokens: ['fanduel', 'fanduel sports', 'fdsn'], channelPhrases: ['fanduel sports', 'fanduel', 'fdsn'], label: 'FanDuel Sports' },
-  { matchTokens: ['spectrum sportsnet', 'sportsnet la'], channelPhrases: ['spectrum sportsnet', 'sportsnet la'], label: 'Spectrum SportsNet' },
-  { matchTokens: ['yes', 'yes network'], channelPhrases: ['yes network', 'yes'], label: 'YES Network' },
-  { matchTokens: ['msg', 'msg network', 'msgsn'], channelPhrases: ['msg', 'msg network', 'msgsn'], label: 'MSG' },
-  { matchTokens: ['nesn', 'nesn+', 'nesn plus'], channelPhrases: ['nesn', 'nesn+', 'nesn plus'], label: 'NESN' },
-  { matchTokens: ['masn', 'masn2'], channelPhrases: ['masn', 'masn2'], label: 'MASN' },
-  { matchTokens: ['sny'], channelPhrases: ['sny'], label: 'SNY' },
-  { matchTokens: ['marquee', 'marquee sports'], channelPhrases: ['marquee sports', 'marquee'], label: 'Marquee Sports' },
-  { matchTokens: ['chsn', 'chicago sports network'], channelPhrases: ['chsn', 'chicago sports network'], label: 'CHSN' },
-  { matchTokens: ['altitude', 'altitude sports'], channelPhrases: ['altitude sports', 'altitude'], label: 'Altitude Sports' },
-  { matchTokens: ['space city', 'schn', 'space city home network'], channelPhrases: ['space city home network', 'space city', 'schn'], label: 'Space City Home Network' },
-  { matchTokens: ['prime video', 'amazon', 'prime'], channelPhrases: ['prime video', 'tnf'], label: 'Prime Video' },
-  { matchTokens: ['usa', 'usa network'], channelPhrases: ['usa network'], label: 'USA Network' },
+  {
+    key: 'nfl-network',
+    label: 'NFL Network',
+    scheduleAliases: ['nfl network', 'nfl net'],
+    channelPhrases: ['nfl network', 'nfl net'],
+    excludePhrases: ['redzone', 'red zone', 'sunday ticket'],
+  },
+  {
+    key: 'nfl-redzone',
+    label: 'NFL RedZone',
+    scheduleAliases: ['nfl redzone', 'redzone', 'red zone'],
+    channelPhrases: ['nfl redzone', 'redzone', 'red zone'],
+  },
+  {
+    key: 'mlb-network',
+    label: 'MLB Network',
+    scheduleAliases: ['mlb network', 'mlb net'],
+    channelPhrases: ['mlb network', 'mlb net'],
+    excludePhrases: ['extra innings'],
+  },
+  {
+    key: 'nhl-network',
+    label: 'NHL Network',
+    scheduleAliases: ['nhl network', 'nhl net'],
+    channelPhrases: ['nhl network', 'nhl net'],
+    excludePhrases: ['center ice'],
+  },
+  {
+    key: 'bein-sports',
+    label: 'beIN Sports',
+    scheduleAliases: ['bein', 'bein sports'],
+    channelPhrases: ['bein sports', 'bein sports usa', 'bein'],
+  },
+  {
+    key: 'golf-channel',
+    label: 'Golf Channel',
+    scheduleAliases: ['golf', 'golf channel'],
+    channelPhrases: ['golf channel'],
+  },
+  {
+    key: 'tennis-channel',
+    label: 'Tennis Channel',
+    scheduleAliases: ['tennis', 'tennis channel'],
+    channelPhrases: ['tennis channel'],
+  },
+  {
+    key: 'monumental',
+    label: 'Monumental Sports',
+    scheduleAliases: ['monumental', 'monumental sports', 'mnmt'],
+    channelPhrases: ['monumental sports', 'monumental', 'mnmt'],
+  },
+  {
+    key: 'msg',
+    label: 'MSG',
+    scheduleAliases: ['msg', 'msg network', 'msgsn'],
+    channelPhrases: ['msg', 'msg network', 'msgsn', 'msg east', 'msg west'],
+  },
+  {
+    key: 'yes',
+    label: 'YES Network',
+    scheduleAliases: ['yes', 'yes network'],
+    channelPhrases: ['yes network', 'yes'],
+    excludePhrases: ['yes tv'],
+    excludeRawRegexes: [/yes!/i],
+  },
+  {
+    key: 'nesn',
+    label: 'NESN',
+    scheduleAliases: ['nesn', 'nesn+', 'nesn plus'],
+    channelPhrases: ['nesn', 'nesn+', 'nesn plus'],
+  },
+  {
+    key: 'masn',
+    label: 'MASN',
+    scheduleAliases: ['masn', 'masn2'],
+    channelPhrases: ['masn', 'masn2'],
+  },
+  {
+    key: 'sny',
+    label: 'SNY',
+    scheduleAliases: ['sny'],
+    channelPhrases: ['sny'],
+  },
+  {
+    key: 'marquee',
+    label: 'Marquee Sports',
+    scheduleAliases: ['marquee', 'marquee sports'],
+    channelPhrases: ['marquee sports', 'marquee sports network', 'marquee'],
+  },
+  {
+    key: 'chsn',
+    label: 'CHSN',
+    scheduleAliases: ['chsn', 'chicago sports network'],
+    channelPhrases: ['chsn', 'chicago sports network'],
+  },
+  {
+    key: 'altitude',
+    label: 'Altitude Sports',
+    scheduleAliases: ['altitude', 'altitude sports'],
+    channelPhrases: ['altitude sports', 'altitude'],
+  },
+  {
+    key: 'space-city',
+    label: 'Space City Home Network',
+    scheduleAliases: ['space city', 'schn', 'space city home network'],
+    channelPhrases: ['space city home network', 'space city', 'schn'],
+  },
+  {
+    key: 'spectrum-sportsnet',
+    label: 'Spectrum SportsNet',
+    scheduleAliases: ['spectrum sportsnet', 'sportsnet la'],
+    channelPhrases: ['spectrum sportsnet', 'sportsnet la'],
+  },
+  {
+    key: 'fanduel-sports',
+    label: 'FanDuel Sports',
+    scheduleAliases: ['fanduel', 'fanduel sports', 'fdsn'],
+    channelPhrases: ['fanduel sports', 'fanduel', 'fdsn'],
+  },
+  {
+    key: 'tsn',
+    label: 'TSN',
+    scheduleAliases: ['tsn'],
+    channelPhrases: ['tsn', 'tsn 1', 'tsn 2', 'tsn 3', 'tsn 4', 'tsn 5'],
+    excludePhrases: ['the ocho', 'theocho', 'tele sondrio', 'telesondrio'],
+  },
+  {
+    key: 'sportsnet',
+    label: 'Sportsnet',
+    scheduleAliases: ['sportsnet'],
+    channelPhrases: ['sportsnet', 'sportsnet one', 'sportsnet 360', 'sportsnet east', 'sportsnet west', 'sportsnet ontario'],
+    excludePhrases: ['spectrum sportsnet', 'sportsnet la'],
+  },
+  {
+    key: 'dazn',
+    label: 'DAZN',
+    scheduleAliases: ['dazn'],
+    channelPhrases: ['dazn', 'dazn 1', 'dazn 2'],
+  },
+  {
+    key: 'prime-video',
+    label: 'Prime Video',
+    scheduleAliases: ['prime video', 'amazon', 'amazon prime'],
+    channelPhrases: ['prime video', 'amazon prime', 'tnf'],
+  },
+  {
+    key: 'usa-network',
+    label: 'USA Network',
+    scheduleAliases: ['usa', 'usa network'],
+    channelPhrases: ['usa network'],
+  },
 ];
-
-const TEAM_RSN_MAP: Record<string, Array<{ phrase: string; label: string }>> = {
-  ATL: [{ phrase: 'fanduel sports southeast', label: 'FanDuel Sports SE' }, { phrase: 'fanduel sports south', label: 'FanDuel Sports South' }],
-  BOS: [{ phrase: 'nbc sports boston', label: 'NBC Sports Boston' }, { phrase: 'nbcs boston', label: 'NBC Sports Boston' }, { phrase: 'nbcsb', label: 'NBC Sports Boston' }, { phrase: 'nesn', label: 'NESN' }],
-  BKN: [{ phrase: 'yes network', label: 'YES Network' }, { phrase: 'yes', label: 'YES Network' }],
-  CHA: [{ phrase: 'fanduel sports southeast', label: 'FanDuel Sports SE' }],
-  CHI: [{ phrase: 'chsn', label: 'CHSN' }, { phrase: 'chicago sports network', label: 'CHSN' }, { phrase: 'marquee sports', label: 'Marquee Sports' }, { phrase: 'nbc sports chicago', label: 'NBC Sports Chicago' }],
-  CLE: [{ phrase: 'fanduel sports ohio', label: 'FanDuel Sports Ohio' }],
-  DAL: [{ phrase: 'fanduel sports southwest', label: 'FanDuel Sports SW' }, { phrase: 'mavstv', label: 'MavsTV' }],
-  DEN: [{ phrase: 'altitude sports', label: 'Altitude Sports' }, { phrase: 'altitude', label: 'Altitude Sports' }],
-  DET: [{ phrase: 'fanduel sports detroit', label: 'FanDuel Sports Detroit' }],
-  GS: [{ phrase: 'nbc sports bay area', label: 'NBC Sports Bay Area' }, { phrase: 'nbcs bay area', label: 'NBC Sports Bay Area' }],
-  GSW: [{ phrase: 'nbc sports bay area', label: 'NBC Sports Bay Area' }, { phrase: 'nbcs bay area', label: 'NBC Sports Bay Area' }],
-  HOU: [{ phrase: 'space city home network', label: 'Space City Home Net' }, { phrase: 'space city', label: 'Space City Home Net' }, { phrase: 'schn', label: 'Space City Home Net' }],
-  IND: [{ phrase: 'fanduel sports indiana', label: 'FanDuel Sports Indiana' }],
-  LAC: [{ phrase: 'fanduel sports socal', label: 'FanDuel Sports SoCal' }, { phrase: 'fanduel sports west', label: 'FanDuel Sports West' }],
-  LAD: [{ phrase: 'spectrum sportsnet', label: 'Spectrum SportsNet' }, { phrase: 'sportsnet la', label: 'SportsNet LA' }],
-  LAL: [{ phrase: 'spectrum sportsnet', label: 'Spectrum SportsNet' }, { phrase: 'sportsnet la', label: 'Spectrum SportsNet' }],
-  MEM: [{ phrase: 'fanduel sports southeast', label: 'FanDuel Sports SE' }],
-  MIA: [{ phrase: 'fanduel sports sun', label: 'FanDuel Sports Sun' }, { phrase: 'fanduel sports florida', label: 'FanDuel Sports Florida' }],
-  MIL: [{ phrase: 'fanduel sports wisconsin', label: 'FanDuel Sports WI' }],
-  MIN: [{ phrase: 'fanduel sports north', label: 'FanDuel Sports North' }],
-  NO: [{ phrase: 'gulf coast sports', label: 'Gulf Coast Sports' }],
-  NOP: [{ phrase: 'gulf coast sports', label: 'Gulf Coast Sports' }],
-  NY: [{ phrase: 'msg', label: 'MSG' }, { phrase: 'msg network', label: 'MSG' }, { phrase: 'msgsn', label: 'MSG' }],
-  NYK: [{ phrase: 'msg', label: 'MSG' }, { phrase: 'msg network', label: 'MSG' }, { phrase: 'msgsn', label: 'MSG' }],
-  NYM: [{ phrase: 'sny', label: 'SNY' }],
-  NYY: [{ phrase: 'yes network', label: 'YES Network' }, { phrase: 'yes', label: 'YES Network' }],
-  OKC: [{ phrase: 'fanduel sports oklahoma', label: 'FanDuel Sports OK' }],
-  ORL: [{ phrase: 'fanduel sports florida', label: 'FanDuel Sports FL' }, { phrase: 'fanduel sports sun', label: 'FanDuel Sports Sun' }, { phrase: 'bally sports florida', label: 'Bally Sports FL' }],
-  PHI: [{ phrase: 'nbc sports philadelphia', label: 'NBC Sports Philly' }, { phrase: 'nbcs philadelphia', label: 'NBC Sports Philly' }, { phrase: 'nbcsp', label: 'NBC Sports Philly' }],
-  PHX: [{ phrase: 'arizona family sports', label: 'AZ Family Sports' }],
-  POR: [{ phrase: 'rip city', label: 'Rip City TV' }, { phrase: 'root sports', label: 'ROOT Sports' }],
-  SA: [{ phrase: 'fanduel sports southwest', label: 'FanDuel Sports SW' }],
-  SAS: [{ phrase: 'fanduel sports southwest', label: 'FanDuel Sports SW' }],
-  SAC: [{ phrase: 'nbc sports california', label: 'NBC Sports CA' }, { phrase: 'nbcs california', label: 'NBC Sports CA' }],
-  SEA: [{ phrase: 'root sports', label: 'ROOT Sports' }],
-  TOR: [{ phrase: 'sportsnet', label: 'Sportsnet' }, { phrase: 'tsn', label: 'TSN' }],
-  UTA: [{ phrase: 'jazz', label: 'Utah Jazz+' }],
-  UTAH: [{ phrase: 'jazz', label: 'Utah Jazz+' }],
-  WAS: [{ phrase: 'monumental sports', label: 'Monumental Sports' }, { phrase: 'monumental', label: 'Monumental Sports' }, { phrase: 'mnmt', label: 'Monumental Sports' }, { phrase: 'masn', label: 'MASN' }],
-  WSH: [{ phrase: 'monumental sports', label: 'Monumental Sports' }, { phrase: 'monumental', label: 'Monumental Sports' }, { phrase: 'mnmt', label: 'Monumental Sports' }, { phrase: 'masn', label: 'MASN' }],
-  BAL: [{ phrase: 'masn', label: 'MASN' }],
-};
 
 function matchesStrictShortCode(rawLower: string, code: string): boolean {
   if (!rawLower || !code) return false;
@@ -1022,72 +1365,88 @@ function matchesPhraseOrPlus(
   return hasNormalizedPhrase(normalizedHaystack, normalizedPhrase);
 }
 
-function evaluateBroadcasterTier(
-  match: SportsMatch,
-  rawLower: string,
-  normalizedHaystack: string
-): { score: number; reason: string } | null {
-  if (isFalsePositiveSportsTitle(rawLower)) {
-    return null;
-  }
-
-  // 1. Scheduled broadcast network(s) from ESPN scoreboard metadata
+function getScheduledBroadcasterSpecs(match: SportsMatch): OfficialBroadcasterSpec[] {
   const broadcastRaw = (match.broadcast || '').toLowerCase();
-  const broadcastNorm = normalizeMatchText(broadcastRaw);
+  if (!broadcastRaw) return [];
 
-  if (broadcastRaw) {
-    for (const spec of BROADCAST_ALIAS_SPECS) {
-      const broadcastMatchesSpec = spec.matchTokens.some((tok) =>
-        tok.includes('+')
-          ? broadcastRaw.includes(tok)
-          : SHORT_NETWORK_CODES.has(tok)
-          ? matchesStrictShortCode(broadcastRaw, tok)
-          : hasNormalizedPhrase(broadcastNorm, normalizeMatchText(tok))
-      );
-      if (!broadcastMatchesSpec) continue;
+  const matchedSpecs: OfficialBroadcasterSpec[] = [];
+  for (const spec of OFFICIAL_BROADCASTER_SPECS) {
+    const targetRaw = spec.scrubBroadcastBeforeScheduleMatch
+      ? broadcastRaw.replace(spec.scrubBroadcastBeforeScheduleMatch, ' ')
+      : broadcastRaw;
+    const targetNorm = normalizeMatchText(targetRaw);
 
-      const channelMatchesSpec = spec.channelPhrases.some((phrase) =>
-        matchesPhraseOrPlus(rawLower, normalizedHaystack, phrase)
-      );
-      if (channelMatchesSpec) {
-        return {
-          score: 660,
-          reason: `Scheduled: ${spec.label}`,
-        };
-      }
-    }
-
-    // Fallback: direct normalized token from broadcast (length >= 3) with strict word boundaries
-    const rawTokens = broadcastRaw
-      .split(/[\s/,+&()]+/)
-      .map((t) => normalizeMatchText(t))
-      .filter((t) => t.length >= 3 && !GENERIC_TEAM_STOP_WORDS.has(t));
-    for (const tok of rawTokens) {
-      const matchedToken = SHORT_NETWORK_CODES.has(tok)
-        ? matchesStrictShortCode(rawLower, tok)
-        : hasNormalizedPhrase(normalizedHaystack, tok);
-      if (matchedToken) {
-        return {
-          score: 620,
-          reason: `Network: ${tok.toUpperCase()}`,
-        };
-      }
+    const hitsSchedule = spec.scheduleAliases.some((tok) =>
+      matchesPhraseOrPlus(targetRaw, targetNorm, tok)
+    );
+    if (hitsSchedule) {
+      matchedSpecs.push(spec);
     }
   }
+  return matchedSpecs;
+}
 
-  // 2. Team Regional Sports Networks (RSNs) for the competing teams
-  const awayAbbr = (match.awayTeam.abbreviation || '').toUpperCase();
-  const homeAbbr = (match.homeTeam.abbreviation || '').toUpperCase();
-  const rsnCandidates = [
-    ...(TEAM_RSN_MAP[awayAbbr] || []),
-    ...(TEAM_RSN_MAP[homeAbbr] || []),
-  ];
+function channelMatchesBroadcasterSpec(
+  spec: OfficialBroadcasterSpec,
+  channelTextRaw: string,
+  channelTextNorm: string,
+  cleanChannelNameNorm: string
+): boolean {
+  if (spec.excludeRawRegexes?.some((rx) => rx.test(channelTextRaw))) {
+    return false;
+  }
+  if (
+    spec.excludePhrases?.some(
+      (ex) =>
+        hasNormalizedPhrase(channelTextNorm, normalizeMatchText(ex)) ||
+        hasNormalizedPhrase(cleanChannelNameNorm, normalizeMatchText(ex))
+    )
+  ) {
+    return false;
+  }
 
-  for (const rsn of rsnCandidates) {
-    if (matchesPhraseOrPlus(rawLower, normalizedHaystack, rsn.phrase)) {
+  return spec.channelPhrases.some(
+    (phrase) =>
+      cleanChannelNameNorm === normalizeMatchText(phrase) ||
+      matchesPhraseOrPlus(channelTextRaw, cleanChannelNameNorm, phrase) ||
+      matchesPhraseOrPlus(channelTextRaw, channelTextNorm, phrase)
+  );
+}
+
+function evaluateOfficialBroadcasterTier(
+  channelNameRaw: string,
+  channelMetaRaw: string,
+  scheduledSpecs: OfficialBroadcasterSpec[]
+): { score: number; reason: string; spec: OfficialBroadcasterSpec } | null {
+  const channelTextNorm = normalizeMatchText(channelMetaRaw);
+  const cleanNameNorm = stripChannelDecorations(channelNameRaw);
+
+  for (const spec of scheduledSpecs) {
+    if (
+      isFalsePositiveSportsTitle(channelMetaRaw, {
+        allowExactEspnews: spec.allowExactEspnews,
+      })
+    ) {
+      continue;
+    }
+
+    if (
+      channelMatchesBroadcasterSpec(
+        spec,
+        channelMetaRaw.toLowerCase(),
+        channelTextNorm,
+        cleanNameNorm
+      )
+    ) {
+      const exactTitleBonus = spec.channelPhrases.some(
+        (p) => cleanNameNorm === normalizeMatchText(p)
+      )
+        ? 40
+        : 0;
       return {
-        score: 580,
-        reason: `RSN: ${rsn.label}`,
+        score: 700 + exactTitleBonus,
+        reason: `Official: ${spec.label}`,
+        spec,
       };
     }
   }
@@ -1122,15 +1481,6 @@ function evaluateLeagueSlotTier(
     ) {
       return { score: 310, reason: 'NBA Event Slot' };
     }
-    if (
-      hasNormalizedPhrase(normalizedHaystack, 'nba live') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nba game') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nba games') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nba tv') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nbatv')
-    ) {
-      return { score: 270, reason: 'NBA Live Feed' };
-    }
   } else if (league === 'NFL') {
     if (
       hasNormalizedPhrase(normalizedHaystack, 'nfl sunday ticket') ||
@@ -1140,26 +1490,11 @@ function evaluateLeagueSlotTier(
       return { score: 340, reason: 'NFL Sunday Ticket' };
     }
     if (
-      hasNormalizedPhrase(normalizedHaystack, 'nfl redzone') ||
-      hasNormalizedPhrase(normalizedHaystack, 'redzone') ||
-      hasNormalizedPhrase(normalizedHaystack, 'red zone')
-    ) {
-      return { score: 325, reason: 'NFL RedZone' };
-    }
-    if (
       /\bnfl(?:\s*(?:ticket|sunday\s*ticket|pass|live|game|games|event|events|stream|hd|fhd|uhd|4k|ch|channel|ppv))?\s*0*(?:[1-9]|[1-9]\d)\b/i.test(
         normalizedHaystack
       )
     ) {
       return { score: 310, reason: 'NFL Event Slot' };
-    }
-    if (
-      hasNormalizedPhrase(normalizedHaystack, 'nfl live') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nfl game') ||
-      hasNormalizedPhrase(normalizedHaystack, 'nfl network') ||
-      matchesPhraseOrPlus(rawLower, normalizedHaystack, 'nfl+')
-    ) {
-      return { score: 270, reason: 'NFL Live Feed' };
     }
   } else if (league === 'MLB') {
     if (
@@ -1175,13 +1510,6 @@ function evaluateLeagueSlotTier(
       )
     ) {
       return { score: 310, reason: 'MLB Event Slot' };
-    }
-    if (
-      hasNormalizedPhrase(normalizedHaystack, 'mlb live') ||
-      hasNormalizedPhrase(normalizedHaystack, 'mlb game') ||
-      hasNormalizedPhrase(normalizedHaystack, 'mlb network')
-    ) {
-      return { score: 270, reason: 'MLB Live Feed' };
     }
   } else if (league === 'UFC') {
     if (
@@ -1200,48 +1528,92 @@ function evaluateLeagueSlotTier(
     ) {
       return { score: 310, reason: 'UFC Event Slot' };
     }
-    if (
-      hasNormalizedPhrase(normalizedHaystack, 'ufc live') ||
-      hasNormalizedPhrase(normalizedHaystack, 'mma ppv')
-    ) {
-      return { score: 270, reason: 'UFC Live Feed' };
-    }
-  }
-
-  // Dedicated ESPN+ / NHL Center Ice overflow slots when present in imported playlists
-  if (
-    matchesPhraseOrPlus(rawLower, normalizedHaystack, 'espn+') ||
-    hasNormalizedPhrase(normalizedHaystack, 'espn plus')
-  ) {
-    return { score: 215, reason: 'ESPN+ Event Slot' };
   }
 
   return null;
+}
+
+function checkCompetitorPairHit(
+  match: SportsMatch,
+  haystackRaw: string,
+  explicitEventId?: string
+): { exactEventIdMatched: boolean; bothTeamsMatched: boolean; scoreBoost: number; reason?: string } {
+  const normalizedHaystack = normalizeMatchText(haystackRaw);
+  const eventIdNorm = normalizeMatchText(match.id);
+  const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb)-/i, '').trim();
+  const rawEventIdNorm = normalizeMatchText(rawEventId);
+  const explicitNorm = explicitEventId ? normalizeMatchText(explicitEventId) : '';
+
+  const exactEventIdMatched =
+    Boolean(
+      explicitNorm &&
+        (explicitNorm === eventIdNorm ||
+          (rawEventIdNorm.length >= 5 && explicitNorm === rawEventIdNorm))
+    ) ||
+    Boolean(eventIdNorm.length >= 5 && hasNormalizedPhrase(normalizedHaystack, eventIdNorm)) ||
+    Boolean(
+      rawEventIdNorm.length >= 5 &&
+        /^\d+$/.test(rawEventIdNorm) &&
+        hasNormalizedPhrase(normalizedHaystack, rawEventIdNorm)
+    );
+
+  const rawAwayTerms = buildCompetitorMatchTerms(match.awayTeam);
+  const rawHomeTerms = buildCompetitorMatchTerms(match.homeTeam);
+
+  const sharedTerms = new Set(rawAwayTerms.filter((t) => rawHomeTerms.includes(t)));
+  const awayTerms = rawAwayTerms.filter((t) => !sharedTerms.has(t));
+  const homeTerms = rawHomeTerms.filter((t) => !sharedTerms.has(t));
+
+  const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
+  const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
+  const bothTeamsMatched = awayHits.length > 0 && homeHits.length > 0;
+
+  let scoreBoost = 0;
+  let reason: string | undefined;
+  if (exactEventIdMatched) {
+    scoreBoost += 120;
+    reason = 'Exact Event ID';
+  }
+  if (bothTeamsMatched) {
+    scoreBoost += 40 + awayHits.length * 8 + homeHits.length * 8;
+    reason = `${match.awayTeam.shortName} vs ${match.homeTeam.shortName}`;
+  }
+
+  return { exactEventIdMatched, bothTeamsMatched, scoreBoost, reason };
 }
 
 export interface EventMatchEvaluation {
   matched: boolean;
   tier?: SportsMatchTier;
   tierLabel?: string;
+  networkKey?: string;
+  networkName?: string;
+  isOfficialBroadcaster?: boolean;
   score: number;
   reasons: string[];
 }
 
 /**
- * 3-Tier Sports Event Matcher:
- * - Tier 1 (`direct_match`): Both competing teams in stream title (`#EXTINF` / `tvg-name`) or exact eventId
- * - Tier 2 (`broadcaster_match`): Scheduled broadcast network(s) or team RSN
- * - Tier 3 (`league_slot`): League Pass / Sunday Ticket / Extra Innings / UFC PPV / numbered league slots
+ * Sports Event Matcher:
+ * 1. `epg_verified` (Tier 1): Currently-airing XMLTV programme matches both teams (even on generic channels like "Arena 7 HD")
+ * 2. `direct_match` (Tier 1): `#EXTINF` / `tvg-name` matches both teams or exact `eventId`
+ * 3. `broadcaster_match` (Official Broadcaster): Exact scheduled broadcast network from Live TV + M3U channels
+ * 4. `league_slot` (Optional non-autoplay slot): User-imported NBA/NFL/MLB/UFC numbered slots
  */
 export function evaluateSportsEventMatch(
   match: SportsMatch,
   metadataText: string,
   explicitEventId?: string,
-  tier1TitleText?: string
+  tier1TitleText?: string,
+  epgProgramTitle?: string
 ): EventMatchEvaluation {
+  const scheduledSpecs = getScheduledBroadcasterSpecs(match);
+  const allowEspnews = scheduledSpecs.some((s) => s.key === 'espnews');
+
   if (
-    isFalsePositiveSportsTitle(metadataText) ||
-    (tier1TitleText && isFalsePositiveSportsTitle(tier1TitleText))
+    isFalsePositiveSportsTitle(metadataText, { allowExactEspnews: allowEspnews }) ||
+    (tier1TitleText &&
+      isFalsePositiveSportsTitle(tier1TitleText, { allowExactEspnews: allowEspnews }))
   ) {
     return {
       matched: false,
@@ -1250,69 +1622,55 @@ export function evaluateSportsEventMatch(
     };
   }
 
-  const rawLower = metadataText.toLowerCase();
-  const normalizedHaystack = normalizeMatchText(metadataText);
-  const tier1Haystack = normalizeMatchText(tier1TitleText ?? metadataText);
-  const eventIdNorm = normalizeMatchText(match.id);
-  const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb)-/i, '').trim();
-  const rawEventIdNorm = normalizeMatchText(rawEventId);
-  const explicitNorm = explicitEventId ? normalizeMatchText(explicitEventId) : '';
-
-  const exactEventIdMatched =
-    (explicitNorm &&
-      (explicitNorm === eventIdNorm ||
-        (rawEventIdNorm.length >= 5 && explicitNorm === rawEventIdNorm))) ||
-    (eventIdNorm.length >= 5 && hasNormalizedPhrase(normalizedHaystack, eventIdNorm)) ||
-    (rawEventIdNorm.length >= 5 &&
-      /^\d+$/.test(rawEventIdNorm) &&
-      hasNormalizedPhrase(normalizedHaystack, rawEventIdNorm));
-
-  const rawAwayTerms = buildCompetitorMatchTerms(match.awayTeam);
-  const rawHomeTerms = buildCompetitorMatchTerms(match.homeTeam);
-
-  // Exclude shared city names (e.g. "los angeles" in Lakers vs. Clippers) so a single city cannot satisfy both teams
-  const sharedTerms = new Set(rawAwayTerms.filter((t) => rawHomeTerms.includes(t)));
-  const awayTerms = rawAwayTerms.filter((t) => !sharedTerms.has(t));
-  const homeTerms = rawHomeTerms.filter((t) => !sharedTerms.has(t));
-
-  const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(tier1Haystack, term));
-  const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(tier1Haystack, term));
-  const bothTeamsMatched = awayHits.length > 0 && homeHits.length > 0;
-
-  // Tier 1: Direct Match (Both Teams or Exact Event ID)
-  if (exactEventIdMatched || bothTeamsMatched) {
-    const reasons: string[] = [];
-    let score = 1000;
-    if (exactEventIdMatched) {
-      score += 120;
-      reasons.push('Exact Event ID');
+  // Tier 1A: EPG Live Programme Match
+  if (epgProgramTitle && !isFalsePositiveSportsTitle(epgProgramTitle)) {
+    const epgHit = checkCompetitorPairHit(match, epgProgramTitle, explicitEventId);
+    if (epgHit.bothTeamsMatched || epgHit.exactEventIdMatched) {
+      return {
+        matched: true,
+        tier: 'epg_verified',
+        tierLabel: SPORTS_MATCH_TIER_LABELS.epg_verified,
+        score: 1040 + epgHit.scoreBoost,
+        reasons: [epgHit.reason || 'EPG Program Match'],
+      };
     }
-    if (bothTeamsMatched) {
-      score += 40 + awayHits.length * 8 + homeHits.length * 8;
-      reasons.push(`${match.awayTeam.shortName} vs ${match.homeTeam.shortName}`);
-    }
+  }
+
+  // Tier 1B: Direct #EXTINF / tvg-name Title or Event ID Match
+  const titleText = tier1TitleText ?? metadataText;
+  const directHit = checkCompetitorPairHit(match, titleText, explicitEventId);
+  if (directHit.bothTeamsMatched || directHit.exactEventIdMatched) {
     return {
       matched: true,
       tier: 'direct_match',
       tierLabel: SPORTS_MATCH_TIER_LABELS.direct_match,
-      score,
-      reasons,
+      score: 1000 + directHit.scoreBoost,
+      reasons: [directHit.reason || 'Direct Team Match'],
     };
   }
 
-  // Tier 2: Scheduled Network / Team RSN Match
-  const broadcasterMatch = evaluateBroadcasterTier(match, rawLower, normalizedHaystack);
-  if (broadcasterMatch) {
+  // Tier 2: Strict Scheduled Official Broadcaster Match (Live TV + M3U)
+  const official = evaluateOfficialBroadcasterTier(
+    tier1TitleText || metadataText,
+    metadataText,
+    scheduledSpecs
+  );
+  if (official) {
     return {
       matched: true,
       tier: 'broadcaster_match',
       tierLabel: SPORTS_MATCH_TIER_LABELS.broadcaster_match,
-      score: broadcasterMatch.score,
-      reasons: [broadcasterMatch.reason],
+      networkKey: official.spec.key,
+      networkName: official.spec.label,
+      isOfficialBroadcaster: true,
+      score: official.score,
+      reasons: [official.reason],
     };
   }
 
-  // Tier 3: League Pass & Numbered Event Slots
+  // Tier 3: Optional League Pass / PPV Event Slots (never auto-played)
+  const rawLower = metadataText.toLowerCase();
+  const normalizedHaystack = normalizeMatchText(metadataText);
   const leagueSlotMatch = evaluateLeagueSlotTier(match, rawLower, normalizedHaystack);
   if (leagueSlotMatch) {
     return {
@@ -1332,8 +1690,9 @@ export function evaluateSportsEventMatch(
 }
 
 /**
- * Per-match 3-tier event matcher across user-imported M3U/Xtream channels and configured provider feeds.
- * Built-in static FAST/news channels (`!ch.sourceId`, `net-*`, `fta-*`) remain strictly excluded.
+ * Matches a SportsMatch against BOTH KinoStream's verified Live TV channels
+ * and user-imported M3U/Xtream/provider feeds, combining XMLTV EPG verification
+ * and strict Official Broadcaster rules while excluding fake/news lookalikes.
  */
 export function matchBroadcastChannelsForMatch(
   match: SportsMatch,
@@ -1341,35 +1700,38 @@ export function matchBroadcastChannelsForMatch(
   epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): MatchedLiveFeed[] {
   const scored: MatchedLiveFeed[] = [];
+  const scheduledSpecs = getScheduledBroadcasterSpecs(match);
+  const allowEspnews = scheduledSpecs.some((s) => s.key === 'espnews');
 
   for (const ch of channels) {
-    // Keep built-in static 24/7 FAST/news channels strictly out of individual game pages
     if (
-      !ch.sourceId ||
       ch.excludeFromMatchRouting ||
-      ch.id.startsWith('net-') ||
       ch.id.startsWith('fta-') ||
       isLocalNewsStreamUrl(ch.url)
     ) {
       continue;
     }
 
-    const sched = epgSchedules[ch.tvgId || ch.id];
-    const nowTitle = sched?.now?.title || '';
-    const titleMetadataText = [ch.name, ch.tvgName, nowTitle]
-      .filter(Boolean)
-      .join(' ');
+    const sched = findLiveEpgScheduleForChannel(ch, epgSchedules);
+    const nowProg = sched?.now;
+    const nowTitle = nowProg?.title || '';
+    const epgWindow = formatEpgTimeWindow(nowProg?.start, nowProg?.end);
+
+    const titleMetadataText = [ch.name, ch.tvgName].filter(Boolean).join(' ');
     const fullFilterText = [
       ch.name,
       ch.tvgName,
       ch.tvgId,
       ch.group,
-      nowTitle,
+      ...(ch.aliases || []),
     ]
       .filter(Boolean)
       .join(' ');
 
-    if (isFalsePositiveSportsTitle(fullFilterText)) {
+    if (
+      isFalsePositiveSportsTitle(titleMetadataText, { allowExactEspnews: allowEspnews }) ||
+      isFalsePositiveSportsTitle(ch.group, { allowExactEspnews: allowEspnews })
+    ) {
       continue;
     }
 
@@ -1377,23 +1739,49 @@ export function matchBroadcastChannelsForMatch(
       match,
       fullFilterText,
       ch.tvgId,
-      titleMetadataText
+      titleMetadataText,
+      nowTitle
     );
+
     if (!evaluation.matched || !evaluation.tier) {
       continue;
     }
 
+    // League slots (Tier 3) apply strictly to user/API-imported playlist channels
+    if (evaluation.tier === 'league_slot' && !ch.sourceId) {
+      continue;
+    }
+
+    const isBuiltInVerified = !ch.sourceId;
+    const sourceBonus = ch.sourceId === 'sports-stream-api' ? 8 : ch.sourceId ? 6 : 4;
+    const qualityBonus = /\b(4k|uhd|1080p|fhd)\b/i.test(`${ch.quality || ''} ${ch.name}`)
+      ? 3
+      : 0;
+
+    const networkKey =
+      evaluation.networkKey ||
+      (evaluation.tier === 'epg_verified'
+        ? `epg-${slugifyId(ch.name) || ch.id}`
+        : `${evaluation.tier}-${slugifyId(ch.name) || ch.id}`);
+    const networkName = evaluation.networkName || ch.name;
+
     const reasons = [...evaluation.reasons];
     if (ch.sourceName) {
       reasons.push(ch.sourceName);
+    } else if (isBuiltInVerified && evaluation.isOfficialBroadcaster) {
+      reasons.push('Verified Live TV');
     }
 
     scored.push({
       channel: ch,
       tier: evaluation.tier,
       tierLabel: evaluation.tierLabel || SPORTS_MATCH_TIER_LABELS[evaluation.tier],
+      networkKey,
+      networkName,
+      isOfficialBroadcaster: Boolean(evaluation.isOfficialBroadcaster),
+      epgWindow: epgWindow || undefined,
       reasons: Array.from(new Set(reasons)).slice(0, 2),
-      score: evaluation.score + (ch.sourceId === 'sports-stream-api' ? 4 : 6),
+      score: evaluation.score + sourceBonus + qualityBonus,
       nowTitle: nowTitle || undefined,
     });
   }
@@ -1402,7 +1790,154 @@ export function matchBroadcastChannelsForMatch(
     if (b.score !== a.score) return b.score - a.score;
     return a.channel.name.localeCompare(b.channel.name, undefined, { numeric: true });
   });
-  return scored.slice(0, 24);
+  return scored.slice(0, 36);
+}
+
+/**
+ * Returns a clean live EPG verification summary (channel name + time window + title)
+ * for display on Sports cards and matchup headers.
+ */
+export function findEpgVerifiedMatchSummary(
+  match: SportsMatch,
+  channels: Channel[],
+  epgSchedules: Record<string, EpgChannelSchedule> = {}
+): { channelName: string; timeWindow: string; programTitle: string } | null {
+  if (!epgSchedules || Object.keys(epgSchedules).length === 0) return null;
+  const matched = matchBroadcastChannelsForMatch(match, channels, epgSchedules);
+  const epgHit = matched.find((f) => f.tier === 'epg_verified');
+  if (!epgHit) return null;
+  return {
+    channelName: epgHit.channel.name,
+    timeWindow: epgHit.epgWindow || 'LIVE',
+    programTitle:
+      epgHit.nowTitle || `${match.awayTeam.shortName} vs ${match.homeTeam.shortName}`,
+  };
+}
+
+/**
+ * Groups duplicate streams belonging to the same Official Broadcaster or Event Feed
+ * into unified rows with merged sources for UI selection and automatic failover.
+ */
+export function groupMatchedLiveFeeds(
+  matchedFeeds: MatchedLiveFeed[]
+): BroadcasterFeedGroup[] {
+  const groupsMap = new Map<string, BroadcasterFeedGroup>();
+
+  for (const feed of matchedFeeds) {
+    const ch = feed.channel;
+    const isTier1 = feed.tier === 'epg_verified' || feed.tier === 'direct_match';
+    const badgeTag: BroadcasterFeedGroup['badgeTag'] =
+      feed.tier === 'epg_verified'
+        ? 'EPG LIVE'
+        : feed.tier === 'direct_match'
+        ? 'MATCH FEED'
+        : feed.isOfficialBroadcaster
+        ? 'OFFICIAL'
+        : 'LEAGUE SLOT';
+
+    const groupId = `${feed.tier}:${feed.networkKey}`;
+    const existing = groupsMap.get(groupId);
+    const spec = OFFICIAL_BROADCASTER_SPECS.find((s) => s.key === feed.networkKey);
+
+    const buildSourcesFromFeed = (): BroadcasterGroupSource[] => {
+      const list: BroadcasterGroupSource[] = [
+        {
+          id: ch.id,
+          channelId: ch.id,
+          name: ch.name,
+          label: ch.sourceName
+            ? `${ch.name} · ${ch.sourceName}`
+            : `${ch.name} · Verified Live TV`,
+          url: ch.url,
+          quality: ch.quality || 'HD',
+          sourceName: ch.sourceName || 'Verified Live TV',
+          referrer: ch.referrer,
+          userAgent: ch.userAgent,
+          tier: feed.tier,
+          tierLabel: feed.tierLabel,
+          epgWindow: feed.epgWindow,
+        },
+      ];
+
+      for (const [idx, backup] of (ch.backupUrls || []).entries()) {
+        if (!backup.url || isLocalNewsStreamUrl(backup.url)) continue;
+        if (
+          isFalsePositiveSportsTitle(backup.label, {
+            allowExactEspnews: spec?.allowExactEspnews,
+          })
+        ) {
+          continue;
+        }
+        if (spec) {
+          const bkNorm = normalizeMatchText(backup.label);
+          const hitsExcludedSubNet =
+            spec.excludeRawRegexes?.some((rx) => rx.test(backup.label)) ||
+            spec.excludePhrases?.some((ex) =>
+              hasNormalizedPhrase(bkNorm, normalizeMatchText(ex))
+            );
+          if (hitsExcludedSubNet) continue;
+        }
+
+        list.push({
+          id: `${ch.id}-bk-${idx + 1}`,
+          channelId: ch.id,
+          name: backup.label,
+          label: `${backup.label} (${ch.name} Backup)`,
+          url: backup.url,
+          quality: ch.quality || 'Backup HD',
+          sourceName: ch.sourceName || 'Verified Live TV',
+          referrer: backup.referrer || ch.referrer,
+          userAgent: backup.userAgent || ch.userAgent,
+          tier: feed.tier,
+          tierLabel: feed.tierLabel,
+          epgWindow: feed.epgWindow,
+        });
+      }
+
+      return list;
+    };
+
+    const incomingSources = buildSourcesFromFeed();
+
+    if (!existing) {
+      groupsMap.set(groupId, {
+        groupId,
+        networkKey: feed.networkKey,
+        networkName: feed.networkName,
+        badgeTag,
+        tier: feed.tier,
+        isAutoPlayEligible:
+          isTier1 || (feed.tier === 'broadcaster_match' && feed.isOfficialBroadcaster),
+        bestQuality:
+          ch.quality ||
+          (/\b1080p\b/i.test(ch.name) ? '1080p' : /\b720p\b/i.test(ch.name) ? '720p' : 'HD'),
+        epgWindow: feed.epgWindow,
+        nowTitle: feed.nowTitle,
+        reasons: feed.reasons,
+        primaryChannel: ch,
+        sources: incomingSources,
+      });
+    } else {
+      const seenUrls = new Set(existing.sources.map((s) => s.url));
+      for (const src of incomingSources) {
+        if (!seenUrls.has(src.url)) {
+          seenUrls.add(src.url);
+          existing.sources.push(src);
+        }
+      }
+      if (!existing.epgWindow && feed.epgWindow) {
+        existing.epgWindow = feed.epgWindow;
+      }
+      if (!existing.nowTitle && feed.nowTitle) {
+        existing.nowTitle = feed.nowTitle;
+      }
+      if (ch.quality === '4K' || (ch.quality === '1080p' && existing.bestQuality !== '4K')) {
+        existing.bestQuality = ch.quality;
+      }
+    }
+  }
+
+  return Array.from(groupsMap.values());
 }
 
 function classifyFormat(url: string): 'hls' | 'mp4' | 'embed' {
@@ -1449,26 +1984,28 @@ export function buildChannelStreamSources(channel: Channel): StreamSource[] {
 }
 
 /**
- * Resolve ordered 3-tier event streams specifically for a SportsMatch.
- * Auto-selects ONLY Tier 1 (`direct_match`) streams by default so Tier 2/3 feeds
- * never auto-play on game pages unless explicitly chosen by the user.
+ * Resolve streams & grouped broadcasters for a SportsMatch using Smart Auto-Play Priority:
+ * 1. Tier 1 (`epg_verified` / `direct_match`) first
+ * 2. Exact scheduled Official Broadcaster match (with all grouped network servers for failover)
+ * 3. Empty (`[]`) when neither exists so the No Event Feed Connected panel renders cleanly
  */
 export function resolveSportsMatchStreamSources(params: {
   match: SportsMatch;
   channels: Channel[];
   epgSchedules?: Record<string, EpgChannelSchedule>;
   selectedFeedChannelId?: string | null;
-  includeSecondaryTiers?: boolean;
+  selectedSourceUrl?: string | null;
 }): {
   streams: StreamSource[];
   matchedFeeds: MatchedLiveFeed[];
+  broadcasterGroups: BroadcasterFeedGroup[];
   matchSlug: string;
 } {
   const {
     channels,
     epgSchedules = {},
     selectedFeedChannelId,
-    includeSecondaryTiers = false,
+    selectedSourceUrl,
   } = params;
   const effectiveMatch = normalizeSportsMatch(params.match);
   const matchSlug = buildMatchSlug(effectiveMatch);
@@ -1477,14 +2014,9 @@ export function resolveSportsMatchStreamSources(params: {
     channels,
     epgSchedules
   );
+  const broadcasterGroups = groupMatchedLiveFeeds(matchedFeeds);
   const streams: StreamSource[] = [];
   const seenUrls = new Set<string>();
-
-  const slotNames = [
-    'Server I · Main Event Feed',
-    'Server II · Event HD Mirror',
-    'Server III · Alternate Event Feed',
-  ];
 
   const pushUnique = (source: StreamSource) => {
     if (!source.url || isLocalNewsStreamUrl(source.url) || seenUrls.has(source.url)) {
@@ -1493,25 +2025,6 @@ export function resolveSportsMatchStreamSources(params: {
     seenUrls.add(source.url);
     streams.push(source);
   };
-
-  // Restrict initial auto-play strictly to Tier 1 (`direct_match`) feeds unless the user
-  // explicitly selects a Tier 2 / Tier 3 feed from Matching Live Feeds.
-  const explicitSelection = selectedFeedChannelId
-    ? matchedFeeds.find((f) => f.channel.id === selectedFeedChannelId)
-    : undefined;
-  const tier1Feeds = matchedFeeds.filter((f) => f.tier === 'direct_match');
-
-  const orderedFeeds = explicitSelection
-    ? [
-        explicitSelection,
-        ...(explicitSelection.tier === 'direct_match'
-          ? tier1Feeds
-          : matchedFeeds
-        ).filter((f) => f.channel.id !== explicitSelection.channel.id),
-      ]
-    : includeSecondaryTiers
-    ? matchedFeeds
-    : tier1Feeds;
 
   if (effectiveMatch.statusState === 'post' && effectiveMatch.highlightVideoUrl) {
     pushUnique({
@@ -1525,59 +2038,78 @@ export function resolveSportsMatchStreamSources(params: {
     });
   }
 
-  for (const feed of orderedFeeds) {
-    if (streams.length >= 12) break;
-    const ch = feed.channel;
-    if (seenUrls.has(ch.url) || isLocalNewsStreamUrl(ch.url)) continue;
+  const explicitGroup =
+    (selectedSourceUrl
+      ? broadcasterGroups.find((g) => g.sources.some((s) => s.url === selectedSourceUrl))
+      : undefined) ||
+    (selectedFeedChannelId
+      ? broadcasterGroups.find(
+          (g) =>
+            g.primaryChannel.id === selectedFeedChannelId ||
+            g.sources.some((s) => s.channelId === selectedFeedChannelId)
+        )
+      : undefined);
 
-    const slotIdx = streams.length;
-    const slotPrefix =
-      slotIdx === 0
-        ? `Server I · ${ch.name}`
-        : slotIdx < 3
-        ? `Server ${slotIdx === 1 ? 'II' : 'III'} · ${ch.name}`
-        : ch.name;
-    pushUnique({
-      id: `match-ch-${ch.id}`,
-      name: slotPrefix,
-      label: `${ch.name} · ${feed.reasons[0] || feed.tierLabel}`,
-      tier: feed.tier,
-      tierLabel: feed.tierLabel,
-      quality: ch.quality || 'Live HD',
-      format: classifyFormat(ch.url),
-      url: ch.url,
-      referrer: ch.referrer,
-      isDefault: streams.length === 0,
-    });
-  }
+  const tier1Groups = broadcasterGroups.filter(
+    (g) => g.tier === 'epg_verified' || g.tier === 'direct_match'
+  );
+  const officialBroadcasterGroups = broadcasterGroups.filter(
+    (g) => g.tier === 'broadcaster_match' && g.isAutoPlayEligible
+  );
 
-  if (streams.length < 3) {
-    for (const feed of orderedFeeds) {
-      if (streams.length >= 3) break;
-      const ch = feed.channel;
-      for (const backup of ch.backupUrls || []) {
-        if (streams.length >= 3) break;
-        if (seenUrls.has(backup.url) || isLocalNewsStreamUrl(backup.url)) continue;
-        const slotIdx = streams.length;
-        pushUnique({
-          id: `match-ch-${ch.id}-bk-${slotIdx + 1}`,
-          name: slotNames[slotIdx] || `Server ${slotIdx + 1} · Event Backup`,
-          label: `${ch.name} · ${backup.label}`,
-          tier: feed.tier,
-          tierLabel: feed.tierLabel,
-          quality: 'Backup HD',
-          format: classifyFormat(backup.url),
-          url: backup.url,
-          referrer: backup.referrer || ch.referrer,
-          isDefault: streams.length === 0,
-        });
-      }
+  const selectedGroups = explicitGroup
+    ? [explicitGroup]
+    : tier1Groups.length > 0
+    ? tier1Groups
+    : officialBroadcasterGroups.length > 0
+    ? [officialBroadcasterGroups[0]]
+    : [];
+
+  for (const group of selectedGroups) {
+    const orderedSources = selectedSourceUrl
+      ? [
+          ...group.sources.filter((s) => s.url === selectedSourceUrl),
+          ...group.sources.filter((s) => s.url !== selectedSourceUrl),
+        ]
+      : selectedFeedChannelId
+      ? [
+          ...group.sources.filter((s) => s.channelId === selectedFeedChannelId),
+          ...group.sources.filter((s) => s.channelId !== selectedFeedChannelId),
+        ]
+      : group.sources;
+
+    for (const src of orderedSources) {
+      if (streams.length >= 12) break;
+      const idx = streams.length;
+      const romanPrefix =
+        idx === 0
+          ? `Server I · ${group.networkName}`
+          : idx === 1
+          ? `Server II · ${src.name}`
+          : idx === 2
+          ? `Server III · ${src.name}`
+          : src.name;
+
+      pushUnique({
+        id: `match-ch-${src.id}`,
+        name: romanPrefix,
+        label: src.label,
+        tier: src.tier,
+        tierLabel: group.badgeTag,
+        epgWindow: group.epgWindow,
+        quality: src.quality || 'Live HD',
+        format: classifyFormat(src.url),
+        url: src.url,
+        referrer: src.referrer,
+        isDefault: streams.length === 0,
+      });
     }
   }
 
   return {
     streams,
     matchedFeeds,
+    broadcasterGroups,
     matchSlug,
   };
 }

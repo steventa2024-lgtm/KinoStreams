@@ -1260,11 +1260,11 @@ export function VideoPlayer({
                   {matchup.league} · {matchup.awayTeam.abbreviation} vs {matchup.homeTeam.abbreviation}
                 </div>
                 <h2 className="mt-3 font-sans text-lg font-medium text-[#FAFAFA] sm:text-2xl">
-                  No Direct Match Stream Connected for {matchup.awayTeam.shortName} vs.{' '}
+                  No Event Feed Connected for {matchup.awayTeam.shortName} vs.{' '}
                   {matchup.homeTeam.shortName}
                 </h2>
                 <p className="mt-1.5 max-w-md text-xs leading-relaxed text-[#A1A1AA] sm:text-sm">
-                  Auto-play is restricted strictly to Tier 1 team-matched streams. Browse your imported feeds, click an optional network card below, or connect an M3U event playlist.
+                  No direct Tier 1 EPG/team feed or matching official broadcaster channel ({matchup.broadcast || 'scheduled network'}) is available yet. Browse your imported feeds or connect an M3U playlist + XMLTV guide.
                 </p>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-2.5 sm:mt-5">
                   {onBrowseImportedFeeds && (
@@ -2051,14 +2051,14 @@ export function VideoPlayer({
                       <span
                         className={cn(
                           'rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                          src.tier === 'direct_match'
+                          src.tier === 'epg_verified' || src.tier === 'direct_match'
                             ? 'border-[#e50935]/50 bg-[#e50935]/20 text-[#e4e4e7]'
                             : src.tier === 'broadcaster_match'
                             ? 'border-[#f59e0b]/40 bg-[#f59e0b]/15 text-[#f59e0b]'
                             : 'border-white/15 bg-[#080809]/80 text-[#A1A1AA]'
                         )}
                       >
-                        {src.tierLabel}
+                        {src.epgWindow ? `${src.tierLabel} · ${src.epgWindow}` : src.tierLabel}
                       </span>
                     )}
                   </button>

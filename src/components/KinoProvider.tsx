@@ -112,33 +112,41 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     setChannelsLoading(true);
     try {
       const customSources = getCustomSources();
-      const [channelsRes, epgRes] = await Promise.all([
-        fetch('/api/channels', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sources: customSources, includeFallback: true }),
-        }),
-        fetch('/api/epg', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            urls: customSources
-              .filter((s) => s.enabled && s.epgUrl)
-              .map((s) => s.epgUrl),
-          }),
-        }),
-      ]);
+      const manualEpgUrls = customSources
+        .filter((s) => s.enabled && s.epgUrl)
+        .map((s) => s.epgUrl as string);
 
+      const channelsRes = await fetch('/api/channels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sources: customSources, includeFallback: true }),
+      });
+
+      let discoveredEpgUrls: string[] = [];
       if (channelsRes.ok) {
         const data = (await channelsRes.json()) as {
           channels?: Channel[];
+          discoveredEpgUrls?: string[];
           errors?: Array<{ sourceId: string; name: string; error: string }>;
         };
         if (Array.isArray(data.channels) && data.channels.length > 0) {
           setChannels(data.channels);
         }
+        if (Array.isArray(data.discoveredEpgUrls)) {
+          discoveredEpgUrls = data.discoveredEpgUrls;
+        }
         setSourceErrors(Array.isArray(data.errors) ? data.errors : []);
       }
+
+      const combinedEpgUrls = Array.from(
+        new Set([...manualEpgUrls, ...discoveredEpgUrls].filter(Boolean))
+      );
+
+      const epgRes = await fetch('/api/epg/match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: combinedEpgUrls }),
+      });
 
       if (epgRes.ok) {
         const epgData = (await epgRes.json()) as {

@@ -128,6 +128,57 @@ export interface ParseM3uOptions {
   defaultUserAgent?: string;
 }
 
+export interface ParsedM3uPlaylist {
+  channels: Channel[];
+  epgUrls: string[];
+}
+
+/**
+ * Extracts `url-tvg` / `x-tvg-url` EPG XMLTV URLs from `#EXTM3U` playlist headers.
+ */
+export function extractM3uHeaderEpgUrls(content: string): string[] {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const lines = content.replace(/\r\n/g, '\n').split('\n').slice(0, 12);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line.toUpperCase().startsWith('#EXTM3U')) continue;
+
+    for (const attr of ['url-tvg', 'x-tvg-url']) {
+      const rawValue = extractAttribute(line, attr);
+      if (!rawValue) continue;
+      for (const candidate of rawValue.split(/[,\s]+/)) {
+        const clean = sanitizeMediaUrl(candidate.trim());
+        if (
+          clean &&
+          (clean.startsWith('http://') || clean.startsWith('https://')) &&
+          !seen.has(clean)
+        ) {
+          seen.add(clean);
+          urls.push(clean);
+        }
+      }
+    }
+  }
+
+  return urls;
+}
+
+export function extractM3uHeaderEpgUrl(content: string): string | undefined {
+  return extractM3uHeaderEpgUrls(content)[0];
+}
+
+export function parseM3uPlaylistWithMeta(
+  content: string,
+  options: ParseM3uOptions = {}
+): ParsedM3uPlaylist {
+  return {
+    channels: parseM3uPlaylist(content, options),
+    epgUrls: extractM3uHeaderEpgUrls(content),
+  };
+}
+
 export function parseM3uPlaylist(
   content: string,
   options: ParseM3uOptions = {}
@@ -148,7 +199,7 @@ export function parseM3uPlaylist(
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
-    if (!line || line === '#EXTM3U') continue;
+    if (!line || line.toUpperCase().startsWith('#EXTM3U')) continue;
 
     if (line.startsWith('#EXTINF:')) {
       const { metaPart, titlePart } = splitExtInf(line);

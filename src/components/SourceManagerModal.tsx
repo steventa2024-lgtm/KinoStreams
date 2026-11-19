@@ -260,6 +260,11 @@ export function SourceManagerModal() {
                 placeholder="Optional XMLTV EPG URL (.xml or .xml.gz)"
                 className="w-full rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5 text-sm text-[#FAFAFA] placeholder-[#71717A] focus:border-[#e50935]/50 focus:outline-none"
               />
+              <p className="text-[11px] text-[#71717A]">
+                Auto-loads <code className="text-[#A1A1AA]">url-tvg</code> /{' '}
+                <code className="text-[#A1A1AA]">x-tvg-url</code> from{' '}
+                <code className="text-[#A1A1AA]">#EXTM3U</code> headers if omitted.
+              </p>
             </>
           )}
 
@@ -360,15 +365,27 @@ export function SourceManagerModal() {
                   className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#080809] px-3.5 py-2.5"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-medium text-[#FAFAFA]">
                         {src.name}
                       </span>
                       <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] uppercase text-[#fb5272]">
                         {src.type}
                       </span>
+                      {src.epgUrl ? (
+                        <span className="rounded border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#E2C275]">
+                          XMLTV EPG
+                        </span>
+                      ) : src.type === 'm3u' ? (
+                        <span className="rounded bg-white/[0.04] px-1.5 py-0.5 text-[10px] text-[#71717A]">
+                          Auto url-tvg
+                        </span>
+                      ) : null}
                     </div>
                     <p className="truncate text-xs text-[#71717A]">{src.url}</p>
+                    {src.epgUrl && (
+                      <p className="truncate text-[11px] text-[#52525B]">EPG: {src.epgUrl}</p>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">

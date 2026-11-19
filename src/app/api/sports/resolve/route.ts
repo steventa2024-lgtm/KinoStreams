@@ -1,15 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FALLBACK_SPORTS_MATCHES } from '@/config/fallback-streams';
 import { requireApiSession } from '@/lib/auth-crypto';
+import { fetchAndCacheXmltvSchedules } from '@/lib/epg-server';
 import {
+  MAJOR_NETWORK_CHANNELS,
   normalizeSportsMatch,
   resolveSportsMatchStreamSources,
 } from '@/lib/sports-networks';
 import { fetchConfiguredSportsEventFeeds } from '@/lib/sports-provider';
-import type { Channel, SportsLeague, SportsMatch } from '@/types/media';
+import type {
+  Channel,
+  EpgChannelSchedule,
+  SportsLeague,
+  SportsMatch,
+} from '@/types/media';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+function combineMatchChannels(
+  providerChannels: Channel[],
+  customChannels: Channel[] = [],
+  includeBuiltInNetworks = true
+): Channel[] {
+  const seenUrls = new Set<string>();
+  const combined: Channel[] = [];
+  const ordered = includeBuiltInNetworks
+    ? [...providerChannels, ...customChannels, ...MAJOR_NETWORK_CHANNELS]
+    : [...providerChannels, ...customChannels];
+
+  for (const ch of ordered) {
+    if (!ch?.url || seenUrls.has(ch.url)) continue;
+    seenUrls.add(ch.url);
+    combined.push(ch);
+  }
+  return combined;
+}
 
 async function findMatchById(
   gameId: string,
@@ -64,19 +90,31 @@ export async function GET(request: NextRequest) {
   }
 
   const providerChannels = await fetchConfiguredSportsEventFeeds(match);
+  const combinedChannels = combineMatchChannels(providerChannels);
 
-  const { streams, matchedFeeds, matchSlug } = resolveSportsMatchStreamSources({
-    match,
-    channels: providerChannels,
-  });
+  const epgUrls = process.env.NEXT_PUBLIC_DEFAULT_EPG_URL
+    ? [process.env.NEXT_PUBLIC_DEFAULT_EPG_URL]
+    : [];
+  const { schedules: epgSchedules } = epgUrls.length
+    ? await fetchAndCacheXmltvSchedules(epgUrls)
+    : { schedules: {} };
+
+  const { streams, matchedFeeds, broadcasterGroups, matchSlug } =
+    resolveSportsMatchStreamSources({
+      match,
+      channels: combinedChannels,
+      epgSchedules,
+    });
 
   return NextResponse.json({
     resolved: streams.length > 0,
     matchSlug,
     match,
-    matchedNetwork: matchedFeeds[0]?.channel.name || null,
+    matchedNetwork:
+      broadcasterGroups[0]?.networkName || matchedFeeds[0]?.channel.name || null,
     providerFeeds: providerChannels,
     matchedFeeds,
+    broadcasterGroups,
     streams,
   });
 }
@@ -90,7 +128,11 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       match?: SportsMatch;
       channels?: Channel[];
+      epgSchedules?: Record<string, EpgChannelSchedule>;
+      epgUrls?: string[];
       selectedFeedChannelId?: string | null;
+      selectedSourceUrl?: string | null;
+      includeBuiltInNetworks?: boolean;
     };
 
     if (!body.match) {
@@ -98,31 +140,44 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedMatch = normalizeSportsMatch(body.match);
-    const customChannels = Array.isArray(body.channels)
-      ? body.channels.filter((ch) => Boolean(ch?.sourceId))
-      : [];
+    const customChannels = Array.isArray(body.channels) ? body.channels : [];
     const providerChannels = await fetchConfiguredSportsEventFeeds(normalizedMatch);
+    const combinedChannels = combineMatchChannels(
+      providerChannels,
+      customChannels,
+      body.includeBuiltInNetworks !== false
+    );
 
-    const seenUrls = new Set<string>();
-    const combinedChannels: Channel[] = [];
-    for (const ch of [...providerChannels, ...customChannels]) {
-      if (!ch?.url || seenUrls.has(ch.url)) continue;
-      seenUrls.add(ch.url);
-      combinedChannels.push(ch);
+    let epgSchedules: Record<string, EpgChannelSchedule> =
+      body.epgSchedules && typeof body.epgSchedules === 'object'
+        ? body.epgSchedules
+        : {};
+    if (
+      Object.keys(epgSchedules).length === 0 &&
+      Array.isArray(body.epgUrls) &&
+      body.epgUrls.length > 0
+    ) {
+      const epgResult = await fetchAndCacheXmltvSchedules(body.epgUrls);
+      epgSchedules = epgResult.schedules;
     }
 
-    const { streams, matchedFeeds, matchSlug } = resolveSportsMatchStreamSources({
-      match: normalizedMatch,
-      channels: combinedChannels,
-      selectedFeedChannelId: body.selectedFeedChannelId,
-    });
+    const { streams, matchedFeeds, broadcasterGroups, matchSlug } =
+      resolveSportsMatchStreamSources({
+        match: normalizedMatch,
+        channels: combinedChannels,
+        epgSchedules,
+        selectedFeedChannelId: body.selectedFeedChannelId,
+        selectedSourceUrl: body.selectedSourceUrl,
+      });
 
     return NextResponse.json({
       resolved: streams.length > 0,
       matchSlug,
-      matchedNetwork: matchedFeeds[0]?.channel.name || null,
+      matchedNetwork:
+        broadcasterGroups[0]?.networkName || matchedFeeds[0]?.channel.name || null,
       providerFeeds: providerChannels,
       matchedFeeds,
+      broadcasterGroups,
       streams,
     });
   } catch {
