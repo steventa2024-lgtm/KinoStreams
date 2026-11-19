@@ -497,6 +497,177 @@ export const MAJOR_NETWORK_CHANNELS: Channel[] = [
     backdrop: networkArtwork('Tennis Channel', 'Live ATP · WTA · Masters Coverage', '#E2C275', '#122019', 'wide'),
   },
 
+  // Combat Sports & Spectrum LA Regional Showcase (showcase URLs excluded from automated sports match routing)
+  {
+    id: 'net-ufc-ppv',
+    name: 'UFC PPV / Main Event',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: ['ufc ppv', 'ufc main event', 'ufc ppv main event', 'mma ppv'],
+    category: 'sports',
+    league: 'UFC',
+    badge: 'PPV HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8',
+    backupUrls: [
+      { label: 'ESPN+ Fight Companion', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
+      { label: 'TNT Combat Companion', url: 'https://turnerlive.warnermediacdn.com/hls/live/2023170/tntwest/slate/VIDEO_0_3564000.m3u8' },
+    ],
+    tvgId: 'UFCPPV.us',
+    tvgName: 'UFC PPV / Main Event',
+    isLive: true,
+    description: 'UFC Numbered PPV Main Card, Championship bouts, and Octagon Studio Desk.',
+    logo: networkArtwork('UFC PPV', 'Octagon Main Card', '#EF4444', '#1E1113', 'logo'),
+    backdrop: networkArtwork('UFC PPV · Main Event', 'Championship Bouts & Main Card', '#f59e0b', '#1B1113', 'wide'),
+  },
+  {
+    id: 'net-ufc-fight-pass',
+    name: 'UFC Fight Pass',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
+    category: 'sports',
+    league: 'UFC',
+    badge: 'LIVE HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8',
+    backupUrls: [
+      { label: 'UFC Early Prelims Mirror', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
+    ],
+    tvgId: 'UFCFightPass.us',
+    tvgName: 'UFC Fight Pass',
+    isLive: true,
+    description: 'UFC Early Prelims, Dana White Contender Series, Cage Warriors, and combat archives.',
+    logo: networkArtwork('FIGHT PASS', 'UFC Prelims & MMA', '#f59e0b', '#141418', 'logo'),
+    backdrop: networkArtwork('UFC Fight Pass', 'Early Prelims · Contender Series · MMA Vault', '#f59e0b', '#16161C', 'wide'),
+  },
+  {
+    id: 'net-ufc-fight-night',
+    name: 'UFC Fight Night',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: ['ufc fight night', 'ufc prelims', 'ufc on espn'],
+    category: 'sports',
+    league: 'UFC',
+    badge: 'LIVE HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8',
+    backupUrls: [
+      { label: 'UFC Prelims Feed II', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
+    ],
+    tvgId: 'UFCFightNight.us',
+    tvgName: 'UFC Fight Night',
+    isLive: true,
+    description: 'Weekly UFC Fight Night Apex & international arena cards and live weigh-ins.',
+    logo: networkArtwork('FIGHT NIGHT', 'UFC on ESPN / Apex', '#D4AF37', '#171418', 'logo'),
+    backdrop: networkArtwork('UFC Fight Night', 'Live Fight Cards & Weigh-Ins', '#D4AF37', '#18141A', 'wide'),
+  },
+  {
+    id: 'net-ufc-network',
+    name: 'UFC Network',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: ['ufc network', 'ufc espanol', 'ufc español', 'ufc live', 'ufc tv'],
+    category: 'sports',
+    league: 'UFC',
+    badge: '24/7 HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8',
+    backupUrls: [
+      { label: 'UFC Espanol Companion', url: 'https://dc1644a9jazgj.cloudfront.net/beIN_Sports_Xtra_Espanol.m3u8' },
+    ],
+    tvgId: 'UFCNetwork.us',
+    tvgName: 'UFC Network',
+    isLive: true,
+    description: '24/7 UFC Network, UFC Español, live fight previews, and Embedded series.',
+    logo: networkArtwork('UFC NET', '24/7 · UFC Español', '#E2C275', '#151519', 'logo'),
+    backdrop: networkArtwork('UFC Network', '24/7 Octagon · UFC Live · Español', '#E2C275', '#16161C', 'wide'),
+  },
+  {
+    id: 'net-spectrum-sportsnet',
+    name: 'Spectrum SportsNet',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: [
+      'spectrum sportsnet',
+      'spectrum sportsnet hd',
+      'specsn',
+      'sportsnet lakers',
+      'twc sportsnet',
+    ],
+    category: 'sports',
+    league: 'NBA · Lakers / Sparks',
+    badge: 'RSN HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://23.237.104.106:8080/USA_NBA/index.m3u8',
+    backupUrls: [
+      { label: 'Lakers Studio Companion', url: 'http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8' },
+    ],
+    tvgId: 'SpectrumSportsNet.us',
+    tvgName: 'Spectrum SportsNet',
+    isLive: true,
+    description: 'Home of Los Angeles Lakers basketball, LA Sparks, LA Galaxy, and Access SportsNet.',
+    logo: networkArtwork('SPECSN', 'Lakers & LA Sports', '#f59e0b', '#171222', 'logo'),
+    backdrop: networkArtwork('Spectrum SportsNet', 'Los Angeles Lakers · Sparks · Galaxy', '#f59e0b', '#191326', 'wide'),
+  },
+  {
+    id: 'net-spectrum-sportsnet-la',
+    name: 'Spectrum SportsNet LA',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+    ],
+    category: 'sports',
+    league: 'MLB · Dodgers',
+    badge: 'RSN HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'https://jmp2.uk/plu-5e66968a70f34c0007d050be.m3u8',
+    backupUrls: [
+      { label: 'Dodgers Broadcast Companion', url: 'https://turnerlive.warnermediacdn.com/hls/live/2023172/tbseast/slate/VIDEO_0_3564000.m3u8' },
+    ],
+    tvgId: 'SportsNetLA.us',
+    tvgName: 'Spectrum SportsNet LA',
+    isLive: true,
+    description: 'Exclusive Los Angeles Dodgers regional games, Backstage: Dodgers, and Access SportsNet LA.',
+    logo: networkArtwork('SNLA', 'Dodgers Network', '#E2C275', '#0D1729', 'logo'),
+    backdrop: networkArtwork('Spectrum SportsNet LA', 'Los Angeles Dodgers · SNLA Official', '#E2C275', '#0D192E', 'wide'),
+  },
+  {
+    id: 'net-spectrum-sportsnet-plus',
+    name: 'Spectrum SportsNet+',
+    group: 'Combat & Regional Sports',
+    networkGroup: 'league_networks',
+    aliases: ['spectrum sportsnet+', 'spectrum sportsnet plus', 'specsn+'],
+    category: 'sports',
+    league: 'NBA · Regional LA',
+    badge: 'PLUS HD',
+    quality: '1080p',
+    excludeFromMatchRouting: true,
+    url: 'http://23.237.104.106:8080/USA_NBA/index.m3u8',
+    backupUrls: [
+      { label: 'Spectrum LA Alternate', url: 'http://85.237.89.160:9590/usa-s/ESPN-2-HD/index.m3u8' },
+    ],
+    tvgId: 'SpectrumSportsNetPlus.us',
+    tvgName: 'Spectrum SportsNet+',
+    isLive: true,
+    description: 'Spectrum SportsNet+ direct-to-consumer Lakers & SoCal regional live feeds and alternate courtside angles.',
+    logo: networkArtwork('SPECSN+', 'Lakers DTC Feed', '#D4AF37', '#151220', 'logo'),
+    backdrop: networkArtwork('Spectrum SportsNet+', 'SoCal Direct & Courtside Streams', '#D4AF37', '#181424', 'wide'),
+  },
+
   // National Broadcast & Entertainment (local news affiliates excluded from sports match routing)
   {
     id: 'net-abc',
@@ -629,7 +800,7 @@ export function classifyChannelNetworkGroup(
     return /\b(fs1|fs2|fox sports)\b/.test(text) ? 'fox_fs1' : 'broadcast';
   }
   if (
-    /\b(nfl|nba|mlb|nhl|cbssn|cbs sports|nbc sports|bein|golf|tennis|ufc|ppv)\b/.test(
+    /\b(nfl|nba|mlb|nhl|cbssn|cbs sports|nbc sports|spectrum sportsnet|sportsnet la|snla|specsn|bein|golf|tennis|ufc|mma|ppv|fight pass)\b/.test(
       text
     )
   ) {
@@ -670,9 +841,11 @@ export function matchMatchesNetworkFilter(
   }
   if (filter === 'league_networks') {
     return (
-      /\b(nba tv|nfl|mlb|nhl|ufc|ppv|cbssn|cbs sports|nbc sports|peacock|prime|amazon|apple)\b/.test(
+      /\b(nba tv|nfl|mlb|nhl|ufc|mma|ppv|fight pass|cbssn|cbs sports|nbc sports|spectrum sportsnet|sportsnet la|snla|specsn|peacock|prime|amazon|apple)\b/.test(
         b
-      ) || league === 'ufc'
+      ) ||
+      league === 'ufc' ||
+      league === 'mma'
     );
   }
   if (filter === 'broadcast') {
@@ -714,13 +887,16 @@ export function resolveEffectiveMatchState(
 }
 
 export function normalizeSportsMatch(match: SportsMatch): SportsMatch {
+  const normalizedLeague: SportsLeague =
+    String(match.league || '').toUpperCase() === 'MMA' ? 'UFC' : match.league;
   const effectiveState = resolveEffectiveMatchState(match.statusState, match.date);
-  if (effectiveState === match.statusState) {
+  if (effectiveState === match.statusState && normalizedLeague === match.league) {
     return match;
   }
   const hasLivePrefix = match.statusText.toUpperCase().startsWith('LIVE');
   return {
     ...match,
+    league: normalizedLeague,
     statusState: effectiveState,
     statusText:
       effectiveState === 'in'
@@ -744,7 +920,7 @@ export function buildMatchSlugAliases(match: SportsMatch): string[] {
   const homeShort = clean(match.homeTeam.shortName);
   const awayFull = clean(match.awayTeam.name);
   const homeFull = clean(match.homeTeam.name);
-  const rawNumericId = clean(match.id.replace(/^(nba|nfl|ufc|mlb)-/i, ''));
+  const rawNumericId = clean(match.id.replace(/^(nba|nfl|ufc|mlb|mma)-/i, ''));
 
   return Array.from(
     new Set(
@@ -880,7 +1056,7 @@ const IPTV_CHANNEL_DECORATION_TOKENS = new Set([
 ]);
 
 const ALWAYS_FALSE_POSITIVE_PHRASE_RX =
-  /\b(?:tele\s+sondrio|telesondrio|the\s+ocho|theocho|espn\s*8|23abc|ktrk|kero|kiro|nightly\s+news|evening\s+news|world\s+news|breaking\s+news|morning\s+news|abc\s+news|nbc\s+news|cbs\s+news|fox\s+news|fox\s+business|fox\s+weather|fox\s+soul|live\s+now\s+from\s+fox|livenow|weather|court\s+showcase|feature\s+hour|highlights?|replays?|cnn|msnbc|cnbc|newsmax|weather\s+channel|yes\s+tv|cbs\s+reality|abc\s+australia|movies|cinema|kids|cartoon)\b/i;
+  /\b(?:tele\s+sondrio|telesondrio|the\s+ocho|theocho|espn\s*8|23abc|ktrk|kero|kiro|spectrum\s+news(?:\s+\d+)?|spectrum\s+bay\s+news(?:\s+\d+)?|bay\s+news\s+9|spectrum\s+oc\s*16|oc\s*16|ny1|nightly\s+news|evening\s+news|world\s+news|breaking\s+news|morning\s+news|abc\s+news|nbc\s+news|cbs\s+news|fox\s+news|fox\s+business|fox\s+weather|fox\s+soul|live\s+now\s+from\s+fox|livenow|weather|court\s+showcase|feature\s+hour|highlights?|replays?|cnn|msnbc|cnbc|newsmax|weather\s+channel|yes\s+tv|cbs\s+reality|abc\s+australia|movies|cinema|kids|cartoon)\b/i;
 
 const GENERIC_NEWS_WORD_RX = /\bnews\b/i;
 
@@ -933,7 +1109,10 @@ function hasNormalizedPhrase(normalizedHaystack: string, phrase: string): boolea
   return rx.test(normalizedHaystack);
 }
 
-export function buildCompetitorMatchTerms(competitor: SportsMatch['awayTeam']): string[] {
+export function buildCompetitorMatchTerms(
+  competitor: SportsMatch['awayTeam'],
+  league?: string
+): string[] {
   const fullName = normalizeMatchText(competitor.name || '');
   const shortName = normalizeMatchText(competitor.shortName || '');
   const abbreviation = normalizeMatchText(competitor.abbreviation || '');
@@ -943,16 +1122,26 @@ export function buildCompetitorMatchTerms(competitor: SportsMatch['awayTeam']): 
     city = fullName.slice(0, fullName.length - shortName.length).trim();
   }
 
-  // Handle fighter names (e.g. "Jon Jones" -> "jones") when city extraction does not apply
+  // Handle fighter names (e.g. "Jack Della Maddalena" -> "della maddalena" & "maddalena")
   const nameWords = fullName ? fullName.split(/\s+/) : [];
   const lastWord = !city && nameWords.length >= 2 ? nameWords[nameWords.length - 1] : '';
+  const multiWordSurname =
+    !city && nameWords.length >= 3 ? nameWords.slice(1).join(' ') : '';
+  const shortAfterInitial = shortName.replace(/^[a-z]\s+/, '').trim();
+
+  const isCombat =
+    league?.toUpperCase() === 'UFC' || league?.toUpperCase() === 'MMA';
+  // UFC fighters commonly carry 3-letter country abbreviations (USA, BRA, CZE); omit those so channels aren't matched by nationality alone
+  const safeAbbr = isCombat && /^[a-z]{3}$/.test(abbreviation) ? '' : abbreviation;
 
   const candidates = [
     fullName,
     shortName,
+    shortAfterInitial.length >= 4 ? shortAfterInitial : '',
     city,
-    abbreviation,
+    safeAbbr,
     lastWord.length >= 4 ? lastWord : '',
+    multiWordSurname.length >= 6 ? multiWordSurname : '',
   ];
 
   return Array.from(
@@ -1055,9 +1244,24 @@ export const OFFICIAL_BROADCASTER_SPECS: OfficialBroadcasterSpec[] = [
     excludeRawRegexes: [/\bespn\s*\+/i, /\bespn\s*[2345678]\b/i],
   },
   {
+    key: 'tnt-sports',
+    label: 'TNT Sports',
+    scheduleAliases: ['tnt sports', 'tnt sports 1', 'tnt sports 2', 'bt sport'],
+    channelPhrases: [
+      'tnt sports',
+      'tnt sports 1',
+      'tnt sports 2',
+      'tnt sports hd',
+      'bt sport 1',
+      'bt sport 2',
+    ],
+    excludePhrases: ['trutv', 'tru tv', 'tnt sports argentina', 'tnt sports chile'],
+  },
+  {
     key: 'tnt',
     label: 'TNT',
-    scheduleAliases: ['tnt', 'tnt sports', 'max'],
+    scheduleAliases: ['tnt', 'max'],
+    scrubBroadcastBeforeScheduleMatch: /\btnt\s+sports(?:\s+[12])?\b/gi,
     channelPhrases: ['tnt', 'tnt sports', 'tnt us', 'tnt usa', 'tnt east', 'tnt west'],
     excludePhrases: ['trutv', 'tru tv', 'tnt sports argentina', 'tnt sports chile'],
   },
@@ -1296,10 +1500,102 @@ export const OFFICIAL_BROADCASTER_SPECS: OfficialBroadcasterSpec[] = [
     channelPhrases: ['space city home network', 'space city', 'schn'],
   },
   {
+    key: 'ufc-ppv',
+    label: 'UFC PPV',
+    scheduleAliases: ['ufc ppv', 'espn+ ppv', 'espn ppv', 'ufc main event'],
+    channelPhrases: [
+      'ufc ppv',
+      'ufc main event',
+      'ufc ppv main event',
+      'espn+ ppv',
+      'espn ppv',
+    ],
+    excludePhrases: ['ufc fight pass', 'fight pass', 'prelims'],
+  },
+  {
+    key: 'ufc-fight-pass',
+    label: 'UFC Fight Pass',
+    scheduleAliases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
+    channelPhrases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
+    excludePhrases: ['ufc ppv'],
+  },
+  {
+    key: 'ufc-network',
+    label: 'UFC Network',
+    scheduleAliases: ['ufc network', 'ufc espanol', 'ufc español', 'ufc live'],
+    channelPhrases: ['ufc network', 'ufc espanol', 'ufc live', 'ufc tv'],
+    excludePhrases: ['ufc ppv', 'ufc fight pass', 'fight pass', 'prelims'],
+  },
+  {
+    key: 'spectrum-sportsnet-la',
+    label: 'Spectrum SportsNet LA',
+    scheduleAliases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+    ],
+    channelPhrases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+    ],
+    excludePhrases: [
+      'spectrum news',
+      'spectrum news 1',
+      'spectrum bay news',
+      'bay news 9',
+      'spectrum oc16',
+      'oc16',
+    ],
+  },
+  {
     key: 'spectrum-sportsnet',
     label: 'Spectrum SportsNet',
-    scheduleAliases: ['spectrum sportsnet', 'sportsnet la'],
-    channelPhrases: ['spectrum sportsnet', 'sportsnet la'],
+    scheduleAliases: [
+      'spectrum sportsnet',
+      'spectrum sportsnet hd',
+      'specsn',
+      'sportsnet lakers',
+      'spectrum sportsnet+',
+      'spectrum sportsnet plus',
+      'specsn+',
+      'twc sportsnet',
+    ],
+    scrubBroadcastBeforeScheduleMatch:
+      /\b(?:spectrum\s+)?sportsnet\s+la\b|\bsnla\b|\bspectrum\s+dodgers\b|\bdodgers?\s+(?:tv|network)\b|\bspectrum\s+snla\b/gi,
+    channelPhrases: [
+      'spectrum sportsnet',
+      'spectrum sportsnet hd',
+      'specsn',
+      'sportsnet lakers',
+      'spectrum sportsnet+',
+      'spectrum sportsnet plus',
+      'specsn+',
+      'twc sportsnet',
+    ],
+    excludePhrases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+      'spectrum news',
+      'spectrum news 1',
+      'spectrum bay news',
+      'bay news 9',
+      'spectrum oc16',
+      'oc16',
+    ],
   },
   {
     key: 'fanduel-sports',
@@ -1318,8 +1614,22 @@ export const OFFICIAL_BROADCASTER_SPECS: OfficialBroadcasterSpec[] = [
     key: 'sportsnet',
     label: 'Sportsnet',
     scheduleAliases: ['sportsnet'],
+    scrubBroadcastBeforeScheduleMatch:
+      /\b(?:spectrum\s+)?sportsnet\s+la\b|\bspectrum\s+sportsnet(?:\s+hd|\s*\+|\s+plus)?\b|\bsportsnet\s+lakers\b|\btwc\s+sportsnet\b/gi,
     channelPhrases: ['sportsnet', 'sportsnet one', 'sportsnet 360', 'sportsnet east', 'sportsnet west', 'sportsnet ontario'],
-    excludePhrases: ['spectrum sportsnet', 'sportsnet la'],
+    excludePhrases: [
+      'spectrum sportsnet',
+      'spectrum sportsnet hd',
+      'spectrum sportsnet+',
+      'spectrum sportsnet plus',
+      'specsn',
+      'specsn+',
+      'twc sportsnet',
+      'sportsnet lakers',
+      'sportsnet la',
+      'spectrum sportsnet la',
+      'snla',
+    ],
   },
   {
     key: 'dazn',
@@ -1511,18 +1821,22 @@ function evaluateLeagueSlotTier(
     ) {
       return { score: 310, reason: 'MLB Event Slot' };
     }
-  } else if (league === 'UFC') {
+  } else if ((league as string).toUpperCase() === 'UFC' || (league as string).toUpperCase() === 'MMA') {
     if (
       hasNormalizedPhrase(normalizedHaystack, 'ufc ppv') ||
       hasNormalizedPhrase(normalizedHaystack, 'ufc fight pass') ||
       hasNormalizedPhrase(normalizedHaystack, 'fight pass') ||
       hasNormalizedPhrase(normalizedHaystack, 'ufc main event') ||
-      hasNormalizedPhrase(normalizedHaystack, 'ufc prelims')
+      hasNormalizedPhrase(normalizedHaystack, 'ufc prelims') ||
+      hasNormalizedPhrase(normalizedHaystack, 'ufc live') ||
+      hasNormalizedPhrase(normalizedHaystack, 'mma ppv') ||
+      hasNormalizedPhrase(normalizedHaystack, 'ufc network') ||
+      hasNormalizedPhrase(normalizedHaystack, 'ufc espanol')
     ) {
-      return { score: 340, reason: 'UFC PPV / Fight Pass' };
+      return { score: 340, reason: 'UFC PPV / Event Slot' };
     }
     if (
-      /\bufc(?:\s*(?:ppv|live|fight|event|events|hd|fhd|uhd|4k|ch|channel))?\s*0*(?:[1-9]\d{0,2})\b/i.test(
+      /\bufc(?:\s*(?:ppv|live|fight|event|events|hd|fhd|uhd|4k|ch|channel))?\s*0*(?:[1-9]|1\d|20)\b/i.test(
         normalizedHaystack
       )
     ) {
@@ -1533,6 +1847,44 @@ function evaluateLeagueSlotTier(
   return null;
 }
 
+function checkUfcEventTitleMatch(
+  match: SportsMatch,
+  normalizedHaystack: string
+): { matched: boolean; scoreBoost: number; reason?: string } {
+  const leagueUpper = String(match.league || '').toUpperCase();
+  if (leagueUpper !== 'UFC' && leagueUpper !== 'MMA') {
+    return { matched: false, scoreBoost: 0 };
+  }
+
+  const eventTitleNorm = normalizeMatchText(`${match.name || ''} ${match.shortName || ''}`);
+  if (!eventTitleNorm) return { matched: false, scoreBoost: 0 };
+
+  // Match numbered UFC PPV events cleanly (e.g. "UFC 315", "UFC 300") without colliding with UFC 1-20 slots
+  const numberedPpv = /\bufc\s*0*(\d{2,3})\b/.exec(eventTitleNorm);
+  if (numberedPpv) {
+    const ppvNum = numberedPpv[1];
+    const rx = new RegExp(`\\bufc\\s*0*${ppvNum}\\b`, 'i');
+    if (rx.test(normalizedHaystack)) {
+      return { matched: true, scoreBoost: 95, reason: `UFC ${ppvNum}` };
+    }
+  }
+
+  // Match UFC Fight Night event title (+ Fight Night number if the card specifies one)
+  if (hasNormalizedPhrase(eventTitleNorm, 'ufc fight night')) {
+    const fnNumMatch = /\bufc\s+fight\s+night\s*0*(\d{2,3})\b/.exec(eventTitleNorm);
+    if (fnNumMatch) {
+      const fnRx = new RegExp(`\\bufc\\s+fight\\s+night\\s*0*${fnNumMatch[1]}\\b`, 'i');
+      if (fnRx.test(normalizedHaystack)) {
+        return { matched: true, scoreBoost: 80, reason: `UFC Fight Night ${fnNumMatch[1]}` };
+      }
+    } else if (hasNormalizedPhrase(normalizedHaystack, 'ufc fight night')) {
+      return { matched: true, scoreBoost: 60, reason: 'UFC Fight Night' };
+    }
+  }
+
+  return { matched: false, scoreBoost: 0 };
+}
+
 function checkCompetitorPairHit(
   match: SportsMatch,
   haystackRaw: string,
@@ -1540,7 +1892,7 @@ function checkCompetitorPairHit(
 ): { exactEventIdMatched: boolean; bothTeamsMatched: boolean; scoreBoost: number; reason?: string } {
   const normalizedHaystack = normalizeMatchText(haystackRaw);
   const eventIdNorm = normalizeMatchText(match.id);
-  const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb)-/i, '').trim();
+  const rawEventId = match.id.replace(/^(nba|nfl|ufc|mlb|mma)-/i, '').trim();
   const rawEventIdNorm = normalizeMatchText(rawEventId);
   const explicitNorm = explicitEventId ? normalizeMatchText(explicitEventId) : '';
 
@@ -1557,8 +1909,8 @@ function checkCompetitorPairHit(
         hasNormalizedPhrase(normalizedHaystack, rawEventIdNorm)
     );
 
-  const rawAwayTerms = buildCompetitorMatchTerms(match.awayTeam);
-  const rawHomeTerms = buildCompetitorMatchTerms(match.homeTeam);
+  const rawAwayTerms = buildCompetitorMatchTerms(match.awayTeam, match.league);
+  const rawHomeTerms = buildCompetitorMatchTerms(match.homeTeam, match.league);
 
   const sharedTerms = new Set(rawAwayTerms.filter((t) => rawHomeTerms.includes(t)));
   const awayTerms = rawAwayTerms.filter((t) => !sharedTerms.has(t));
@@ -1566,7 +1918,9 @@ function checkCompetitorPairHit(
 
   const awayHits = awayTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
   const homeHits = homeTerms.filter((term) => hasNormalizedPhrase(normalizedHaystack, term));
-  const bothTeamsMatched = awayHits.length > 0 && homeHits.length > 0;
+  const ufcEventHit = checkUfcEventTitleMatch(match, normalizedHaystack);
+  const bothTeamsMatched =
+    (awayHits.length > 0 && homeHits.length > 0) || ufcEventHit.matched;
 
   let scoreBoost = 0;
   let reason: string | undefined;
@@ -1574,9 +1928,12 @@ function checkCompetitorPairHit(
     scoreBoost += 120;
     reason = 'Exact Event ID';
   }
-  if (bothTeamsMatched) {
+  if (awayHits.length > 0 && homeHits.length > 0) {
     scoreBoost += 40 + awayHits.length * 8 + homeHits.length * 8;
     reason = `${match.awayTeam.shortName} vs ${match.homeTeam.shortName}`;
+  } else if (ufcEventHit.matched) {
+    scoreBoost += ufcEventHit.scoreBoost;
+    reason = ufcEventHit.reason;
   }
 
   return { exactEventIdMatched, bothTeamsMatched, scoreBoost, reason };

@@ -12,6 +12,7 @@ export type LiveFilterCategory =
 
 export type RecommendedSectionId =
   | 'major_sports'
+  | 'combat_regional_sports'
   | 'kids_family'
   | 'cable_entertainment'
   | 'broadcast_news';
@@ -38,6 +39,11 @@ export const RECOMMENDED_SECTIONS: Array<{
     id: 'major_sports',
     title: 'Major Sports',
     subtitle: 'Flagship national sports networks & league coverage',
+  },
+  {
+    id: 'combat_regional_sports',
+    title: 'Combat & Regional Sports',
+    subtitle: 'UFC Octagon PPV & Fight Pass alongside Spectrum LA Sports (Lakers · Dodgers)',
   },
   {
     id: 'kids_family',
@@ -249,6 +255,142 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     description: 'NBC Sports NOW & Regional live desk, Premier League, NBA, and Sunday Night Football.',
     tvgId: 'NBCSports.us',
     matchPhrases: ['nbc sports', 'nbc sports now', 'nbcsn'],
+    accent: '#D4AF37',
+  },
+
+  // ── Combat & Regional Sports (7) ───────────────────────────────────
+  {
+    id: 'rec-ufc-ppv',
+    name: 'UFC PPV / Main Event',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'UFC PPV',
+    subtitle: 'Octagon Main Card',
+    description: 'UFC Numbered PPV Main Card, Championship bouts, and Octagon Studio Desk.',
+    tvgId: 'UFCPPV.us',
+    matchPhrases: ['ufc ppv main event', 'ufc ppv', 'ufc main event', 'mma ppv'],
+    rawRegexes: [/\bufc\s*(?:ppv|main\s*event)\b/i],
+    excludePhrases: ['fight pass', 'fight night'],
+    accent: '#EF4444',
+  },
+  {
+    id: 'rec-ufc-fight-pass',
+    name: 'UFC Fight Pass',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'FIGHT PASS',
+    subtitle: 'UFC Prelims & MMA',
+    description: 'UFC Early Prelims, Dana White Contender Series, Cage Warriors, and combat archives.',
+    tvgId: 'UFCFightPass.us',
+    matchPhrases: ['ufc fight pass', 'fight pass', 'ufcfightpass'],
+    excludePhrases: ['ppv', 'fight night'],
+    accent: '#f59e0b',
+  },
+  {
+    id: 'rec-ufc-fight-night',
+    name: 'UFC Fight Night',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'FIGHT NIGHT',
+    subtitle: 'UFC on ESPN / Apex',
+    description: 'Weekly UFC Fight Night Apex & international arena cards and live weigh-ins.',
+    tvgId: 'UFCFightNight.us',
+    matchPhrases: ['ufc fight night', 'ufc prelims', 'ufc on espn'],
+    excludePhrases: ['ppv', 'fight pass', 'ufc network'],
+    accent: '#D4AF37',
+  },
+  {
+    id: 'rec-ufc-network',
+    name: 'UFC Network',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'UFC NET',
+    subtitle: '24/7 · UFC Español',
+    description: '24/7 UFC Network, UFC Español, UFC Live fight coverage, and Embedded series.',
+    tvgId: 'UFCNetwork.us',
+    matchPhrases: ['ufc network', 'ufc espanol', 'ufc live', 'ufc tv'],
+    rawRegexes: [/\bufc\s*(?:network|espa[nñ]ol|live|tv)\b/i],
+    excludePhrases: ['ppv', 'fight pass', 'fight night', 'prelims'],
+    accent: '#E2C275',
+  },
+  {
+    id: 'rec-spectrum-sportsnet',
+    name: 'Spectrum SportsNet',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'SPECSN',
+    subtitle: 'Lakers & LA Sports',
+    description: 'Home of Los Angeles Lakers basketball, LA Sparks, LA Galaxy, and Access SportsNet.',
+    tvgId: 'SpectrumSportsNet.us',
+    matchPhrases: [
+      'spectrum sportsnet',
+      'spectrum sportsnet hd',
+      'specsn',
+      'sportsnet lakers',
+      'twc sportsnet',
+    ],
+    excludePhrases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+      'spectrum news',
+      'spectrum bay news',
+      'spectrum oc16',
+    ],
+    excludeRawRegexes: [/spectrum\s+sportsnet\s*(?:\+|plus)/i, /\bsportsnet\s+plus\b/i, /\bspecsn\s*\+/i],
+    accent: '#f59e0b',
+  },
+  {
+    id: 'rec-spectrum-sportsnet-la',
+    name: 'Spectrum SportsNet LA',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'SNLA',
+    subtitle: 'Dodgers Network',
+    description: 'Exclusive Los Angeles Dodgers regional games, Backstage: Dodgers, and Access SportsNet LA.',
+    tvgId: 'SportsNetLA.us',
+    matchPhrases: [
+      'spectrum sportsnet la',
+      'sportsnet la',
+      'snla',
+      'dodgers tv',
+      'dodger network',
+      'spectrum dodgers',
+      'spectrum snla',
+    ],
+    excludePhrases: ['spectrum news', 'spectrum bay news', 'spectrum oc16'],
+    accent: '#E2C275',
+  },
+  {
+    id: 'rec-spectrum-sportsnet-plus',
+    name: 'Spectrum SportsNet+',
+    section: 'combat_regional_sports',
+    filterCategory: 'sports',
+    category: 'sports',
+    group: 'Combat & Regional Sports',
+    logoCode: 'SPECSN+',
+    subtitle: 'Lakers DTC Feed',
+    description: 'Spectrum SportsNet+ direct-to-consumer Lakers & SoCal regional live feeds and alternate courtside angles.',
+    tvgId: 'SpectrumSportsNetPlus.us',
+    matchPhrases: ['spectrum sportsnet plus', 'specsn plus'],
+    rawRegexes: [/spectrum\s+sportsnet\s*(?:\+|plus)/i, /\bspecsn\s*(?:\+|plus)/i],
+    excludePhrases: ['spectrum sportsnet la', 'sportsnet la', 'snla', 'spectrum news'],
     accent: '#D4AF37',
   },
 
@@ -837,8 +979,12 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
     score += 30;
   }
   if (ch.sourceId) {
-    // Prefer user-imported M3U streams first when available, retaining built-ins as Server II/III
-    score += 20;
+    // User-imported M3U streams always outrank built-in channels so real streams become Server I
+    score += 60;
+  }
+  if (ch.excludeFromMatchRouting) {
+    // Prefer real verified streams ahead of static showcase placeholders
+    score -= 25;
   }
   if (/\b(fhd|1080p|4k|uhd)\b/i.test(rawName)) score += 8;
   return score;
@@ -865,6 +1011,7 @@ export function buildRecommendedGuide(channels: Channel[]): RecommendedGuideResu
   const items: RecommendedChannelItem[] = [];
   const bySection: Record<RecommendedSectionId, RecommendedChannelItem[]> = {
     major_sports: [],
+    combat_regional_sports: [],
     kids_family: [],
     cable_entertainment: [],
     broadcast_news: [],
@@ -989,9 +1136,16 @@ export function channelMatchesLiveFilter(
   const text = `${ch.name} ${ch.group} ${ch.league || ''}`.toLowerCase();
 
   if (filter === 'sports') {
+    if (
+      /\b(?:spectrum\s+(?:bay\s+)?news(?:\s+\d+)?|spectrum\s+oc\s*16|bay\s+news\s+9|ny1)\b/i.test(
+        text
+      )
+    ) {
+      return false;
+    }
     return (
       ch.category === 'sports' ||
-      /\b(espn|tnt|tbs|fs1|fs2|nfl|nba|mlb|nhl|sports|sport|bein|dazn|golf|tennis|ufc)\b/.test(
+      /\b(espn|tnt|tbs|fs1|fs2|nfl|nba|mlb|nhl|sports|sport|sportsnet|snla|specsn|spectrum sportsnet|bein|dazn|golf|tennis|ufc|mma|ppv|fight pass)\b/.test(
         text
       )
     );

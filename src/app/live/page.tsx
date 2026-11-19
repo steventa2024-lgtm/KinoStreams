@@ -257,7 +257,7 @@ export default function LiveTvPage() {
                 type="text"
                 value={filterText}
                 onChange={(e) => setFilterText(e.target.value)}
-                placeholder="Search all channels (ESPN, Disney, CNN...)"
+                placeholder="Search all channels (ESPN, UFC, Spectrum, Disney...)"
                 className="min-h-[44px] w-56 rounded-full border border-white/[0.08] bg-[#151517] pr-9 pl-10 text-xs text-[#FAFAFA] placeholder-[#71717A] focus:border-[#f59e0b]/60 focus:outline-none sm:w-72"
               />
               {isSearching && (

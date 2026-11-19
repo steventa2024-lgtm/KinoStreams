@@ -45,13 +45,15 @@ async function findMatchById(
   const localMatch = FALLBACK_SPORTS_MATCHES.find((m) => m.id === gameId);
   if (localMatch) return normalizeSportsMatch(localMatch);
 
-  const prefixLeague = gameId.split('-')[0]?.toUpperCase() as SportsLeague;
-  const leagueQuery =
-    prefixLeague === 'NBA' ||
-    prefixLeague === 'NFL' ||
-    prefixLeague === 'UFC' ||
-    prefixLeague === 'MLB'
-      ? prefixLeague
+  const rawPrefix = gameId.split('-')[0]?.toUpperCase();
+  const leagueQuery: SportsLeague | 'all' =
+    rawPrefix === 'MMA'
+      ? 'UFC'
+      : rawPrefix === 'NBA' ||
+        rawPrefix === 'NFL' ||
+        rawPrefix === 'UFC' ||
+        rawPrefix === 'MLB'
+      ? rawPrefix
       : 'all';
 
   try {

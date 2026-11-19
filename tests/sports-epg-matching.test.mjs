@@ -95,9 +95,12 @@ const {
 const { FALLBACK_CHANNELS, FALLBACK_SPORTS_MATCHES } = loadTsModule(
   path.join(SRC_DIR, 'config', 'fallback-streams.ts')
 );
-const { buildRecommendedGuide } = loadTsModule(
-  path.join(SRC_DIR, 'lib', 'live-guide.ts')
-);
+const {
+  RECOMMENDED_CHANNELS,
+  RECOMMENDED_SECTIONS,
+  buildRecommendedGuide,
+  channelMatchesLiveFilter,
+} = loadTsModule(path.join(SRC_DIR, 'lib', 'live-guide.ts'));
 
 function formatXmltvTimestamp(date) {
   const yr = date.getUTCFullYear();
@@ -405,4 +408,468 @@ test('Regression: word boundaries block TSN/Nets & ABC/23ABC collisions, and Liv
   assert.ok(guide && Array.isArray(guide.items) && guide.items.length >= 4, 'Live TV Recommended guide remains intact');
   assert.ok(FALLBACK_SPORTS_MATCHES.length > 0, 'Fallback sports matches still populated');
   assert.ok(groupMatchedLiveFeeds(netsMatched).length === 0);
+});
+
+test('Case (d): Lakers scheduled on Spectrum SportsNet matches SpecSN feeds and blocks SNLA & Spectrum News', () => {
+  const lakersMatch = makeNbaMatch({
+    id: 'nba-lakers-specsn',
+    broadcast: 'Spectrum SportsNet',
+    awayName: 'Golden State Warriors',
+    awayShort: 'Warriors',
+    awayAbbr: 'GSW',
+    homeName: 'Los Angeles Lakers',
+    homeShort: 'Lakers',
+    homeAbbr: 'LAL',
+  });
+
+  const importedSpectrumPlaylist = [
+    ...FALLBACK_CHANNELS,
+    {
+      id: 'm3u-specsn-hd',
+      name: 'Spectrum SportsNet HD',
+      group: 'NBA Regional',
+      category: 'sports',
+      quality: '1080p',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/specsn-hd/index.m3u8',
+    },
+    {
+      id: 'm3u-specsn-plus',
+      name: 'Spectrum SportsNet+',
+      group: 'NBA Regional',
+      category: 'sports',
+      quality: '1080p',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/specsn-plus/index.m3u8',
+    },
+    {
+      id: 'm3u-snla',
+      name: 'Spectrum SportsNet LA',
+      group: 'MLB Regional',
+      category: 'sports',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/snla/index.m3u8',
+    },
+    {
+      id: 'm3u-snla-short',
+      name: 'SNLA HD',
+      group: 'MLB Regional',
+      category: 'sports',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/snla-short/index.m3u8',
+    },
+    {
+      id: 'm3u-spectrum-news-1',
+      name: 'Spectrum News 1 SoCal',
+      group: 'Local News',
+      category: 'live',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/spectrum-news1/index.m3u8',
+    },
+    {
+      id: 'm3u-spectrum-oc16',
+      name: 'Spectrum OC16',
+      group: 'Local News',
+      category: 'live',
+      sourceId: 'src-la',
+      sourceName: 'SoCal M3U',
+      url: 'https://example-cdn.test/spectrum-oc16/index.m3u8',
+    },
+  ];
+
+  const matched = matchBroadcastChannelsForMatch(lakersMatch, importedSpectrumPlaylist, {});
+  const matchedIds = matched.map((m) => m.channel.id);
+
+  assert.ok(matchedIds.includes('m3u-specsn-hd'), 'Imported Spectrum SportsNet HD must match');
+  assert.ok(matchedIds.includes('m3u-specsn-plus'), 'Imported Spectrum SportsNet+ must match');
+  assert.equal(matchedIds.includes('net-spectrum-sportsnet'), false, 'Static showcase placeholder must stay excluded from match routing');
+  assert.equal(matchedIds.includes('m3u-snla'), false, 'Dodgers Spectrum SportsNet LA must be rejected on Lakers Spectrum SportsNet game');
+  assert.equal(matchedIds.includes('m3u-snla-short'), false, 'Dodgers SNLA must be rejected on Lakers game');
+  assert.equal(matchedIds.includes('m3u-spectrum-news-1'), false, 'Spectrum News 1 must be rejected');
+  assert.equal(matchedIds.includes('m3u-spectrum-oc16'), false, 'Spectrum OC16 must be rejected');
+
+  const { streams, broadcasterGroups } = resolveSportsMatchStreamSources({
+    match: lakersMatch,
+    channels: importedSpectrumPlaylist,
+    epgSchedules: {},
+  });
+
+  const specGroup = broadcasterGroups.find((g) => g.networkKey === 'spectrum-sportsnet');
+  assert.ok(specGroup, 'Spectrum SportsNet official group must exist');
+  assert.equal(specGroup.badgeTag, 'OFFICIAL');
+  assert.equal(specGroup.sources.length, 2, 'Should group SpecSN HD + SpecSN+ under one group');
+  assert.ok(streams.length >= 2);
+});
+
+test('Case (e): Dodgers scheduled on Spectrum SportsNet LA matches SportsNet LA / SNLA and blocks Spectrum News & Lakers SpecSN', () => {
+  const dodgersMatch = {
+    id: 'mlb-dodgers-snla',
+    league: 'MLB',
+    statusState: 'in',
+    statusText: 'LIVE · Top 5th',
+    date: new Date().toISOString(),
+    broadcast: 'Spectrum SportsNet LA',
+    venue: 'Dodger Stadium',
+    shortName: 'SD @ LAD',
+    name: 'San Diego Padres at Los Angeles Dodgers',
+    awayTeam: {
+      id: 'sd',
+      name: 'San Diego Padres',
+      shortName: 'Padres',
+      abbreviation: 'SD',
+      score: '2',
+    },
+    homeTeam: {
+      id: 'lad',
+      name: 'Los Angeles Dodgers',
+      shortName: 'Dodgers',
+      abbreviation: 'LAD',
+      score: '4',
+    },
+  };
+
+  const playlist = [
+    ...FALLBACK_CHANNELS,
+    {
+      id: 'm3u-sportsnet-la',
+      name: 'SportsNet LA HD',
+      group: 'MLB LA',
+      category: 'sports',
+      quality: '1080p',
+      sourceId: 'src-la',
+      url: 'https://example-cdn.test/sportsnet-la/index.m3u8',
+    },
+    {
+      id: 'm3u-snla-dodgers',
+      name: 'SNLA Dodgers Feed',
+      group: 'MLB LA',
+      category: 'sports',
+      quality: '720p',
+      sourceId: 'src-la',
+      url: 'https://example-cdn.test/snla-dodgers/index.m3u8',
+    },
+    {
+      id: 'm3u-specsn-lakers',
+      name: 'Spectrum SportsNet',
+      group: 'NBA LA',
+      category: 'sports',
+      sourceId: 'src-la',
+      url: 'https://example-cdn.test/specsn/index.m3u8',
+    },
+    {
+      id: 'm3u-spectrum-news-1',
+      name: 'Spectrum News 1',
+      group: 'News',
+      category: 'live',
+      sourceId: 'src-la',
+      url: 'https://example-cdn.test/spectrum-news-1/index.m3u8',
+    },
+  ];
+
+  const matched = matchBroadcastChannelsForMatch(dodgersMatch, playlist, {});
+  const ids = matched.map((m) => m.channel.id);
+
+  assert.ok(ids.includes('m3u-sportsnet-la'), 'SportsNet LA HD should match');
+  assert.ok(ids.includes('m3u-snla-dodgers'), 'SNLA Dodgers Feed should match');
+  assert.equal(ids.includes('m3u-specsn-lakers'), false, 'Lakers Spectrum SportsNet must NOT match Dodgers SNLA game');
+  assert.equal(ids.includes('m3u-spectrum-news-1'), false, 'Spectrum News 1 must be excluded');
+  assert.equal(ids.includes('net-spectrum-sportsnet-la'), false, 'Static SNLA showcase placeholder must stay excluded');
+
+  const { streams, broadcasterGroups } = resolveSportsMatchStreamSources({
+    match: dodgersMatch,
+    channels: playlist,
+    epgSchedules: {},
+  });
+
+  assert.equal(broadcasterGroups.length, 1);
+  assert.equal(broadcasterGroups[0].networkKey, 'spectrum-sportsnet-la');
+  assert.equal(broadcasterGroups[0].badgeTag, 'OFFICIAL');
+  assert.equal(broadcasterGroups[0].sources.length, 2);
+  assert.equal(streams.length, 2);
+});
+
+test('Case (f): Live UFC / MMA card matches UFC PPV, UFC Fight Pass, EPG/event-numbered Tier 1 & Tier 3 slots', () => {
+  const now = Date.now();
+  const xmltv = `<?xml version="1.0" encoding="UTF-8"?>
+<tv>
+  <channel id="ufc.epg.arena">
+    <display-name>Combat Arena 3</display-name>
+  </channel>
+  <programme start="${formatXmltvTimestamp(new Date(now - 20 * 60 * 1000))}" stop="${formatXmltvTimestamp(new Date(now + 90 * 60 * 1000))}" channel="ufc.epg.arena">
+    <title>UFC 315: Muhammad vs. Della Maddalena</title>
+  </programme>
+</tv>`;
+  const parsedXml = parseXmltvFeed(xmltv, now);
+  const schedules = buildScheduleMapFromXmltv(
+    parsedXml.programsByChannel,
+    parsedXml.displayNamesByChannelId,
+    now
+  );
+
+  const ufcCard = {
+    id: 'ufc-600055111',
+    league: 'MMA',
+    statusState: 'in',
+    statusText: 'LIVE Main Card',
+    date: new Date().toISOString(),
+    broadcast: 'ESPN+ PPV / UFC Fight Pass',
+    venue: 'Bell Centre',
+    shortName: 'UFC 315',
+    name: 'UFC 315: Muhammad vs. Della Maddalena',
+    awayTeam: {
+      id: 'f1',
+      name: 'Belal Muhammad',
+      shortName: 'B. Muhammad',
+      abbreviation: 'USA',
+    },
+    homeTeam: {
+      id: 'f2',
+      name: 'Jack Della Maddalena',
+      shortName: 'J. Della Maddalena',
+      abbreviation: 'AUS',
+    },
+  };
+
+  const playlist = [
+    ...FALLBACK_CHANNELS,
+    {
+      id: 'm3u-epg-arena',
+      name: 'Combat Arena 3',
+      group: 'Combat Sports',
+      category: 'sports',
+      tvgId: 'ufc.epg.arena',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/combat-arena3/index.m3u8',
+    },
+    {
+      id: 'm3u-ufc-315-direct',
+      name: 'UFC 315 Main Card FHD',
+      group: 'PPV Events',
+      category: 'sports',
+      quality: '1080p',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/ufc-315/index.m3u8',
+    },
+    {
+      id: 'm3u-ufc-ppv',
+      name: 'UFC PPV HD',
+      group: 'PPV Events',
+      category: 'sports',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/ufc-ppv/index.m3u8',
+    },
+    {
+      id: 'm3u-ufc-fight-pass',
+      name: 'UFC Fight Pass HD',
+      group: 'Combat',
+      category: 'sports',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/ufc-fight-pass/index.m3u8',
+    },
+    {
+      id: 'm3u-ufc-slot-4',
+      name: 'UFC 4 Event Live',
+      group: 'PPV Slots',
+      category: 'sports',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/ufc-slot-4/index.m3u8',
+    },
+    {
+      id: 'm3u-mma-ppv-slot',
+      name: 'MMA PPV Feed',
+      group: 'PPV Slots',
+      category: 'sports',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/mma-ppv/index.m3u8',
+    },
+    {
+      id: 'fake-country-code-collision',
+      name: 'USA Australia Travel',
+      group: 'Travel',
+      category: 'live',
+      sourceId: 'src-combat',
+      url: 'https://example-cdn.test/travel/index.m3u8',
+    },
+  ];
+
+  const { streams, matchedFeeds, broadcasterGroups } = resolveSportsMatchStreamSources({
+    match: ufcCard,
+    channels: playlist,
+    epgSchedules: schedules,
+  });
+
+  assert.equal(
+    matchedFeeds.some((f) => f.channel.id === 'fake-country-code-collision'),
+    false,
+    '3-letter country codes (USA / AUS) must not falsely trigger UFC fighter match'
+  );
+  assert.equal(
+    matchedFeeds.some((f) => f.channel.id === 'net-ufc-ppv' || f.channel.id === 'net-ufc-fight-pass'),
+    false,
+    'Static showcase UFC entries must remain excluded from sports match routing'
+  );
+
+  const arenaFeed = matchedFeeds.find((f) => f.channel.id === 'm3u-epg-arena');
+  const direct315 = matchedFeeds.find((f) => f.channel.id === 'm3u-ufc-315-direct');
+  const ppvFeed = matchedFeeds.find((f) => f.channel.id === 'm3u-ufc-ppv');
+  const fpFeed = matchedFeeds.find((f) => f.channel.id === 'm3u-ufc-fight-pass');
+  const slot4Feed = matchedFeeds.find((f) => f.channel.id === 'm3u-ufc-slot-4');
+  const mmaSlotFeed = matchedFeeds.find((f) => f.channel.id === 'm3u-mma-ppv-slot');
+
+  assert.equal(arenaFeed?.tier, 'epg_verified');
+  assert.equal(direct315?.tier, 'direct_match');
+  assert.equal(ppvFeed?.tier, 'broadcaster_match');
+  assert.equal(fpFeed?.tier, 'broadcaster_match');
+  assert.equal(slot4Feed?.tier, 'league_slot');
+  assert.equal(mmaSlotFeed?.tier, 'league_slot');
+
+  // Auto-play prioritizes Tier 1 feeds first
+  assert.equal(broadcasterGroups[0].badgeTag, 'EPG LIVE');
+  assert.equal(streams[0].url, 'https://example-cdn.test/combat-arena3/index.m3u8');
+  assert.ok(broadcasterGroups.some((g) => g.networkKey === 'ufc-ppv' && g.badgeTag === 'OFFICIAL'));
+  assert.ok(broadcasterGroups.some((g) => g.networkKey === 'ufc-fight-pass' && g.badgeTag === 'OFFICIAL'));
+});
+
+test('Case (g): Live TV Recommended & Sports tabs surface UFC & Spectrum cards cleanly without duplicates', () => {
+  const m3uChannels = [
+    ...FALLBACK_CHANNELS,
+    {
+      id: 'm3u-specsn-1',
+      name: 'Spectrum SportsNet HD',
+      group: 'Sports',
+      category: 'sports',
+      sourceId: 'src-live',
+      sourceName: 'Main M3U',
+      url: 'https://example-cdn.test/live-specsn-1/index.m3u8',
+    },
+    {
+      id: 'm3u-specsn-2',
+      name: 'Spectrum SportsNet West',
+      group: 'Sports',
+      category: 'sports',
+      sourceId: 'src-live',
+      sourceName: 'Backup M3U',
+      url: 'https://example-cdn.test/live-specsn-2/index.m3u8',
+    },
+    {
+      id: 'm3u-snla-1',
+      name: 'SNLA Dodgers HD',
+      group: 'Sports',
+      category: 'sports',
+      sourceId: 'src-live',
+      sourceName: 'Main M3U',
+      url: 'https://example-cdn.test/live-snla-1/index.m3u8',
+    },
+    {
+      id: 'm3u-specsn-plus-1',
+      name: 'Spectrum SportsNet+',
+      group: 'Sports',
+      category: 'sports',
+      sourceId: 'src-live',
+      sourceName: 'Main M3U',
+      url: 'https://example-cdn.test/live-specsn-plus/index.m3u8',
+    },
+    {
+      id: 'm3u-ufc-espanol',
+      name: 'UFC Español HD',
+      group: 'Combat',
+      category: 'sports',
+      sourceId: 'src-live',
+      sourceName: 'Main M3U',
+      url: 'https://example-cdn.test/live-ufc-es/index.m3u8',
+    },
+    {
+      id: 'm3u-spectrum-news-1',
+      name: 'Spectrum News 1 LA',
+      group: 'News',
+      category: 'live',
+      sourceId: 'src-live',
+      sourceName: 'Main M3U',
+      url: 'https://example-cdn.test/live-spectrum-news/index.m3u8',
+    },
+  ];
+
+  const guide = buildRecommendedGuide(m3uChannels);
+  assert.ok(RECOMMENDED_SECTIONS.some((s) => s.id === 'combat_regional_sports'));
+
+  const combatSectionIds = guide.bySection.combat_regional_sports.map((i) => i.channel.id);
+  const expectedIds = [
+    'rec-ufc-ppv',
+    'rec-ufc-fight-pass',
+    'rec-ufc-fight-night',
+    'rec-ufc-network',
+    'rec-spectrum-sportsnet',
+    'rec-spectrum-sportsnet-la',
+    'rec-spectrum-sportsnet-plus',
+  ];
+
+  for (const expectedId of expectedIds) {
+    assert.ok(combatSectionIds.includes(expectedId), `Combat & Regional section missing ${expectedId}`);
+    assert.equal(
+      guide.items.filter((i) => i.channel.id === expectedId).length,
+      1,
+      `${expectedId} must appear exactly once in Recommended guide`
+    );
+  }
+
+  // Verify imported Spectrum SportsNet merges mirrors & keeps built-in showcase excluded from sports match routing
+  const specItem = guide.bySection.combat_regional_sports.find(
+    (i) => i.channel.id === 'rec-spectrum-sportsnet'
+  );
+  assert.ok(specItem);
+  assert.equal(specItem.channel.url, 'https://example-cdn.test/live-specsn-1/index.m3u8');
+  assert.ok(specItem.serverCount >= 2, 'Imported mirrors merge as backup Server I/II/III feeds');
+
+  const snlaItem = guide.bySection.combat_regional_sports.find(
+    (i) => i.channel.id === 'rec-spectrum-sportsnet-la'
+  );
+  assert.equal(snlaItem?.channel.url, 'https://example-cdn.test/live-snla-1/index.m3u8');
+
+  const plusItem = guide.bySection.combat_regional_sports.find(
+    (i) => i.channel.id === 'rec-spectrum-sportsnet-plus'
+  );
+  assert.equal(plusItem?.channel.url, 'https://example-cdn.test/live-specsn-plus/index.m3u8');
+
+  const ufcNetItem = guide.bySection.combat_regional_sports.find(
+    (i) => i.channel.id === 'rec-ufc-network'
+  );
+  assert.equal(ufcNetItem?.channel.url, 'https://example-cdn.test/live-ufc-es/index.m3u8');
+
+  // Verify Sports filter pill includes all 7 curated entries & zero duplicates from matched imported channels
+  const curatedSports = guide.items.filter((i) => i.def.filterCategory === 'sports');
+  const seenUrls = new Set(curatedSports.map((i) => i.channel.url));
+  const extraSports = m3uChannels.filter(
+    (ch) =>
+      !guide.matchedSourceChannelIds.has(ch.id) &&
+      !seenUrls.has(ch.url) &&
+      channelMatchesLiveFilter(ch, 'sports')
+  );
+
+  for (const expectedId of expectedIds) {
+    assert.ok(
+      curatedSports.some((i) => i.channel.id === expectedId),
+      `Sports filter must include ${expectedId}`
+    );
+  }
+  assert.equal(
+    extraSports.some(
+      (c) => c.id === 'm3u-specsn-1' || c.id === 'm3u-specsn-2' || c.id === 'm3u-snla-1' || c.id === 'm3u-spectrum-news-1'
+    ),
+    false,
+    'Sports filter extras must not duplicate merged cards or include Spectrum News 1'
+  );
+  assert.equal(
+    channelMatchesLiveFilter(
+      m3uChannels.find((c) => c.id === 'm3u-spectrum-news-1'),
+      'news'
+    ),
+    true,
+    'Spectrum News 1 belongs under News'
+  );
+  assert.ok(RECOMMENDED_CHANNELS.length >= expectedIds.length);
 });

@@ -431,6 +431,34 @@ const EPG_TEMPLATES: Record<string, Array<{ title: string; description: string; 
     { title: 'CBS Sports Golazo & HQ', description: 'Champions League, NFL Sunday preview, and live scores.', category: 'Soccer' },
     { title: 'NCAA Showcase Studio', description: 'Bracketology and conference play.', category: 'Basketball' },
   ],
+  'UFCPPV.us': [
+    { title: 'UFC PPV Countdown & Main Card Preview', description: 'Embedded fight week chronicles, championship weigh-ins, and Octagon breakdown.', category: 'Combat Sports' },
+    { title: 'Octagon Main Event Encore', description: 'Championship bout analysis and post-fight press desk.', category: 'Combat Sports' },
+  ],
+  'UFCFightPass.us': [
+    { title: 'Dana White Contender Series & Fight Pass Live', description: 'Live early prelims, Cage Warriors, and Octagon grappling showcases.', category: 'Combat Sports' },
+    { title: 'UFC Fight Vault Marathon', description: 'Classic title defenses and five-round battles from the Fight Pass library.', category: 'Combat Sports' },
+  ],
+  'UFCFightNight.us': [
+    { title: 'UFC Fight Night Studio & Weigh-Ins', description: 'Official weigh-in show, tale of the tape, and Apex card coverage.', category: 'Combat Sports' },
+    { title: 'Fight Night Post-Fight Desk', description: 'Bonus awards recap and division rankings update.', category: 'Combat Sports' },
+  ],
+  'UFCNetwork.us': [
+    { title: 'UFC Now & UFC Español Live', description: '24/7 bilingual MMA analysis, camp access, and international fight coverage.', category: 'Combat Sports' },
+    { title: 'UFC Connected Magazine', description: 'Global fighter profiles and behind-the-scenes camp documentaries.', category: 'Combat Sports' },
+  ],
+  'SpectrumSportsNet.us': [
+    { title: 'Access SportsNet & Lakers Live Desk', description: 'Los Angeles Lakers pregame shootaround, roster notes, and SoCal studio talk.', category: 'Basketball' },
+    { title: 'Backstage: Lakers & LA Galaxy Weekly', description: 'Hardwood film room and behind-the-scenes locker room features.', category: 'Basketball' },
+  ],
+  'SportsNetLA.us': [
+    { title: 'Access SportsNet LA & Dodgers Studio', description: 'Los Angeles Dodgers batting practice report, starting rotation notes, and clubhouse desk.', category: 'Baseball' },
+    { title: 'Backstage: Dodgers Special', description: 'Full-access season chronicle from Dodger Stadium.', category: 'Baseball' },
+  ],
+  'SpectrumSportsNetPlus.us': [
+    { title: 'Spectrum SportsNet+ Alternate Courtside', description: 'Direct-to-consumer SoCal courtside studio stream and postgame press.', category: 'Basketball' },
+    { title: 'Lakers Legends Encore', description: 'Championship hardwood classics and player interviews.', category: 'Basketball' },
+  ],
   'ABC.us': [
     { title: 'Saturday Primetime & ABC World News', description: 'National broadcast showcase and breaking headlines.', category: 'Broadcast' },
     { title: 'NBA Saturday Showcase', description: 'Eastern & Western conference featured games.', category: 'Broadcast' },
