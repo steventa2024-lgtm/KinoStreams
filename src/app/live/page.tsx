@@ -519,6 +519,7 @@ export default function LiveTvPage() {
   const [filterText, setFilterText] = useState('');
   const [hideUnconnected, setHideUnconnected] = useState(false);
   const [allChannelsLimit, setAllChannelsLimit] = useState(120);
+  const [categoryLimit, setCategoryLimit] = useState(120);
   const [connectTargetChannel, setConnectTargetChannel] = useState<Channel | null>(null);
 
   const recommendedGuide = useMemo(
@@ -720,6 +721,7 @@ export default function LiveTvPage() {
                 type="button"
                 onClick={() => {
                   setSelectedFilter(pill.id);
+                  setCategoryLimit(120);
                   if (isSearching) setFilterText('');
                 }}
                 className={cn(
@@ -961,18 +963,31 @@ export default function LiveTvPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {categoryChannels.map((entry) => (
-                  <LiveChannelCard
-                    key={entry.channel.id}
-                    channel={entry.channel}
-                    schedule={lookupEpgSchedule(epgSchedules, entry.channel)}
-                    serverCount={entry.serverCount}
-                    hasCustomBinding={Boolean(customBindings[entry.channel.id])}
-                    onConnectStream={setConnectTargetChannel}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {categoryChannels.slice(0, categoryLimit).map((entry) => (
+                    <LiveChannelCard
+                      key={entry.channel.id}
+                      channel={entry.channel}
+                      schedule={lookupEpgSchedule(epgSchedules, entry.channel)}
+                      serverCount={entry.serverCount}
+                      hasCustomBinding={Boolean(customBindings[entry.channel.id])}
+                      onConnectStream={setConnectTargetChannel}
+                    />
+                  ))}
+                </div>
+                {categoryChannels.length > categoryLimit && (
+                  <div className="mt-6 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setCategoryLimit((prev) => prev + 120)}
+                      className="inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#f59e0b]/45 bg-[#09090b] px-6 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
+                    >
+                      Load More Channels ({categoryChannels.length - categoryLimit} remaining)
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}

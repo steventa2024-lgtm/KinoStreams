@@ -20,10 +20,8 @@ export function buildStreamProxyUrl(
 const CORS_RESTRICTED_HLS_HOSTS = [
   'jmp2.uk',
   'pluto.tv',
-  'd4whmvwm0rdvi.cloudfront.net',
-  'd368vp0qqzvkid.cloudfront.net',
-  'aegis-cloudfront-1.tubi.video',
   'nhl-firetv.amagi.tv',
+  'tvsen6.aynaott.com',
 ];
 
 /**

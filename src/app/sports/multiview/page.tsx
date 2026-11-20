@@ -502,9 +502,9 @@ export default function MultiViewPage() {
               </form>
             </div>
 
-            {/* Channel List */}
+            {/* Channel List (capped to keep swap drawer instant) */}
             <div className="mt-4 flex-1 space-y-2 overflow-y-auto pr-1">
-              {drawerChannels.map((ch) => (
+              {drawerChannels.slice(0, 80).map((ch) => (
                 <button
                   key={ch.id}
                   type="button"

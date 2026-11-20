@@ -205,8 +205,10 @@ export function VideoPlayer({
       (globalProxyMode !== 'direct' && shouldProxyStreamUrl(defaultSource?.url))
   );
   const [adShield, setAdShield] = useState<boolean>(true);
-  const [shieldLocked, setShieldLocked] = useState<boolean>(true);
-  const shieldLockedRef = useRef<boolean>(true);
+  // Leave the iframe clickable on initial load so users can always tap Play/Skip/Close immediately;
+  // popup/redirect guards (window.open & beforeunload) stay active, and Lock Overlay remains opt-in below.
+  const [shieldLocked, setShieldLocked] = useState<boolean>(false);
+  const shieldLockedRef = useRef<boolean>(false);
   shieldLockedRef.current = shieldLocked;
   const [interactTimer, setInteractTimer] = useState<number | null>(null);
   const [embedMutedAutoplay, setEmbedMutedAutoplay] = useState<boolean>(false);
@@ -300,36 +302,8 @@ export function VideoPlayer({
     shieldLockedRef.current = false;
     setShieldLocked(false);
     setShieldNotice(null);
-    setInteractTimer(2.5);
-
-    interactTickRef.current = setInterval(() => {
-      setInteractTimer((prev) => {
-        if (prev === null) return null;
-        const next = Number(Math.max(0, prev - 0.25).toFixed(2));
-        return next;
-      });
-    }, 250);
-
-    const handleSingleTapBlur = () => {
-      interactBlurHandlerRef.current = null;
-      if (interactMaxTimerRef.current) {
-        clearTimeout(interactMaxTimerRef.current);
-        interactMaxTimerRef.current = null;
-      }
-      interactLockTimerRef.current = setTimeout(() => {
-        rearmRedirectShield();
-      }, 350);
-    };
-
-    if (typeof window !== 'undefined') {
-      interactBlurHandlerRef.current = handleSingleTapBlur;
-      window.addEventListener('blur', handleSingleTapBlur, { once: true });
-    }
-
-    interactMaxTimerRef.current = setTimeout(() => {
-      rearmRedirectShield();
-    }, 2500);
-  }, [cleanupInteractWindow, rearmRedirectShield]);
+    setInteractTimer(null);
+  }, [cleanupInteractWindow]);
 
   useEffect(() => {
     return () => {
@@ -349,7 +323,9 @@ export function VideoPlayer({
     setShowSwitchPrompt(false);
     setAutoNextSeconds(null);
     setAutoNextDismissed(false);
-    rearmRedirectShield();
+    cleanupInteractWindow();
+    setShieldLocked(false);
+    setInteractTimer(null);
     appliedInitialSeekRef.current = false;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType, season, episode]);
@@ -365,10 +341,12 @@ export function VideoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourcesSignature]);
 
-  // Ensure Redirect Shield re-arms whenever active embed source switches
+  // Keep clear-frame clickable state on mount/source switches instead of locking taps behind an invisible wall
   useEffect(() => {
-    rearmRedirectShield();
-  }, [activeSource?.id, rearmRedirectShield]);
+    cleanupInteractWindow();
+    setShieldLocked(false);
+    setInteractTimer(null);
+  }, [activeSource?.id, cleanupInteractWindow]);
 
   // Detect iOS / Mobile Safari on client mount & restore saved audio language preference
   useEffect(() => {
@@ -625,11 +603,11 @@ export function VideoPlayer({
     return () => clearTimeout(t);
   }, [failoverToast]);
 
-  // Fast health/readiness timeout (4s for Cinema Server I Direct Auto-Play & embeds, 4.5s for Anime, 5s for Live/Sports)
+  // Balanced health/readiness timeout so slow cold CDNs or embeds never hop prematurely mid-load
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
     const timeoutMs =
-      mediaType === 'sports' || isLive ? 5000 : isAnime ? 4500 : 4000;
+      mediaType === 'sports' || isLive ? 10_000 : isAnime ? 11_000 : 12_000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -1621,22 +1599,24 @@ export function VideoPlayer({
                         <button
                           type="button"
                           onClick={unlockFrameForInteract}
-                          title="Unlock iframe for a single tap (auto-locks 350ms after clicking player, or 2.5s max)"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935]/45 bg-[#080809] px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
+                          title="Clear overlay shield to tap inside the player"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
                         >
                           <Eye className="h-3.5 w-3.5" />
-                          <span>Interact</span>
+                          <span>Clear Frame</span>
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={rearmRedirectShield}
-                          title="Tap player once or click here to lock Redirect Shield immediately"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
+                          title="Lock transparent overlay shield for hands-free viewing"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#e50935]/50 hover:text-[#FAFAFA]"
                         >
-                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <ShieldCheck className="h-3.5 w-3.5 text-[#fb5272]" />
                           <span className="tabular-nums">
-                            Tap Player · {(interactTimer ?? 2.5).toFixed(1)}s
+                            {interactTimer !== null
+                              ? `Tap Player · ${interactTimer.toFixed(1)}s`
+                              : 'Lock Frame'}
                           </span>
                         </button>
                       ))}
@@ -2140,17 +2120,23 @@ export function VideoPlayer({
                           rearmRedirectShield();
                         }
                       }}
-                      title="Unlock iframe for a single tap, then auto-re-arm Redirect Shield"
+                      title={
+                        shieldCurrentlyBlocking
+                          ? 'Clear overlay shield so taps reach the player'
+                          : 'Lock transparent overlay shield over the player'
+                      }
                       className={cn(
                         'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
                         shieldCurrentlyBlocking
                           ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
-                          : 'border-[#e50935]/50 bg-[#e50935]/10 text-[#e4e4e7]'
+                          : 'border-white/15 bg-white/[0.03] text-[#A1A1AA] hover:text-[#FAFAFA]'
                       )}
                     >
                       {shieldCurrentlyBlocking
-                        ? 'Popup Shield: ON'
-                        : `Tap Player · ${(interactTimer ?? 2.5).toFixed(1)}s`}
+                        ? 'Overlay Locked · Clear'
+                        : interactTimer !== null
+                        ? `Tap Player · ${interactTimer.toFixed(1)}s`
+                        : 'Clear Frame: ON'}
                     </button>
                   )}
                 </>

@@ -1978,7 +1978,12 @@ export function findEpgVerifiedMatchSummary(
   epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): { channelName: string; timeWindow: string; programTitle: string } | null {
   if (!epgSchedules || Object.keys(epgSchedules).length === 0) return null;
-  const matched = matchBroadcastChannelsForMatch(match, channels, epgSchedules);
+  // Fast pre-filter: only scan channels with an active EPG program instead of running regexes on 3,000+ channels per card
+  const epgActiveChannels = channels.filter(
+    (ch) => !ch.excludeFromMatchRouting && Boolean(findLiveEpgScheduleForChannel(ch, epgSchedules)?.now)
+  );
+  if (epgActiveChannels.length === 0) return null;
+  const matched = matchBroadcastChannelsForMatch(match, epgActiveChannels, epgSchedules);
   const epgHit = matched.find((f) => f.tier === 'epg_verified');
   if (!epgHit) return null;
   return {

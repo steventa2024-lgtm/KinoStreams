@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { FALLBACK_CHANNELS, generateFallbackEpg } from '@/config/fallback-streams';
 import {
   BUILTIN_SOURCE_STATES_KEY,
@@ -137,6 +137,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
       });
 
       let discoveredEpgUrls: string[] = [];
+      let resolvedChannels: Channel[] = FALLBACK_CHANNELS;
       if (channelsRes.ok) {
         const data = (await channelsRes.json()) as {
           channels?: Channel[];
@@ -144,6 +145,7 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
           errors?: Array<{ sourceId: string; name: string; error: string }>;
         };
         if (Array.isArray(data.channels) && data.channels.length > 0) {
+          resolvedChannels = data.channels;
           setChannels(data.channels);
         }
         if (Array.isArray(data.discoveredEpgUrls)) {
@@ -152,14 +154,42 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
         setSourceErrors(Array.isArray(data.errors) ? data.errors : []);
       }
 
+      // Release channels loading state immediately before background EPG hydration
+      setChannelsLoading(false);
+
+      const channelKeySet = new Set<string>([
+        'ESPN.us',
+        'ESPN2.us',
+        'TNT.us',
+        'TBS.us',
+        'AMC.us',
+        'FX.us',
+        'CNN.us',
+        'ABC.us',
+        'CBS.us',
+        'FOX.us',
+        'NBC.us',
+      ]);
+      for (const ch of resolvedChannels) {
+        if (ch.tvgId) {
+          channelKeySet.add(ch.tvgId);
+          channelKeySet.add(ch.tvgId.split('@')[0]);
+        }
+        if (ch.name) channelKeySet.add(ch.name);
+        if (ch.id) channelKeySet.add(ch.id);
+      }
+
       const combinedEpgUrls = Array.from(
         new Set([...manualEpgUrls, ...discoveredEpgUrls].filter(Boolean))
-      );
+      ).slice(0, 6);
 
       const epgRes = await fetch('/api/epg/match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: combinedEpgUrls }),
+        body: JSON.stringify({
+          urls: combinedEpgUrls,
+          channelKeys: Array.from(channelKeySet).slice(0, 3500),
+        }),
       });
 
       if (epgRes.ok) {
@@ -250,8 +280,14 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     setMiniPlayer(null);
   }, []);
 
-  const sportsChannels = channels.filter((ch) => ch.category === 'sports');
-  const liveChannels = channels.filter((ch) => ch.category === 'live');
+  const sportsChannels = useMemo(
+    () => channels.filter((ch) => ch.category === 'sports'),
+    [channels]
+  );
+  const liveChannels = useMemo(
+    () => channels.filter((ch) => ch.category === 'live'),
+    [channels]
+  );
 
   return (
     <KinoContext.Provider

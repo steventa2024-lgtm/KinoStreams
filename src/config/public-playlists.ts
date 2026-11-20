@@ -73,7 +73,7 @@ export const BUILTIN_PUBLIC_PLAYLISTS: BuiltinPublicPlaylist[] = [
     category: 'live',
     region: 'us',
     defaultEnabled: true,
-    maxChannels: 2000,
+    maxChannels: 1800,
   },
   {
     id: 'builtin-iptv-org-sports',
@@ -83,7 +83,7 @@ export const BUILTIN_PUBLIC_PLAYLISTS: BuiltinPublicPlaylist[] = [
     category: 'sports',
     region: 'global',
     defaultEnabled: true,
-    maxChannels: 800,
+    maxChannels: 450,
   },
   {
     id: 'builtin-free-tv-master',
@@ -93,6 +93,6 @@ export const BUILTIN_PUBLIC_PLAYLISTS: BuiltinPublicPlaylist[] = [
     category: 'live',
     region: 'global',
     defaultEnabled: true,
-    maxChannels: 2500,
+    maxChannels: 650,
   },
 ];

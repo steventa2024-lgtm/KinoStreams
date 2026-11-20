@@ -1124,12 +1124,30 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
     score -= 35;
   }
 
-  if (ch.sourceId) {
-    // User-imported / public playlist streams outrank built-in defaults so fresh M3Us become Server I
-    score += 60;
-  }
-  if (ch.excludeFromMatchRouting) {
+  // Prioritize reliable HTTPS CDN / FAST hosts over raw IP HTTP relays or dead hosts
+  const streamUrlLower = ch.url.toLowerCase();
+  if (
+    /\/\/(?:41\.205\.93\.154|tvsen7\.aynascope\.net|cache0\.wonvt\.st)\b/.test(streamUrlLower)
+  ) {
+    score -= 150;
+  } else if (
+    /(?:amagi\.tv|wurl\.tv|akamaized\.net|warnermediacdn\.com|pluto\.tv|jmp2\.uk|plex\.tv|cloudfront\.net|tubi\.video|uplynk\.com)/.test(
+      streamUrlLower
+    )
+  ) {
+    score += 45;
+  } else if (streamUrlLower.startsWith('https://')) {
+    score += 20;
+  } else if (/^http:\/\/\d{1,3}(?:\.\d{1,3}){3}\b/.test(streamUrlLower)) {
     score -= 25;
+  }
+
+  if (/\[geo-blocked\]/i.test(rawName)) score -= 35;
+  if (/\[not 24\/7\]/i.test(rawName)) score -= 40;
+
+  if (ch.sourceId) {
+    // Imported / public playlist streams rank well alongside curated backups
+    score += 45;
   }
   if (/\b(fhd|1080p|4k|uhd)\b/i.test(rawName)) score += 8;
   return score;
@@ -1239,7 +1257,7 @@ export function buildRecommendedGuide(
     const connected = orderedUrls.length > 0;
     const mainFeed = orderedUrls[0];
     const backupUrls: ChannelBackupSource[] = connected
-      ? orderedUrls.slice(1, 4).map((b) => ({
+      ? orderedUrls.slice(1, 5).map((b) => ({
           label: b.label,
           url: b.url,
           referrer: b.referrer,

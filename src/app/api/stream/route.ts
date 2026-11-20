@@ -70,15 +70,50 @@ function isAllowedMediaContentType(contentType: string, pathname: string): boole
   return false;
 }
 
+const DIRECT_CORS_SEGMENT_HOSTS = [
+  'plutotv.net',
+  'akamaized.net',
+  'akamaihd.net',
+  'wurl.tv',
+  'cloudfront.net',
+  'tubi.video',
+  'mux.dev',
+  'playouts.now.amagi.tv',
+];
+
+const DIRECT_SEGMENT_EXTS = ['.ts', '.m4s', '.m4a', '.aac', '.mp4', '.vtt'];
+
+function canBypassSegmentProxy(
+  resolved: URL,
+  referer?: string | null,
+  ua?: string | null,
+  forceProxy = false
+): boolean {
+  if (forceProxy || referer || ua) return false;
+  if (resolved.protocol !== 'https:') return false;
+  const pathLower = resolved.pathname.toLowerCase();
+  if (!DIRECT_SEGMENT_EXTS.some((ext) => pathLower.endsWith(ext))) {
+    return false;
+  }
+  const host = resolved.hostname.toLowerCase();
+  return DIRECT_CORS_SEGMENT_HOSTS.some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`)
+  );
+}
+
 function buildProxyLink(
   rawUri: string,
   baseUrl: URL,
   referer?: string | null,
-  ua?: string | null
+  ua?: string | null,
+  forceProxy = false
 ): string | null {
   const resolved = new URL(rawUri, baseUrl);
   if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
     return null;
+  }
+  if (canBypassSegmentProxy(resolved, referer, ua, forceProxy)) {
+    return resolved.toString();
   }
   const params = new URLSearchParams();
   params.set('url', resolved.toString());
@@ -105,9 +140,10 @@ function rewriteM3u8Manifest(
 
     // Rewrite URI="..." attributes inside HLS tags (#EXT-X-KEY, #EXT-X-MAP, #EXT-X-MEDIA, etc.)
     if (line.startsWith('#')) {
+      const keepTagProxied = /^#EXT-X-(?:KEY|MAP|MEDIA|STREAM-INF|I-FRAME-STREAM-INF)/i.test(line);
       const updated = line.replace(/URI="([^"]+)"/gi, (_match, uri: string) => {
         try {
-          const proxied = buildProxyLink(uri, baseUrl, referer, ua);
+          const proxied = buildProxyLink(uri, baseUrl, referer, ua, keepTagProxied);
           return proxied ? `URI="${proxied}"` : 'URI=""';
         } catch {
           return 'URI=""';

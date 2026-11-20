@@ -72,7 +72,7 @@ export function MatchCard({
   epgSchedules = {},
   fullWidth = false,
 }: MatchCardProps) {
-  const match = normalizeSportsMatch(rawMatch);
+  const match = React.useMemo(() => normalizeSportsMatch(rawMatch), [rawMatch]);
   const isLive = match.statusState === 'in';
   const isFinal = match.statusState === 'post';
   const isUpcoming = match.statusState === 'pre';

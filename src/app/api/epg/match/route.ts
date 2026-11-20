@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireApiSession } from '@/lib/auth-crypto';
 import { formatEpgProgramDisplay, formatEpgTimeWindow } from '@/lib/epg-matcher';
-import { fetchAndCacheXmltvSchedules } from '@/lib/epg-server';
+import {
+  compactSchedulesForResponse,
+  fetchAndCacheXmltvSchedules,
+} from '@/lib/epg-server';
 import {
   findEpgVerifiedMatchSummary,
   MAJOR_NETWORK_CHANNELS,
@@ -99,6 +102,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as {
       urls?: string[];
+      channelKeys?: string[];
+      includeChannelPrograms?: boolean;
       channels?: Channel[];
       match?: SportsMatch;
       matches?: SportsMatch[];
@@ -106,7 +111,6 @@ export async function POST(request: NextRequest) {
 
     const epgUrls = collectDefaultEpgUrls(Array.isArray(body.urls) ? body.urls : []);
     const { schedules, errors, cacheHits } = await fetchAndCacheXmltvSchedules(epgUrls);
-    const channelPrograms = buildChannelProgramsIndex(schedules);
 
     const requestedMatches: SportsMatch[] = [];
     if (body.match) requestedMatches.push(normalizeSportsMatch(body.match));
@@ -145,9 +149,18 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    return NextResponse.json({
+    const clientSchedules = compactSchedulesForResponse(
       schedules,
-      channelPrograms,
+      body.channelKeys
+    );
+    const channelPrograms =
+      body.includeChannelPrograms || requestedMatches.length > 0
+        ? buildChannelProgramsIndex(clientSchedules)
+        : undefined;
+
+    return NextResponse.json({
+      schedules: clientSchedules,
+      ...(channelPrograms ? { channelPrograms } : {}),
       matchesByGameId,
       cacheHits,
       generatedAt: new Date().toISOString(),

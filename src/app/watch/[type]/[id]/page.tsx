@@ -878,19 +878,9 @@ function WatchViewContent() {
 
       <div className="mx-auto max-w-[1440px] space-y-8 px-4 sm:px-6 lg:px-10">
         {loadingDetails ||
-        (isChannelType && channelsLoading && !activeChannel && !sportsMatch) ||
-        (!isChannelType &&
-          !isAnimeSeries &&
-          mediaDetails &&
-          resolvingDirectStream &&
-          resolvedDirectSources.length === 0) ? (
+        (isChannelType && channelsLoading && !activeChannel && !sportsMatch) ? (
           <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-lg border border-white/[0.08] bg-[#151517]">
             <Loader2 className="h-9 w-9 animate-spin text-[#fb5272]" />
-            {!loadingDetails && resolvingDirectStream && (
-              <p className="text-xs font-medium text-[#A1A1AA]">
-                Connecting Server I · Direct Auto-Play HD...
-              </p>
-            )}
           </div>
         ) : !hasResolvedContent ? (
           <div className="rounded-xl border border-white/[0.08] bg-[#151517] p-10 text-center">

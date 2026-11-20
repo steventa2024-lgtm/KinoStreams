@@ -13,6 +13,7 @@ import { useMediaDetails } from '@/components/MediaDetails';
 import { PosterCard } from '@/components/PosterCard';
 import { StreamingPlatformsRow } from '@/components/StreamingPlatformsRow';
 import { TopBar } from '@/components/TopBar';
+import { buildRecommendedGuide, lookupEpgSchedule } from '@/lib/live-guide';
 import { formatDuration } from '@/lib/utils';
 import {
   FALLBACK_ANIME_SERIES,
@@ -27,8 +28,24 @@ export default function HomePage() {
   const {
     channels,
     epgSchedules,
+    customBindings,
     watchHistory,
   } = useKino();
+
+  const onAirChannels = useMemo(() => {
+    const guide = buildRecommendedGuide(channels, customBindings);
+    const curatedConnected = guide.items
+      .filter((item) => item.connected)
+      .map((item) => item.channel);
+    const seenUrls = new Set(curatedConnected.map((c) => c.url).filter(Boolean));
+    const extras = channels.filter(
+      (c) =>
+        Boolean(c.url) &&
+        !guide.matchedSourceChannelIds.has(c.id) &&
+        !seenUrls.has(c.url)
+    );
+    return [...curatedConnected, ...extras].slice(0, 24);
+  }, [channels, customBindings]);
 
   const [trendingMovies, setTrendingMovies] = useState<MediaItem[]>(FALLBACK_MOVIES);
   const [trendingSeries, setTrendingSeries] = useState<MediaItem[]>(FALLBACK_SERIES);
@@ -180,7 +197,14 @@ export default function HomePage() {
         </MediaRow>
 
         <MediaRow title="On Air Tonight" viewAllHref="/live" viewAllLabel="TV guide">
-          {channels.map((channel) => <ChannelCard key={channel.id} channel={channel} schedule={epgSchedules[channel.tvgId || channel.id]} variant="broadcast" />)}
+          {onAirChannels.map((channel) => (
+            <ChannelCard
+              key={channel.id}
+              channel={channel}
+              schedule={lookupEpgSchedule(epgSchedules, channel)}
+              variant="broadcast"
+            />
+          ))}
         </MediaRow>
       </div>
     </main>

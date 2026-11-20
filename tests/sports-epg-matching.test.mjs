@@ -99,6 +99,9 @@ const { BUILTIN_PUBLIC_PLAYLISTS } = loadTsModule(
 const { resolveAllChannelSources } = loadTsModule(
   path.join(SRC_DIR, 'lib', 'channels-server.ts')
 );
+const { compactSchedulesForResponse, fetchAndCacheXmltvSchedules } = loadTsModule(
+  path.join(SRC_DIR, 'lib', 'epg-server.ts')
+);
 const {
   M3U_SOURCES_STORAGE_KEY,
   CUSTOM_CHANNEL_BINDINGS_KEY,
@@ -1168,4 +1171,44 @@ test('Case (k): Direct per-channel stream binding (kino:customChannelBindings) p
     setActiveUserScope(null);
     globalThis.window = prevWindow;
   }
+});
+
+test('Case (l): Discovered EPG feeds exclude global mega-dumps, compact EPG payload < 1.5MB, and HTTPS CDNs beat dead relays', async () => {
+  const { channels, discoveredEpgUrls } = await resolveAllChannelSources({
+    includeBuiltins: true,
+    includeFallback: true,
+    sources: [],
+  });
+
+  // Never dump 100+ worldwide epgshare01 feeds onto serverless /api/epg/match
+  assert.ok(discoveredEpgUrls.length <= 6, `Expected <= 6 discovered EPG URLs, got ${discoveredEpgUrls.length}`);
+  assert.equal(
+    discoveredEpgUrls.some((u) => /ALL_SOURCES1|AL1|HU1|RU1/i.test(u)),
+    false
+  );
+
+  // Live EPG fetch + compaction must stay fast and well within serverless JSON payload limits
+  const { schedules } = await fetchAndCacheXmltvSchedules(discoveredEpgUrls);
+  const sampleKeys = channels
+    .slice(0, 600)
+    .flatMap((c) => [c.tvgId, c.name])
+    .filter(Boolean);
+  const compact = compactSchedulesForResponse(schedules, sampleKeys);
+  const byteSize = Buffer.byteLength(JSON.stringify({ schedules: compact }), 'utf8');
+  assert.ok(
+    byteSize < 1_500_000,
+    `Expected compact EPG JSON < 1.5MB, got ${byteSize} bytes`
+  );
+
+  // Dead 404/timeout relay hosts must NEVER outrank healthy HTTPS CDN or fallback feeds
+  const guide = buildRecommendedGuide(channels);
+  const amc = guide.items.find((i) => i.channel.id === 'rec-amc');
+  assert.ok(amc?.connected);
+  assert.equal(amc.channel.url.includes('41.205.93.154'), false);
+  const espn = guide.items.find((i) => i.channel.id === 'rec-espn');
+  assert.ok(espn?.connected);
+  assert.equal(espn.channel.url.includes('tvsen7.aynascope.net'), false);
+  const abc = guide.items.find((i) => i.channel.id === 'rec-abc');
+  assert.ok(abc?.connected);
+  assert.equal(abc.channel.url.includes('cache0.wonvt.st'), false);
 });

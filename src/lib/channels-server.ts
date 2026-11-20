@@ -207,6 +207,49 @@ async function loadCustomSource(src: CustomSourceConfig): Promise<{
   return { channels: [], epgUrls };
 }
 
+const ENGLISH_COUNTRY_CODES = new Set(['us', 'ca', 'uk', 'gb', 'au', 'nz', 'ie', 'int']);
+const BLOCKED_DISCOVERED_EPG_HOSTS = new Set(['epgshare01.online']);
+
+function isEnglishGlobalPublicChannel(ch: Channel): boolean {
+  if (ch.tvgCountry?.trim()) {
+    const codes = ch.tvgCountry
+      .toLowerCase()
+      .split(/[,;\s/|]+/)
+      .map((c) => c.trim())
+      .filter((c) => /^[a-z]{2}$/.test(c));
+    if (codes.length > 0 && !codes.some((c) => ENGLISH_COUNTRY_CODES.has(c))) {
+      return false;
+    }
+  }
+  const baseTvgId = (ch.tvgId || '').split('@')[0].trim().toLowerCase();
+  const suffixMatch = /\.([a-z]{2})$/.exec(baseTvgId);
+  if (suffixMatch && !ENGLISH_COUNTRY_CODES.has(suffixMatch[1])) {
+    return false;
+  }
+  const lang = (ch.tvgLanguage || '').trim().toLowerCase();
+  if (lang && !/\b(?:en|eng|english)\b/.test(lang)) {
+    return false;
+  }
+  return true;
+}
+
+function isUsefulBuiltinEpgUrl(rawUrl: string): boolean {
+  try {
+    const parsed = new URL(rawUrl);
+    const pathLower = parsed.pathname.toLowerCase();
+    // Skip global/non-US epgshare01 mega-dumps (100+ files / 80+ MB) except verified US Sports feed
+    if (BLOCKED_DISCOVERED_EPG_HOSTS.has(parsed.hostname.toLowerCase())) {
+      return /us_sports1\.xml/i.test(pathLower);
+    }
+    if (parsed.hostname.toLowerCase().includes('mjh.nz') || pathLower.includes('matthuisman/i.mjh.nz')) {
+      return /\/(plutotv\/us|samsungtvplus\/us|plex\/us|roku\/all)\.xml/i.test(pathLower);
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function loadBuiltinPlaylist(def: BuiltinPublicPlaylist): Promise<{
   channels: Channel[];
   epgUrls: string[];
@@ -218,7 +261,12 @@ async function loadBuiltinPlaylist(def: BuiltinPublicPlaylist): Promise<{
     forcedCategory: def.category === 'sports' ? 'sports' : undefined,
   });
 
-  const normalized = parsed.slice(0, def.maxChannels).map((ch) => {
+  const filtered =
+    def.id === 'builtin-free-tv-master'
+      ? parsed.filter(isEnglishGlobalPublicChannel)
+      : parsed;
+
+  const normalized = filtered.slice(0, def.maxChannels).map((ch) => {
     if (def.region !== 'us' || ch.tvgCountry) return ch;
     // Tag US FAST channels unless explicit non-US suffix (e.g. .de, .ru, .hu) is on tvgId
     const countrySuffixMatch = /\.([a-z]{2})(?:@|$)/i.exec(ch.tvgId || '');
@@ -230,7 +278,7 @@ async function loadBuiltinPlaylist(def: BuiltinPublicPlaylist): Promise<{
 
   return {
     channels: normalized,
-    epgUrls,
+    epgUrls: epgUrls.filter(isUsefulBuiltinEpgUrl).slice(0, 4),
   };
 }
 

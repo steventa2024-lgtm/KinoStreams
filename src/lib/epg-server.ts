@@ -30,7 +30,7 @@ function getXmltvCache(): Map<string, CachedXmltvEntry> {
 
 async function fetchXmltvRaw(epgUrl: string): Promise<string> {
   const { response: res, finalUrl } = await safeFetchExternal(epgUrl, {
-    timeoutMs: 14_000,
+    timeoutMs: 6_500,
     headers: { 'User-Agent': 'KinoStream/1.0' },
   });
   if (!res.ok) {
@@ -56,6 +56,49 @@ async function fetchXmltvRaw(epgUrl: string): Promise<string> {
 }
 
 /**
+ * Produces a slim Now/Next schedule map safe for serverless HTTP responses,
+ * optionally filtered to active channel lookup keys and keeping total entries bounded.
+ */
+export function compactSchedulesForResponse(
+  schedules: Record<string, EpgChannelSchedule>,
+  channelKeys?: string[],
+  maxEntries = 1800
+): Record<string, EpgChannelSchedule> {
+  const requestedSet =
+    Array.isArray(channelKeys) && channelKeys.length > 0
+      ? new Set(channelKeys.map((k) => k.trim().toLowerCase()).filter(Boolean))
+      : null;
+
+  const compact: Record<string, EpgChannelSchedule> = {};
+  let count = 0;
+
+  for (const [key, sched] of Object.entries(schedules)) {
+    if (!sched.now && !sched.next) continue;
+    const keyLower = key.toLowerCase();
+    const idLower = sched.channelId.toLowerCase();
+    if (
+      requestedSet &&
+      !requestedSet.has(keyLower) &&
+      !requestedSet.has(idLower) &&
+      !requestedSet.has(idLower.split('@')[0])
+    ) {
+      continue;
+    }
+
+    compact[key] = {
+      channelId: sched.channelId,
+      now: sched.now,
+      next: sched.next,
+      upcoming: [],
+    };
+    count++;
+    if (count >= maxEntries) break;
+  }
+
+  return compact;
+}
+
+/**
  * Fetches & parses XMLTV feeds on the server with a 3-minute short cache, returning
  * active Now/Next schedules indexed by `tvg-id` and `tvg-name` display names.
  */
@@ -75,7 +118,7 @@ export async function fetchAndCacheXmltvSchedules(
         .map((u) => sanitizeMediaUrl(u))
         .filter((u): u is string => Boolean(u && /^https?:\/\//i.test(u)))
     )
-  );
+  ).slice(0, 6);
 
   const combinedPrograms: Record<string, EpgProgram[]> =
     generateFallbackEpg(FALLBACK_CHANNELS);
