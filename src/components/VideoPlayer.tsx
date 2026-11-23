@@ -190,6 +190,8 @@ export function VideoPlayer({
   const interactLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const interactTickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const interactBlurHandlerRef = useRef<(() => void) | null>(null);
+  const userSelectedManualRef = useRef<boolean>(false);
+  const lastDefaultSignatureRef = useRef<string>('');
 
   const defaultSource =
     sources.find((s) => s.isDefault) || sources[0] || null;
@@ -305,6 +307,39 @@ export function VideoPlayer({
     setInteractTimer(null);
   }, [cleanupInteractWindow]);
 
+  const grantInteractWindow = useCallback(
+    (durationMs = 2800) => {
+      cleanupInteractWindow();
+      shieldLockedRef.current = false;
+      setShieldLocked(false);
+      setShieldNotice('Tap player now · Shield re-locks automatically');
+      const startedAt = Date.now();
+      setInteractTimer(Number((durationMs / 1000).toFixed(1)));
+
+      interactTickRef.current = setInterval(() => {
+        const remainingMs = Math.max(0, durationMs - (Date.now() - startedAt));
+        setInteractTimer(Number((remainingMs / 1000).toFixed(1)));
+      }, 100);
+
+      const handleInteractBlur = () => {
+        if (interactLockTimerRef.current) return;
+        interactLockTimerRef.current = setTimeout(() => {
+          rearmRedirectShield();
+          setShieldNotice('Frame locked after tap · Use Tap Once or Unlock Frame to interact');
+        }, 350);
+      };
+      interactBlurHandlerRef.current = handleInteractBlur;
+      if (typeof window !== 'undefined') {
+        window.addEventListener('blur', handleInteractBlur, { once: true });
+      }
+
+      interactMaxTimerRef.current = setTimeout(() => {
+        rearmRedirectShield();
+      }, durationMs);
+    },
+    [cleanupInteractWindow, rearmRedirectShield]
+  );
+
   useEffect(() => {
     return () => {
       cleanupInteractWindow();
@@ -313,6 +348,7 @@ export function VideoPlayer({
 
   // Reset source selection & failover history ONLY when media identity or episode changes
   useEffect(() => {
+    userSelectedManualRef.current = false;
     const nextDefault = sources.find((s) => s.isDefault) || sources[0];
     setSelectedSourceId(nextDefault?.id || '');
     setTriedSourceIds([]);
@@ -330,21 +366,47 @@ export function VideoPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType, season, episode]);
 
-  // Ensure selectedSourceId falls back gracefully only if the active source disappears
+  // Allow anime SUB/DUB switch to select the newly prioritized audio stream cleanly
+  useEffect(() => {
+    userSelectedManualRef.current = false;
+  }, [animeAudio]);
+
+  // Upgrade to newly resolved defaults (e.g. Anime Server I or SUB/DUB toggle) unless user manually pinned a server
   const sourcesSignature = sources.map((s) => `${s.id}:${s.url}`).join('|');
+  const defaultSignature = defaultSource ? `${defaultSource.id}:${defaultSource.url}` : '';
   useEffect(() => {
     if (sources.length === 0) return;
-    if (!selectedSourceId || !sources.some((s) => s.id === selectedSourceId)) {
-      const nextDefault = sources.find((s) => s.isDefault) || sources[0];
+    const activeStillPresent = Boolean(
+      selectedSourceId && sources.some((s) => s.id === selectedSourceId)
+    );
+    const defaultChanged = Boolean(
+      defaultSource && defaultSignature !== lastDefaultSignatureRef.current
+    );
+    lastDefaultSignatureRef.current = defaultSignature;
+
+    if (!activeStillPresent) {
+      const nextDefault = defaultSource || sources[0];
       setSelectedSourceId(nextDefault?.id || '');
+    } else if (
+      !userSelectedManualRef.current &&
+      defaultChanged &&
+      defaultSource &&
+      selectedSourceId !== defaultSource.id
+    ) {
+      setSelectedSourceId(defaultSource.id);
+      setSourceReady(false);
+      setErrorMsg(null);
+      setBuffering(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourcesSignature]);
+  }, [sourcesSignature, defaultSignature]);
 
   // Keep clear-frame clickable state on mount/source switches instead of locking taps behind an invisible wall
   useEffect(() => {
     cleanupInteractWindow();
+    shieldLockedRef.current = false;
     setShieldLocked(false);
+    setShieldNotice(null);
     setInteractTimer(null);
   }, [activeSource?.id, cleanupInteractWindow]);
 
@@ -525,6 +587,7 @@ export function VideoPlayer({
       setShowSwitchPrompt(true);
       return false;
     }
+    userSelectedManualRef.current = true;
     setTriedSourceIds(Array.from(tried));
     setSelectedSourceId(nextCandidate.id);
     setSourceReady(false);
@@ -535,7 +598,7 @@ export function VideoPlayer({
     return true;
   }, [activeSource, triedSourceIds, sources, isAnime, animeAudio, onFailoverAudioToSub]);
 
-  // Protect parent window from embed popup focus-stealing, window.open pop-ups & top-level hijack while player is mounted
+  // Protect parent window from embed popup focus-stealing, window.open pop-ups & rogue target="_blank" ad hijacks while player is mounted
   useEffect(() => {
     if (!adShield) return;
     if (
@@ -551,32 +614,59 @@ export function VideoPlayer({
       Object.defineProperty(window, 'open', {
         configurable: true,
         writable: true,
-        value: () => null,
+        value: () => {
+          setShieldNotice('Blocked popup window attempt');
+          return null;
+        },
       });
     } catch {
       try {
-        window.open = () => null;
+        window.open = () => {
+          setShieldNotice('Blocked popup window attempt');
+          return null;
+        };
       } catch {
         // Ignore if host browser disallows overriding window.open
       }
     }
 
     const handleBlur = () => {
-      if (!shieldLockedRef.current) return;
+      if (!shieldLockedRef.current || interactBlurHandlerRef.current) return;
       setTimeout(() => {
         if (shieldLockedRef.current && document.activeElement?.tagName === 'IFRAME') {
-          window.focus();
+          try {
+            window.focus();
+          } catch {
+            // Ignore focus restoration errors
+          }
+          setShieldNotice('Blocked iframe focus hijack while Frame Locked');
         }
       }, 60);
     };
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = '';
+    const handleCaptureBlankLink = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest?.('a');
+      if (!anchor) return;
+      const href = anchor.getAttribute('href') || '';
+      const blank = (anchor.getAttribute('target') || '').toLowerCase() === '_blank';
+      if (blank && /^https?:\/\//i.test(href)) {
+        try {
+          const parsed = new URL(href);
+          if (parsed.origin !== window.location.origin) {
+            e.preventDefault();
+            e.stopPropagation();
+            setShieldNotice('Blocked external ad redirect link');
+          }
+        } catch {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
     };
 
     window.addEventListener('blur', handleBlur);
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleCaptureBlankLink, true);
     return () => {
       try {
         Object.defineProperty(window, 'open', {
@@ -592,7 +682,7 @@ export function VideoPlayer({
         }
       }
       window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleCaptureBlankLink, true);
     };
   }, [adShield, activeSource?.format, mediaType]);
 
@@ -1138,6 +1228,7 @@ export function VideoPlayer({
     const curIdx = sources.findIndex((s) => s.id === activeSource.id);
     const nextSrc = sources[(curIdx + 1) % sources.length];
     if (nextSrc) {
+      userSelectedManualRef.current = true;
       setSelectedSourceId(nextSrc.id);
       persistPreferredCinemaServer(nextSrc.id);
       setSourceReady(false);
@@ -1172,6 +1263,9 @@ export function VideoPlayer({
 
   const shieldCurrentlyBlocking = Boolean(
     hasEmbedSources && adShield && shieldLocked
+  );
+  const useIframeSandbox = Boolean(
+    hasEmbedSources && adShield && activeSource?.sandbox
   );
 
   const effectiveAudioLang = isAnime
@@ -1319,9 +1413,14 @@ export function VideoPlayer({
           <div className="relative h-full w-full">
             <iframe
               ref={iframeRef}
-              key={`${activeSource.id}:${resolvedEmbedSrc}`}
+              key={`${activeSource.id}:${useIframeSandbox ? 'sb' : 'open'}`}
               src={resolvedEmbedSrc}
               title={title}
+              sandbox={
+                useIframeSandbox
+                  ? 'allow-scripts allow-same-origin allow-forms allow-presentation'
+                  : undefined
+              }
               allowFullScreen
               allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
               referrerPolicy="no-referrer"
@@ -1338,14 +1437,14 @@ export function VideoPlayer({
               className="h-full w-full border-0"
             />
 
-            {/* Transparent Anti-Redirect Shield (single-tap auto-locks 350ms after iframe blur, or 2.5s max) */}
+            {/* Transparent Lock-Frame Shield (blocks accidental taps & iframe click hijacks when Lock Frame is active) */}
             <div
               role="presentation"
               onClick={
                 shieldCurrentlyBlocking
                   ? () =>
                       setShieldNotice(
-                        'Redirect blocked · Tap Interact below for single-tap Play access'
+                        'Frame Locked · Use "Tap Once" or "Unlock Frame" below to interact'
                       )
                   : undefined
               }
@@ -1596,20 +1695,30 @@ export function VideoPlayer({
 
                     {adShield &&
                       (shieldCurrentlyBlocking ? (
-                        <button
-                          type="button"
-                          onClick={unlockFrameForInteract}
-                          title="Clear overlay shield to tap inside the player"
-                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
-                        >
-                          <Eye className="h-3.5 w-3.5" />
-                          <span>Clear Frame</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => grantInteractWindow()}
+                            title="Allow single tap inside the locked frame for 2.8 seconds, then auto-relock"
+                            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#f59e0b]/60 bg-[#f59e0b]/15 px-3 text-xs font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Tap Once</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={unlockFrameForInteract}
+                            title="Unlock overlay shield permanently until you click Lock Frame again"
+                            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-xs font-semibold text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
+                          >
+                            <span>Unlock Frame</span>
+                          </button>
+                        </div>
                       ) : (
                         <button
                           type="button"
                           onClick={rearmRedirectShield}
-                          title="Lock transparent overlay shield for hands-free viewing"
+                          title="Lock transparent overlay shield for hands-free popup-safe viewing"
                           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-white/15 bg-[#080809] px-3.5 text-xs font-medium text-[#A1A1AA] transition hover:border-[#e50935]/50 hover:text-[#FAFAFA]"
                         >
                           <ShieldCheck className="h-3.5 w-3.5 text-[#fb5272]" />
@@ -2020,6 +2129,7 @@ export function VideoPlayer({
                     key={src.id}
                     type="button"
                     onClick={() => {
+                      userSelectedManualRef.current = true;
                       setSelectedSourceId(src.id);
                       persistPreferredCinemaServer(src.id);
                       setSourceReady(false);
@@ -2077,7 +2187,7 @@ export function VideoPlayer({
                 </div>
               )}
 
-              {/* Ad-Shield & Single-Tap Shield Status Toggles for Embed Streams */}
+              {/* Ad-Shield & Frame Lock Status Toggles for Embed Streams */}
               {hasEmbedSources && (
                 <>
                   <button
@@ -2085,16 +2195,17 @@ export function VideoPlayer({
                     onClick={() => {
                       setAdShield((prev) => {
                         const next = !prev;
-                        if (next) {
-                          rearmRedirectShield();
+                        if (!next) {
+                          unlockFrameForInteract();
+                        } else if (activeSource?.sandbox) {
+                          setShieldNotice('Sandbox Shield enabled · Popups blocked natively');
                         } else {
-                          cleanupInteractWindow();
-                          setInteractTimer(null);
+                          setShieldNotice('Ad-Shield enabled · Use Lock Frame for click protection');
                         }
                         return next;
                       });
                     }}
-                    title="Toggle no-referrer & popup/redirect protection"
+                    title="Toggle iframe sandbox, no-referrer & popup/redirect protection"
                     className={cn(
                       'inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-medium transition',
                       adShield
@@ -2107,38 +2218,45 @@ export function VideoPlayer({
                     ) : (
                       <ShieldAlert className="h-3.5 w-3.5" />
                     )}
-                    {adShield ? 'Ad-Shield: ON' : 'Standard Mode'}
+                    {useIframeSandbox
+                      ? 'Ad-Shield: Sandbox ON'
+                      : adShield
+                      ? 'Ad-Shield: ON'
+                      : 'Standard Mode'}
                   </button>
 
-                  {adShield && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (shieldCurrentlyBlocking) {
-                          unlockFrameForInteract();
-                        } else {
-                          rearmRedirectShield();
-                        }
-                      }}
-                      title={
-                        shieldCurrentlyBlocking
-                          ? 'Clear overlay shield so taps reach the player'
-                          : 'Lock transparent overlay shield over the player'
-                      }
-                      className={cn(
-                        'min-h-[44px] shrink-0 rounded-full border px-3.5 text-[11px] font-medium transition',
-                        shieldCurrentlyBlocking
-                          ? 'border-[#e50935] bg-[#e50935]/15 text-[#e4e4e7]'
-                          : 'border-white/15 bg-white/[0.03] text-[#A1A1AA] hover:text-[#FAFAFA]'
-                      )}
-                    >
-                      {shieldCurrentlyBlocking
-                        ? 'Overlay Locked · Clear'
-                        : interactTimer !== null
-                        ? `Tap Player · ${interactTimer.toFixed(1)}s`
-                        : 'Clear Frame: ON'}
-                    </button>
-                  )}
+                  {adShield &&
+                    (shieldCurrentlyBlocking ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => grantInteractWindow()}
+                          title="Temporarily allow a player tap for 2.8s, then auto-lock"
+                          className="min-h-[44px] shrink-0 rounded-full border border-[#f59e0b]/55 bg-[#f59e0b]/15 px-3.5 text-[11px] font-semibold text-[#f59e0b] transition hover:bg-[#f59e0b] hover:text-[#09090b]"
+                        >
+                          Tap Once
+                        </button>
+                        <button
+                          type="button"
+                          onClick={unlockFrameForInteract}
+                          title="Unlock frame overlay so taps pass through freely"
+                          className="min-h-[44px] shrink-0 rounded-full border border-[#e50935] bg-[#e50935]/15 px-3.5 text-[11px] font-medium text-[#e4e4e7] transition hover:bg-[#FAFAFA] hover:text-[#080809]"
+                        >
+                          Unlock Frame
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={rearmRedirectShield}
+                        title="Lock transparent overlay shield over the player"
+                        className="min-h-[44px] shrink-0 rounded-full border border-white/15 bg-white/[0.03] px-3.5 text-[11px] font-medium text-[#A1A1AA] transition hover:text-[#FAFAFA]"
+                      >
+                        {interactTimer !== null
+                          ? `Tap Player · ${interactTimer.toFixed(1)}s`
+                          : 'Lock Frame'}
+                      </button>
+                    ))}
                 </>
               )}
 

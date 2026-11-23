@@ -159,6 +159,7 @@ export interface StreamSource {
   };
   format: StreamFormat;
   url: string;
+  sandbox?: boolean;
   referrer?: string;
   headers?: Record<string, string>;
   subtitles?: SubtitleTrack[];

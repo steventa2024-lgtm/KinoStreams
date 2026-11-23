@@ -1,8 +1,5 @@
 import type { SeasonSummary, StreamSource } from '@/types/media';
 
-const VIDLINK_THEME_PARAMS =
-  'autoplay=true&primaryColor=f59e0b&secondaryColor=18181b&iconColor=ffffff';
-
 export interface NormalizedAnimeTitle {
   raw: string;
   cleanTitle: string;
@@ -548,10 +545,14 @@ export async function resolveAnimePlaybackSources(params: {
     }
 
     const dubAvailable = inferDubAvailability(anilistMedia);
+    const matchedArmAnilist =
+      armEntries.find((e) => Number(e.myanimelist) === malId && e.anilist)?.anilist ||
+      armEntries.find((e) => e.anilist)?.anilist ||
+      undefined;
 
     baseMeta = {
       malId,
-      anilistId: anilistMedia?.id,
+      anilistId: anilistMedia?.id || (matchedArmAnilist ? Number(matchedArmAnilist) : undefined),
       matchedTitle:
         anilistMedia?.title?.english ||
         anilistMedia?.title?.romaji ||
@@ -585,39 +586,41 @@ export async function resolveAnimePlaybackSources(params: {
 
   const streams: StreamSource[] = [];
 
-  if (meta.malId) {
+  if (meta.anilistId) {
     if (meta.dubAvailable) {
       streams.push({
-        id: 'vidlink-anime-dub',
-        name: 'Anime Server I - VidLink DUB',
-        label: `MAL #${meta.malId} · Ep ${meta.malEpisode} · DUB`,
+        id: 'vidnest-anime-dub',
+        name: 'Anime Server I - VidNest DUB',
+        label: `AniList #${meta.anilistId} · Ep ${meta.malEpisode} · DUB`,
         quality: 'Auto HD',
         language: 'dub',
         audioTrack: 'dub',
         audioSupport: { sub: true, dub: true },
         format: 'embed',
-        url: `https://vidlink.pro/anime/${meta.malId}/${meta.malEpisode}/dub?fallback=true&${VIDLINK_THEME_PARAMS}`,
+        sandbox: false,
+        url: `https://vidnest.fun/anime/${meta.anilistId}/${meta.malEpisode}/dub`,
         isDefault: effectiveAudio === 'dub',
       });
     }
 
     streams.push({
-      id: 'vidlink-anime-sub',
-      name: 'Anime Server I - VidLink SUB',
-      label: `MAL #${meta.malId} · Ep ${meta.malEpisode} · SUB`,
+      id: 'vidnest-anime-sub',
+      name: 'Anime Server I - VidNest SUB',
+      label: `AniList #${meta.anilistId} · Ep ${meta.malEpisode} · SUB`,
       quality: 'Auto HD',
       language: 'sub',
       audioTrack: 'sub',
       audioSupport: { sub: true, dub: meta.dubAvailable },
       format: 'embed',
-      url: `https://vidlink.pro/anime/${meta.malId}/${meta.malEpisode}/sub?fallback=true&${VIDLINK_THEME_PARAMS}`,
+      sandbox: false,
+      url: `https://vidnest.fun/anime/${meta.anilistId}/${meta.malEpisode}/sub`,
       isDefault: effectiveAudio === 'sub',
     });
 
     // If absolute episode differs from local season episode, expose it as an immediate backup
     if (params.type === 'series' && absEpisode !== meta.malEpisode) {
       streams.push({
-        id: `vidlink-anime-abs-${effectiveAudio}`,
+        id: `vidnest-anime-abs-${effectiveAudio}`,
         name: `Anime Server II - Absolute Ep ${absEpisode}`,
         label: `Continuous Ep #${absEpisode} (${effectiveAudio.toUpperCase()})`,
         quality: 'Auto HD',
@@ -625,10 +628,52 @@ export async function resolveAnimePlaybackSources(params: {
         audioTrack: effectiveAudio,
         audioSupport: { sub: true, dub: meta.dubAvailable },
         format: 'embed',
-        url: `https://vidlink.pro/anime/${meta.malId}/${absEpisode}/${effectiveAudio}?fallback=true&${VIDLINK_THEME_PARAMS}`,
+        sandbox: false,
+        url: `https://vidnest.fun/anime/${meta.anilistId}/${absEpisode}/${effectiveAudio}`,
         isDefault: false,
       });
     }
+  }
+
+  // Sandbox-shielded (zero-popup) & high-availability TMDB anime backups
+  if (params.tmdbId) {
+    const vidzeeUrl =
+      params.type === 'movie'
+        ? `https://player.vidzee.wtf/embed/movie/${params.tmdbId}?autoplay=true`
+        : `https://player.vidzee.wtf/embed/tv/${params.tmdbId}/${safeSeason}/${safeEpisode}?autoplay=true`;
+
+    streams.push({
+      id: 'vidzee-anime-shielded',
+      name: 'Anime Server II - Shielded HD (Zero Popups)',
+      label: 'Sandbox-Shielded Multi-Audio HD',
+      quality: 'Auto HD',
+      language: effectiveAudio,
+      audioTrack: effectiveAudio,
+      audioSupport: { sub: true, dub: meta.dubAvailable },
+      format: 'embed',
+      sandbox: true,
+      url: vidzeeUrl,
+      isDefault: streams.length === 0,
+    });
+
+    const vidrockUrl =
+      params.type === 'movie'
+        ? `https://vidrock.net/embed/movie/${params.tmdbId}`
+        : `https://vidrock.net/embed/tv/${params.tmdbId}/${safeSeason}/${safeEpisode}`;
+
+    streams.push({
+      id: 'vidrock-anime-mirror',
+      name: 'Anime Server III - VidRock HD',
+      label: 'Backup HD Mirror',
+      quality: 'Auto HD',
+      language: effectiveAudio,
+      audioTrack: effectiveAudio,
+      audioSupport: { sub: true, dub: meta.dubAvailable },
+      format: 'embed',
+      sandbox: false,
+      url: vidrockUrl,
+      isDefault: false,
+    });
   }
 
   return { meta, streams };

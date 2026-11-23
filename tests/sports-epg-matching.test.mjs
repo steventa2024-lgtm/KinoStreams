@@ -1212,3 +1212,78 @@ test('Case (l): Discovered EPG feeds exclude global mega-dumps, compact EPG payl
   assert.ok(abc?.connected);
   assert.equal(abc.channel.url.includes('cache0.wonvt.st'), false);
 });
+
+test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & AniList VidNest cleanly without dead mirrors', async () => {
+  const { VOD_RESOLVERS, resolveVodSources, isCinemaVodResolverId } = loadTsModule(
+    path.join(SRC_DIR, 'config', 'sources.ts')
+  );
+  const { resolveAnimePlaybackSources } = loadTsModule(
+    path.join(SRC_DIR, 'lib', 'anime.ts')
+  );
+
+  // Verify Cinema primary server is sandbox-compatible VidZee and dead mirrors are removed
+  assert.equal(VOD_RESOLVERS[0]?.id, 'vidzee-wtf');
+  assert.equal(VOD_RESOLVERS[0]?.sandbox, true);
+  assert.equal(isCinemaVodResolverId('vidsrc-me'), false);
+  assert.equal(isCinemaVodResolverId('vidzee-wtf'), true);
+
+  // Stale localStorage preference (vidsrc-me) falls back cleanly to sandbox-shielded Server I
+  const fightClubSources = resolveVodSources({
+    id: '550',
+    type: 'movie',
+    tmdbId: 550,
+    preferredResolverId: 'vidsrc-me',
+  });
+  const defaultCinema = fightClubSources.find((s) => s.isDefault);
+  assert.equal(defaultCinema?.id, 'vidzee-wtf');
+  assert.equal(defaultCinema?.sandbox, true);
+
+  // Resolved Anime streams: Server I is VidNest (AniList ID), Server II is sandboxed VidZee (deduped), no dead vidlink.pro/anime
+  const animeRes = await resolveAnimePlaybackSources({
+    tmdbId: 1429,
+    type: 'series',
+    title: 'Attack on Titan',
+    year: 2013,
+    season: 1,
+    episode: 1,
+    requestedAudio: 'sub',
+  });
+  assert.equal(animeRes.meta.anilistId, 16498);
+  assert.equal(
+    animeRes.streams.some((s) => s.url.includes('vidlink.pro/anime')),
+    false
+  );
+
+  const subMerged = resolveVodSources({
+    id: '1429',
+    type: 'series',
+    tmdbId: 1429,
+    season: 1,
+    episode: 1,
+    resolvedDirectSources: animeRes.streams,
+    isAnime: true,
+    animeAudio: 'sub',
+  });
+  const defaultSub = subMerged.find((s) => s.isDefault);
+  assert.equal(defaultSub?.id, 'vidnest-anime-sub');
+  assert.equal(defaultSub?.url, 'https://vidnest.fun/anime/16498/1/sub');
+
+  const dubMerged = resolveVodSources({
+    id: '1429',
+    type: 'series',
+    tmdbId: 1429,
+    season: 1,
+    episode: 1,
+    resolvedDirectSources: animeRes.streams,
+    isAnime: true,
+    animeAudio: 'dub',
+  });
+  const defaultDub = dubMerged.find((s) => s.isDefault);
+  assert.equal(defaultDub?.id, 'vidnest-anime-dub');
+  assert.equal(defaultDub?.url, 'https://vidnest.fun/anime/16498/1/dub');
+
+  // Ensure VidZee URL is not duplicated between resolved anime backups and static VOD_RESOLVERS
+  const vidzeeUrls = dubMerged.filter((s) => s.url.includes('player.vidzee.wtf'));
+  assert.equal(vidzeeUrls.length, 1);
+  assert.equal(vidzeeUrls[0]?.sandbox, true);
+});

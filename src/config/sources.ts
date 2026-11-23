@@ -13,6 +13,7 @@ export interface VodResolverDefinition {
   buildMovieUrl: (tmdbId: number | string) => string;
   buildSeriesUrl: (tmdbId: number | string, season: number, episode: number) => string;
   format: 'embed' | 'hls';
+  sandbox?: boolean;
   enabledByDefault: boolean;
 }
 
@@ -21,26 +22,28 @@ const VIDLINK_THEME_PARAMS =
 
 /**
  * Modular VOD stream & embed resolver registry.
- * Mirror HD (vidsrc.sh) is Cinema Server I (default) for Movies & Series;
- * aggressive pop-under providers sit at the bottom of the fallback chain.
+ * VidZee (sandbox-shielded, zero popups) is Cinema Server I (default) for Movies & Series,
+ * followed by verified low-latency HD mirrors (VidLink, VidRock, VidNest).
  */
 export const VOD_RESOLVERS: VodResolverDefinition[] = [
   {
-    id: 'vidsrc-me',
-    name: 'Cinema Server I - Mirror HD',
-    description: 'Primary high-availability multi-CDN autoplay player',
+    id: 'vidzee-wtf',
+    name: 'Cinema Server I - Shielded HD (VidZee)',
+    description: 'Primary sandbox-compatible zero-popup HD player',
     format: 'embed',
+    sandbox: true,
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
-      `https://vidsrc.sh/embed/movie?tmdb=${tmdbId}&autoplay=1&autoPlay=true`,
+      `https://player.vidzee.wtf/embed/movie/${tmdbId}?autoplay=true`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://vidsrc.sh/embed/tv?tmdb=${tmdbId}&season=${season}&episode=${episode}&autoplay=1&autoPlay=true`,
+      `https://player.vidzee.wtf/embed/tv/${tmdbId}/${season}/${episode}?autoplay=true`,
   },
   {
     id: 'vidlink-pro',
     name: 'Cinema Server II - Mirror HD (VidLink)',
-    description: 'Low-popup adaptive autoplay mirror',
+    description: 'Fast adaptive HD cinema & series mirror',
     format: 'embed',
+    sandbox: false,
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
       `https://vidlink.pro/movie/${tmdbId}?${VIDLINK_THEME_PARAMS}`,
@@ -48,26 +51,28 @@ export const VOD_RESOLVERS: VodResolverDefinition[] = [
       `https://vidlink.pro/tv/${tmdbId}/${season}/${episode}?${VIDLINK_THEME_PARAMS}`,
   },
   {
-    id: 'twoembed-cc',
-    name: 'Cinema Server III - Backup Embed',
-    description: 'Secondary multi-season TV & anime fallback',
+    id: 'vidrock-net',
+    name: 'Cinema Server III - VidRock HD',
+    description: 'Multi-CDN backup cinema & series player',
     format: 'embed',
+    sandbox: false,
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
-      `https://www.2embed.cc/embed/${tmdbId}?autoplay=1&autoPlay=true`,
+      `https://vidrock.net/embed/movie/${tmdbId}`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://www.2embed.cc/embedtv/${tmdbId}?s=${season}&e=${episode}&autoplay=1&autoPlay=true`,
+      `https://vidrock.net/embed/tv/${tmdbId}/${season}/${episode}`,
   },
   {
-    id: 'multiembed',
-    name: 'Cinema Server IV - Legacy Fallback',
-    description: 'Last-resort backup embed server',
+    id: 'vidnest-fun',
+    name: 'Cinema Server IV - VidNest HD',
+    description: 'Secondary multi-season series & movie mirror',
     format: 'embed',
+    sandbox: false,
     enabledByDefault: true,
     buildMovieUrl: (tmdbId) =>
-      `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&autoplay=1&autoPlay=true`,
+      `https://vidnest.fun/movie/${tmdbId}`,
     buildSeriesUrl: (tmdbId, season, episode) =>
-      `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}&autoplay=1&autoPlay=true`,
+      `https://vidnest.fun/tv/${tmdbId}/${season}/${episode}`,
   },
 ];
 
@@ -170,10 +175,10 @@ export function resolveVodSources(params: {
     (s) => s.format === 'hls' || s.format === 'mp4'
   );
   const directShiftedLabels: Record<string, string> = {
-    'vidsrc-me': 'Server II - Mirror HD',
-    'vidlink-pro': 'Server III - VidLink HD',
-    'twoembed-cc': 'Server IV - Backup Embed',
-    multiembed: 'Server V - Legacy Fallback',
+    'vidzee-wtf': 'Server II - Shielded HD (VidZee)',
+    'vidlink-pro': 'Server III - Mirror HD (VidLink)',
+    'vidrock-net': 'Server IV - VidRock HD',
+    'vidnest-fun': 'Server V - VidNest HD',
   };
 
   const numericId = tmdbId || (/^\d+$/.test(id) ? Number(id) : undefined);
@@ -183,6 +188,9 @@ export function resolveVodSources(params: {
         type === 'movie'
           ? resolver.buildMovieUrl(numericId)
           : resolver.buildSeriesUrl(numericId, season, episode);
+      if (sources.some((s) => s.url === url)) {
+        continue;
+      }
       const displayName =
         hasDirectPrimary && !params.isAnime
           ? directShiftedLabels[resolver.id] || resolver.name
@@ -190,20 +198,21 @@ export function resolveVodSources(params: {
       sources.push({
         id: resolver.id,
         name: displayName,
-        label: displayName,
+        label: resolver.sandbox ? `${displayName} · Sandbox Shield` : displayName,
         quality: 'Auto HD',
         audioTrack: 'sub',
         audioSupport: { sub: true, dub: false },
         format: resolver.format,
+        sandbox: resolver.sandbox,
         url,
         isDefault: false,
       });
     }
   }
 
-  // Select default source: direct native HLS/MP4 wins when present; otherwise clean primary Mirror HD Server I/II
+  // Select default source: direct native HLS/MP4 wins when present; otherwise shielded VidZee / VidLink primary
   if (sources.length > 0 && !sources.some((s) => s.isDefault)) {
-    const cleanPrimaryIds = new Set(['vidsrc-me', 'vidlink-pro']);
+    const cleanPrimaryIds = new Set(['vidzee-wtf', 'vidlink-pro', 'vidrock-net', 'vidnest-fun']);
     const preferred =
       preferredResolverId && cleanPrimaryIds.has(preferredResolverId)
         ? sources.find((s) => s.id === preferredResolverId)
@@ -211,9 +220,9 @@ export function resolveVodSources(params: {
     if (preferred) {
       preferred.isDefault = true;
     } else {
-      const mirrorHd = sources.find((s) => s.id === 'vidsrc-me');
-      if (mirrorHd) {
-        mirrorHd.isDefault = true;
+      const shieldedDefault = sources.find((s) => s.id === 'vidzee-wtf');
+      if (shieldedDefault) {
+        shieldedDefault.isDefault = true;
       } else {
         sources[0].isDefault = true;
       }

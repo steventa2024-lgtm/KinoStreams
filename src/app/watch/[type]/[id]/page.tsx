@@ -107,6 +107,7 @@ function WatchViewContent() {
   const [pastedSources, setPastedSources] = useState<StreamSource[]>([]);
   const [resolvedDirectSources, setResolvedDirectSources] = useState<StreamSource[]>([]);
   const [resolvingDirectStream, setResolvingDirectStream] = useState(false);
+  const [resolvedForKey, setResolvedForKey] = useState<string | null>(null);
   const [providerChannels, setProviderChannels] = useState<Channel[]>([]);
   const [refreshingFeeds, setRefreshingFeeds] = useState(false);
   const [showImportedPicker, setShowImportedPicker] = useState(false);
@@ -135,6 +136,8 @@ function WatchViewContent() {
     setExpandedGroupId(null);
     setShowImportedPicker(false);
     setImportedSearch('');
+    setResolvedDirectSources([]);
+    setResolvedForKey(null);
     setResolvingDirectStream(false);
     fetchedDetailsKeyRef.current = null;
     fetchedResolveKeyRef.current = null;
@@ -506,7 +509,7 @@ function WatchViewContent() {
     let completed = false;
     setResolvingDirectStream(true);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 3800 : 2200);
+    const timeout = setTimeout(() => controller.abort(), isAnimeSeries ? 2600 : 2200);
 
     const tmdbType = mediaType === 'series' ? 'tv' : 'movie';
     const absEp = isAnimeSeries
@@ -590,7 +593,10 @@ function WatchViewContent() {
       })
       .finally(() => {
         clearTimeout(timeout);
-        if (active) setResolvingDirectStream(false);
+        if (active) {
+          setResolvedForKey(resolveKey);
+          setResolvingDirectStream(false);
+        }
       });
 
     return () => {
@@ -640,6 +646,7 @@ function WatchViewContent() {
 
   const handleEpisodeSelect = useCallback(
     (seasonNum: number, episodeNum: number) => {
+      setResolvedDirectSources([]);
       setSelectedSeason(seasonNum);
       setSelectedEpisode(episodeNum);
       setInitialTime(0);
@@ -813,6 +820,19 @@ function WatchViewContent() {
     }
   }, [matchedMatchFeeds, selectedMatchedFeedId]);
 
+  const currentResolveKey =
+    !isChannelType && mediaDetails && mediaId
+      ? `${mediaType}:${mediaId}:${mediaDetails.id}:${selectedSeason}:${selectedEpisode}:${isAnimeSeries ? animeAudio : 'cinema'}`
+      : null;
+
+  const awaitingAnimeResolve = Boolean(
+    isAnimeSeries &&
+      currentResolveKey &&
+      resolvedForKey !== currentResolveKey &&
+      resolvedDirectSources.length === 0 &&
+      pastedSources.length === 0
+  );
+
   const preGameStartTime = useMemo(() => {
     if (!sportsMatch) return '';
     return formatClockTime(sportsMatch.date) || sportsMatch.statusText;
@@ -956,6 +976,17 @@ function WatchViewContent() {
             )}
 
             {/* Video Player */}
+            {awaitingAnimeResolve ? (
+              <div className="flex aspect-video w-full flex-col items-center justify-center rounded-2xl border border-white/[0.08] bg-[#080809] px-6 text-center shadow-2xl">
+                <Loader2 className="h-9 w-9 animate-spin text-[#f59e0b]" />
+                <p className="mt-3 font-sans text-base font-medium text-[#FAFAFA]">
+                  Connecting Anime Server ({animeAudio.toUpperCase()})...
+                </p>
+                <p className="mt-1 text-xs text-[#A1A1AA]">
+                  Resolving direct episode feed and backup shielded mirrors
+                </p>
+              </div>
+            ) : (
             <VideoPlayer
               mediaId={mediaId}
               mediaType={mediaType}
@@ -1017,6 +1048,7 @@ function WatchViewContent() {
               onFailoverAudioToSub={handleFailoverAudioToSub}
               minimizeBackHref={backTarget}
             />
+            )}
 
             {/* Official Broadcasters & EPG-Verified Event Feeds */}
             {sportsMatch && (
