@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowUpRight, ChevronLeft, ChevronRight, Film, Loader2, Play, X } from 'lucide-react';
 import { getStreamingPlatform } from '@/lib/streaming-platforms';
 import { stopGlobalPlayback } from '@/lib/playback-cleanup';
+import { usePresence } from '@/lib/use-presence';
 import type { MediaItem } from '@/types/media';
 
 interface PlatformApiItem extends MediaItem {
@@ -36,10 +37,10 @@ function watchHref(item: PlatformApiItem): string {
 export function PlatformDetailsDialog({ slug, onClose, onSelect }: PlatformDetailsProps) {
   const platform = getStreamingPlatform(slug);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const closingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callbacks = useRef({ onClose, onSelect });
   callbacks.current = { onClose, onSelect };
   const [closing, setClosing] = useState(false);
+  const { present } = usePresence(!closing);
   const [rows, setRows] = useState<PlatformRows>(EMPTY_ROWS);
   const [items, setItems] = useState<PlatformApiItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,20 +53,21 @@ export function PlatformDetailsDialog({ slug, onClose, onSelect }: PlatformDetai
     document.body.style.overflow = 'hidden';
     if (dialog && !dialog.open) dialog.showModal();
     return () => {
-      if (closingTimer.current) clearTimeout(closingTimer.current);
       dialog?.close();
       document.body.style.overflow = previousOverflow;
     };
   }, []);
 
+  useEffect(() => {
+    if (!present) callbacks.current.onClose();
+  }, [present]);
+
   const dismiss = useCallback((selection?: MediaItem) => {
-    if (closingTimer.current) return;
+    if (selection) {
+      callbacks.current.onSelect(selection);
+      return;
+    }
     setClosing(true);
-    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200;
-    closingTimer.current = setTimeout(() => {
-      if (selection) callbacks.current.onSelect(selection);
-      else callbacks.current.onClose();
-    }, duration);
   }, []);
 
   useEffect(() => {
@@ -123,13 +125,13 @@ export function PlatformDetailsDialog({ slug, onClose, onSelect }: PlatformDetai
       onCancel={(event) => { event.preventDefault(); dismiss(); }}
       onClick={(event) => { if (event.target === event.currentTarget) dismiss(); }}
       onKeyDown={(event) => {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        if (closing || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')) {
           event.preventDefault();
           event.stopPropagation();
         }
       }}
     >
-      <article className="kino-platform-dialog__sheet">
+      <article className="kino-platform-dialog__sheet" inert={closing} aria-hidden={closing || undefined}>
         {ambient && <div className="kino-platform-dialog__ambient" aria-hidden="true" style={{ backgroundImage: `url("${ambient}")` }} />}
         <button type="button" className="kino-platform-dialog__close" aria-label={`Close ${name} catalog`} onClick={() => dismiss()} autoFocus><X size={18} /></button>
         <header className="kino-platform-dialog__header">

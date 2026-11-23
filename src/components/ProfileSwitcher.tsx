@@ -38,7 +38,7 @@ export function ProfileSwitcher() {
       title={`Watching as ${activeProfile.name} · Switch profile`}
     >
       <ProfileAvatar avatarId={activeProfile.avatarId} />
-      <ChevronDown size={12} aria-hidden="true" />
+      <span className="kino-profile-trigger__chevron"><ChevronDown size={12} aria-hidden="true" /></span>
     </button>
   );
 }

@@ -190,7 +190,7 @@ export function HeroBanner({ items }: HeroBannerProps) {
               <Link href={watchHref} className="kino-hero__info"><Info size={14} aria-hidden="true" />More info</Link>
             )}
             <button type="button" onClick={handleWatchlist} className={`kino-hero__save${saved ? ' kino-hero__save--active' : ''}`} aria-label={saved ? 'Remove from watchlist' : 'Add to watchlist'} aria-pressed={saved} title={saved ? 'In your watchlist' : 'Add to watchlist'}>
-              {saved ? <Check size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+              <span className="kino-save-symbol" aria-hidden="true">{saved ? <Check size={16} /> : <Plus size={16} />}</span>
             </button>
           </div>
         </div>

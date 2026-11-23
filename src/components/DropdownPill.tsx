@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
+import { usePresence } from '@/lib/use-presence';
 import { cn } from '@/lib/utils';
 
 export interface DropdownPillOption {
@@ -28,7 +29,10 @@ export function DropdownPill({
   className,
 }: DropdownPillProps) {
   const [open, setOpen] = useState(false);
+  const { present, exiting } = usePresence(open, 150);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
 
   const selected = options.find((opt) => opt.value === value) || options[0];
 
@@ -40,7 +44,10 @@ export function DropdownPill({
       }
     };
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus({ preventScroll: true });
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('keydown', handleEscape);
@@ -51,14 +58,16 @@ export function DropdownPill({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={cn('relative inline-block', className)}>
+    <div ref={rootRef} className={cn('kino-dropdown relative inline-block', className)}>
       <button
+        ref={triggerRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={present ? menuId : undefined}
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          'inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition',
+          'kino-dropdown__trigger inline-flex min-h-[44px] items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium transition',
           open
             ? 'border-[#e50935] bg-[#e50935]/15 text-[#FAFAFA]'
             : 'border-white/[0.1] bg-[#151517] text-[#FAFAFA] hover:border-[#e50935]/45'
@@ -78,11 +87,16 @@ export function DropdownPill({
         />
       </button>
 
-      {open && (
+      {present && (
         <div
+          id={menuId}
           role="listbox"
+          aria-label={label || 'Filter options'}
+          aria-hidden={exiting || undefined}
+          inert={exiting}
+          data-state={exiting ? 'closed' : 'open'}
           className={cn(
-            'absolute z-40 mt-2 max-h-72 min-w-[210px] overflow-y-auto rounded-lg border border-white/[0.1] bg-[#151517]/95 p-1.5 shadow-2xl backdrop-blur-xl',
+            'kino-dropdown__menu absolute z-40 mt-2 max-h-72 min-w-[210px] overflow-y-auto rounded-lg border border-white/[0.1] bg-[#151517]/95 p-1.5 shadow-2xl backdrop-blur-xl',
             align === 'right' ? 'right-0' : 'left-0'
           )}
         >
@@ -97,6 +111,7 @@ export function DropdownPill({
                 onClick={() => {
                   onChange(opt.value);
                   setOpen(false);
+                  triggerRef.current?.focus({ preventScroll: true });
                 }}
                 className={cn(
                   'flex min-h-[44px] w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-xs transition',

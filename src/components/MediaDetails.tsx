@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Check, ChevronDown, Film, Loader2, Play, Plus, Star, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
 import { PlatformDetailsDialog } from '@/components/PlatformDetails';
+import { usePresence } from '@/lib/use-presence';
 import type { EpisodeItem, MediaItem } from '@/types/media';
 
 type DetailsContextValue = { openDetails: (item: MediaItem) => void; openPlatform: (slug: string) => void };
@@ -82,8 +83,8 @@ function MediaDetailsDialog({ initialItem, onClose, onSelect }: {
   onSelect: (item: MediaItem) => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [closing, setClosing] = useState(false);
+  const { present } = usePresence(!closing);
   const [item, setItem] = useState(initialItem);
   const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,20 +98,18 @@ function MediaDetailsDialog({ initialItem, onClose, onSelect }: {
     const dialog = dialogRef.current;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    dialog?.showModal();
+    if (dialog && !dialog.open) dialog.showModal();
     return () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
       dialog?.close();
       document.body.style.overflow = previousOverflow;
     };
   }, []);
 
-  const requestClose = useCallback(() => {
-    if (closeTimer.current) return;
-    setClosing(true);
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    closeTimer.current = setTimeout(onClose, reduced ? 0 : 220);
-  }, [onClose]);
+  useEffect(() => {
+    if (!present) onClose();
+  }, [present, onClose]);
+
+  const requestClose = useCallback(() => setClosing(true), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -178,13 +177,13 @@ function MediaDetailsDialog({ initialItem, onClose, onSelect }: {
       onClick={(event) => { if (event.target === event.currentTarget) requestClose(); }}
       onKeyDown={(event) => {
         // Keep the global search shortcut from opening a second focus trap behind this dialog.
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        if (closing || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')) {
           event.preventDefault();
           event.stopPropagation();
         }
       }}
     >
-      <article className="kino-details__sheet">
+      <article className="kino-details__sheet" inert={closing} aria-hidden={closing || undefined}>
         {backdrop && <div className="kino-details__ambient" style={{ backgroundImage: `url("${backdrop}")` }} aria-hidden="true" />}
         <button type="button" className="kino-details__close" onClick={requestClose} aria-label="Close details" autoFocus>
           <X size={19} />

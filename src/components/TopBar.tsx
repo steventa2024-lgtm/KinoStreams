@@ -67,7 +67,7 @@ export function TopBar({
         <div className="kino-topbar__identity">
           {showBack ? (
             <button type="button" onClick={handleBack} className="kino-back" aria-label={title ? `Back from ${title}` : 'Go back'}>
-              <ArrowLeft aria-hidden="true" size={18} />
+              <span className="kino-control-icon"><ArrowLeft aria-hidden="true" size={18} /></span>
               <span>{title || 'Back'}</span>
             </button>
           ) : (
@@ -100,16 +100,16 @@ export function TopBar({
             </button>
           ))}
           <button type="button" onClick={openSearch} className="kino-nav__search" aria-label="Search KinoStream" title="Search (⌘K / Ctrl+K)">
-            <Search size={14} aria-hidden="true" />
+            <span className="kino-control-icon"><Search size={14} aria-hidden="true" /></span>
           </button>
         </nav>
 
         <div className="kino-topbar__actions">
           <button type="button" onClick={openSearch} className="kino-mobile-search" aria-label="Search KinoStream">
-            <Search size={18} aria-hidden="true" />
+            <span className="kino-control-icon"><Search size={18} aria-hidden="true" /></span>
           </button>
           <button type="button" onClick={openSources} className="kino-settings" aria-label="Sources & Settings" title="Manage Playlists & Sources">
-            <Settings size={16} aria-hidden="true" />
+            <span className="kino-control-icon"><Settings size={16} aria-hidden="true" /></span>
           </button>
           <ProfileSwitcher />
         </div>

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Film, Loader2, Radio, Search, Trophy, X } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { usePresence } from '@/lib/use-presence';
 import type { MediaItem } from '@/types/media';
 
 type SearchFilter = 'all' | 'movie' | 'series' | 'live';
@@ -17,7 +18,7 @@ const SEARCH_WORDS = ['movies', 'TV shows', 'hidden gems', 'your next binge', 's
 
 export function SearchOverlay() {
   const { isSearchOpen, closeSearch, channels } = useKino();
-  const [rendered, setRendered] = useState(isSearchOpen);
+  const { present, exiting } = usePresence(isSearchOpen);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<SearchFilter>('all');
   const [word, setWord] = useState(0);
@@ -28,25 +29,28 @@ export function SearchOverlay() {
   const openerRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef(closeSearch);
   closeRef.current = closeSearch;
+  const openRef = useRef(isSearchOpen);
+  openRef.current = isSearchOpen;
 
   useEffect(() => {
     if (isSearchOpen) {
-      openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      setRendered(true);
-      const focusTimer = window.setTimeout(() => inputRef.current?.focus(), 50);
-      return () => window.clearTimeout(focusTimer);
+      const focusFrame = window.requestAnimationFrame(() => inputRef.current?.focus());
+      return () => window.cancelAnimationFrame(focusFrame);
     }
-    const closeTimer = window.setTimeout(() => {
-      setRendered(false);
-      setQuery('');
-      setVodResults([]);
-      setFilter('all');
-    }, window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
-    return () => window.clearTimeout(closeTimer);
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (!rendered) return;
+    if (!present) {
+      setQuery('');
+      setVodResults([]);
+      setFilter('all');
+    }
+  }, [present]);
+
+  useEffect(() => {
+    if (!present) return;
+    // Capture once per visible session, retaining the trigger through a rapid reopen.
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKeyDown = (event: KeyboardEvent) => {
@@ -55,6 +59,10 @@ export function SearchOverlay() {
         closeRef.current();
       }
       if (event.key !== 'Tab') return;
+      if (!openRef.current) {
+        event.preventDefault();
+        return;
+      }
       const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
         'a[href],button:not([disabled]),input:not([disabled]),[tabindex="0"]'
       ) || []).filter((element) => element.getClientRects().length > 0);
@@ -71,9 +79,9 @@ export function SearchOverlay() {
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeyDown);
-      if (openerRef.current?.isConnected) openerRef.current.focus();
+      if (openerRef.current?.isConnected) openerRef.current.focus({ preventScroll: true });
     };
-  }, [rendered]);
+  }, [present]);
 
   useEffect(() => {
     if (!isSearchOpen || query || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -109,7 +117,7 @@ export function SearchOverlay() {
     return () => { cancelled = true; window.clearTimeout(timer); controller.abort(); };
   }, [query, isSearchOpen]);
 
-  if (!rendered) return null;
+  if (!present) return null;
   const q = query.trim().toLowerCase();
   const matchedChannels = q ? channels.filter((channel) =>
     channel.name.toLowerCase().includes(q) || channel.group.toLowerCase().includes(q) || channel.league?.toLowerCase().includes(q)
@@ -120,9 +128,9 @@ export function SearchOverlay() {
   const filteredVod = vodResults.filter((item) => filter === 'all' || filter === item.type);
 
   return (
-    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Search KinoStream" className={`kino-search${isSearchOpen ? ' is-open' : ' is-closing'}`}>
-      <button type="button" onClick={closeSearch} aria-label="Close search" className="kino-search-close"><X size={20} /></button>
-      <div className="kino-search-content">
+    <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Search KinoStream" aria-hidden={exiting || undefined} className={`kino-search${isSearchOpen ? ' is-open' : ' is-closing'}`}>
+      <button type="button" onClick={closeSearch} aria-label="Close search" inert={exiting} className="kino-search-close"><X size={20} /></button>
+      <div inert={exiting} className="kino-search-content">
         <div className="kino-search-intro">
           <h2>Search <span className="kino-search-word" key={word} aria-hidden="true">{Array.from(SEARCH_WORDS[word]).map((letter, index) => <span className="kino-search-letter" key={`${word}-${index}`} style={{ animationDelay: `${index * 16}ms` }}>{letter}</span>)}</span><span className="sr-only">KinoStream</span></h2>
           <div className="kino-search-field">
@@ -137,7 +145,7 @@ export function SearchOverlay() {
           </div>
         </div>
 
-        <div className="kino-search-results" aria-busy={loading}>
+        <div key={filter} className="kino-search-results" aria-busy={loading}>
           {showChannels && sportsMatches.length > 0 && (
             <section>
               <h3 className="kino-search-section-title"><Trophy size={15} />{q ? 'Live sports' : 'Featured sports channels'}</h3>

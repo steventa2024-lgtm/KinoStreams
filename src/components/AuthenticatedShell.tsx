@@ -7,6 +7,7 @@ import { FloatingMiniPlayer } from '@/components/FloatingMiniPlayer';
 import { Footer } from '@/components/Footer';
 import { KinoProvider } from '@/components/KinoProvider';
 import { MediaDetailsProvider } from '@/components/MediaDetails';
+import { RouteMotion } from '@/components/RouteMotion';
 import { SearchOverlay } from '@/components/SearchOverlay';
 import { SourceManagerModal } from '@/components/SourceManagerModal';
 import { ViewerProfilesProvider } from '@/components/ViewerProfilesProvider';
@@ -35,7 +36,7 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
     <KinoProvider key={user?.email || 'anon'}>
       <MediaDetailsProvider>
       <div className="kino-shell flex min-h-screen flex-col pb-20 md:pb-4">
-        <div className="kino-shell__content flex-1">{children}</div>
+        <RouteMotion>{children}</RouteMotion>
         <Footer />
       </div>
       <BottomNav />

@@ -108,7 +108,7 @@ export function MatchCard({
     <Link
       href={href}
       className={cn(
-        'group flex flex-col justify-between overflow-hidden rounded-lg border border-white/[0.08] bg-[#151517] transition-all duration-300 hover:border-[#e50935]/45 hover:bg-[#17171B]',
+        'kino-match-card group flex flex-col justify-between overflow-hidden rounded-lg border border-white/[0.08] bg-[#151517] transition-all duration-300 hover:border-[#e50935]/45 hover:bg-[#17171B]',
         fullWidth ? 'w-full' : 'w-[285px] shrink-0 snap-start md:w-[330px]'
       )}
     >
@@ -230,7 +230,7 @@ export function MatchCard({
           <span className="truncate text-[11px] text-[#71717A]">
             {match.venue || match.shortName}
           </span>
-          <span className="inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#fb5272] transition-transform group-hover:translate-x-0.5">
+          <span className="kino-match-card__action inline-flex shrink-0 items-center gap-1.5 font-semibold text-[#fb5272] transition-transform">
             <Play className="h-3 w-3 fill-current" />
             {match.highlightVideoUrl ? 'Highlights' : 'Watch'}
           </span>

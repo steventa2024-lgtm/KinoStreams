@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Link2,
   LogOut,
@@ -23,6 +23,7 @@ import {
   toggleCustomSource,
 } from '@/lib/storage';
 import { cn } from '@/lib/utils';
+import { usePresence } from '@/lib/use-presence';
 import type { CustomSourceConfig, ProxyMode } from '@/types/media';
 
 type SourceTab = 'm3u' | 'xtream' | 'direct';
@@ -31,6 +32,9 @@ export function SourceManagerModal() {
   const { user, signOut } = useAuth();
   const { isSourcesOpen, closeSources, proxyMode, refreshChannels, sourceErrors } =
     useKino();
+  const { present, exiting } = usePresence(isSourcesOpen);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [sources, setSources] = useState<CustomSourceConfig[]>([]);
   const [builtinStates, setBuiltinStates] = useState<Record<string, boolean>>({});
   const [tab, setTab] = useState<SourceTab>('m3u');
@@ -55,7 +59,28 @@ export function SourceManagerModal() {
     }
   }, [isSourcesOpen]);
 
-  if (!isSourcesOpen) return null;
+  useEffect(() => {
+    if (!present) return;
+    const dialog = dialogRef.current;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => {
+      dialog?.close();
+      document.body.style.overflow = previousOverflow;
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
+    };
+  }, [present]);
+
+  useEffect(() => {
+    if (!isSourcesOpen) return;
+    // Run after the modal effect has captured its trigger and entered the top layer.
+    const frame = window.requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [isSourcesOpen]);
+
+  if (!present) return null;
 
   const handleAddSource = (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,13 +163,21 @@ export function SourceManagerModal() {
   };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
       aria-label="Stream Source Manager"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
+      data-state={exiting ? 'closed' : 'open'}
+      onCancel={(event) => { event.preventDefault(); closeSources(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) closeSources(); }}
+      onKeyDown={(event) => {
+        if (exiting || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k')) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+      className="kino-sources fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md"
     >
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/[0.08] bg-[#151517] p-6 shadow-2xl">
+      <div inert={exiting} aria-hidden={exiting || undefined} className="kino-sources__sheet relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-white/[0.08] bg-[#151517] p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-white/[0.08] pb-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#fb5272]">
@@ -168,6 +201,7 @@ export function SourceManagerModal() {
             </button>
             <button
               type="button"
+              ref={closeButtonRef}
               onClick={closeSources}
               aria-label="Close modal"
               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-white/[0.08] bg-[#080809] text-[#A1A1AA] hover:text-[#FAFAFA]"
@@ -246,7 +280,7 @@ export function SourceManagerModal() {
         </div>
 
         {/* Add Source Form */}
-        <form onSubmit={handleAddSource} className="mt-4 space-y-3">
+        <form key={tab} onSubmit={handleAddSource} className="kino-sources__form mt-4 space-y-3">
           <input
             type="text"
             value={name}
@@ -484,6 +518,6 @@ export function SourceManagerModal() {
           </ul>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

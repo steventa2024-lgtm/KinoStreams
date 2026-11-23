@@ -5,6 +5,10 @@
 @import "../styles/platform-details.css";
 @import "../styles/pages.css";
 @import "../styles/profiles.css";
+@import "../styles/motion.css";
+@import "../styles/motion-catalog.css";
+@import "../styles/motion-overlays.css";
+@import "../styles/motion-navigation.css";
 
 @theme inline {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -49,8 +53,6 @@ button, a { touch-action: manipulation; }
 .hero-side-vignette { background: linear-gradient(to right, #080809d9, #08080940 48%, transparent); }
 @keyframes kino-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
 .animate-shake { animation: kino-shake .36s ease-in-out; }
-@keyframes kino-page-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-main > div:not(.kino-ambient) { animation: kino-page-in 240ms var(--kino-ease); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

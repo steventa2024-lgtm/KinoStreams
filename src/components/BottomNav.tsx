@@ -18,10 +18,16 @@ const NAV_ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const activeIndex = NAV_ITEMS.findIndex((item) => item.href === '/' ? pathname === '/' : pathname.startsWith(item.href));
 
   return (
     <nav aria-label="Primary navigation" className="kino-bottom-nav pb-safe">
       <div className="kino-bottom-nav__items">
+        <span
+          className="kino-bottom-nav__indicator"
+          aria-hidden="true"
+          style={{ transform: `translateX(${Math.max(0, activeIndex) * 100}%)`, opacity: activeIndex < 0 ? 0 : 1 }}
+        />
         {NAV_ITEMS.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -34,7 +40,7 @@ export function BottomNav() {
               aria-current={active ? 'page' : undefined}
               className={cn('kino-bottom-nav__item', active && 'kino-bottom-nav__item--active')}
             >
-              <Icon aria-hidden="true" size={18} strokeWidth={active ? 2.2 : 1.7} />
+              <span className="kino-bottom-nav__icon"><Icon aria-hidden="true" size={18} strokeWidth={active ? 2.2 : 1.7} /></span>
               <span>{item.shortLabel}</span>
             </Link>
           );

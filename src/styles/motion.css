@@ -1,0 +1,96 @@
+/* Shared timing keeps small interactions quick and larger entrances composed. */
+:root {
+  --kino-motion-fast: 150ms;
+  --kino-motion-base: 260ms;
+  --kino-motion-slow: 440ms;
+  --kino-motion-ease: cubic-bezier(.22, 1, .36, 1);
+  --kino-motion-spring: cubic-bezier(.2, .9, .25, 1.18);
+}
+
+@keyframes kino-motion-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes kino-motion-underline {
+  from { opacity: .4; transform: scaleX(.35); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .kino-page-heading h1 {
+    animation: kino-motion-rise var(--kino-motion-slow) var(--kino-motion-ease) backwards;
+  }
+
+  .kino-page-heading p {
+    animation: kino-motion-rise var(--kino-motion-slow) var(--kino-motion-ease) 55ms backwards;
+  }
+
+  .kino-catalog-controls {
+    animation: kino-motion-rise var(--kino-motion-slow) var(--kino-motion-ease) 90ms backwards;
+  }
+
+  .kino-tab {
+    transition: color var(--kino-motion-fast) ease,
+      scale var(--kino-motion-base) var(--kino-motion-spring);
+  }
+
+  .kino-tab:active {
+    scale: .95;
+    transition-duration: 90ms;
+  }
+
+  .kino-tab.is-active::after {
+    transform-origin: center;
+    animation: kino-motion-underline 300ms var(--kino-motion-ease);
+  }
+
+  /* Utility-styled page controls (filters, pagination, guide actions). Scoped
+     away from players and separate from the component-specific motion layers. */
+  :where(.kino-route-content[data-kino-motion='browse'] button[class*='rounded-'], .kino-auth button) {
+    transition: scale var(--kino-motion-base) var(--kino-motion-spring),
+      background-color var(--kino-motion-fast) ease,
+      border-color var(--kino-motion-fast) ease,
+      color var(--kino-motion-fast) ease,
+      opacity var(--kino-motion-fast) ease;
+  }
+
+  :where(.kino-route-content[data-kino-motion='browse'] button[class*='rounded-'], .kino-auth button):not(:disabled):active {
+    scale: .965;
+    transition-duration: 90ms;
+  }
+
+  .kino-button {
+    transition: scale var(--kino-motion-base) var(--kino-motion-spring),
+      transform var(--kino-motion-base) var(--kino-motion-ease),
+      background-color var(--kino-motion-fast) ease,
+      border-color var(--kino-motion-fast) ease,
+      color var(--kino-motion-fast) ease;
+  }
+
+  .kino-button:not(:disabled):active {
+    scale: .955;
+    transition-duration: 90ms;
+  }
+
+  .kino-auth-card {
+    animation: kino-motion-rise 480ms var(--kino-motion-ease) backwards;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .kino-button:hover { transform: translateY(-2px); }
+  .kino-button:active { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Remove transform-based feedback, not just its duration. Content remains
+     visible and every action still happens immediately. */
+  :where(.kino-tab, .kino-button, .kino-auth-card,
+    .kino-page-heading h1, .kino-page-heading p, .kino-catalog-controls) {
+    animation: none !important;
+    transition: none !important;
+    scale: none !important;
+  }
+  .kino-button { transform: none !important; }
+}

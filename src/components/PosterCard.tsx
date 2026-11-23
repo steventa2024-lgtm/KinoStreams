@@ -60,7 +60,7 @@ export function PosterCard({ item, fullWidth = false, hrefOverride, rank, compac
                 subtitle: item.genres?.slice(0, 2).join(' · '),
                 poster: item.posterPath, backdrop: item.backdropPath, year: item.year, rating: item.rating,
               })}
-            >{saved ? <Check size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}</button>
+            ><span className="kino-save-symbol" aria-hidden="true">{saved ? <Check size={16} /> : <Plus size={16} />}</span></button>
           </div>
           {item.quality && <span className="kino-poster-quality">{item.quality}</span>}
         </div>

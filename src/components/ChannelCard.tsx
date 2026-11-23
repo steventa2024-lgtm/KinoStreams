@@ -31,12 +31,12 @@ export function ChannelCard({
     return (
       <Link
         href={href}
-        className={`group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition-all duration-300 hover:border-[#e50935]/40 hover:bg-[#17171B] ${
+        className={`kino-channel-card group flex flex-col justify-between rounded-lg border border-white/[0.08] bg-[#151517] p-4 transition-all duration-300 hover:border-[#e50935]/40 hover:bg-[#17171B] ${
           fullWidth ? 'w-full' : 'w-[290px] shrink-0 snap-start md:w-[340px]'
         }`}
       >
         <div className="flex items-center gap-3.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#080809] shadow-[0_0_20px_rgba(229,9,53,0.25)] transition-transform duration-300 group-hover:scale-105">
+          <div className="kino-channel-card__play flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FAFAFA] text-[#080809] shadow-[0_0_20px_rgba(229,9,53,0.25)] transition-transform duration-300">
             <Play className="ml-0.5 h-4 w-4 fill-current" />
           </div>
 
@@ -100,7 +100,7 @@ export function ChannelCard({
   return (
     <Link
       href={href}
-      className={`group block overflow-hidden rounded-lg border border-white/[0.08] bg-[#151517] transition-all duration-300 hover:border-[#e50935]/45 ${
+      className={`kino-channel-card group block overflow-hidden rounded-lg border border-white/[0.08] bg-[#151517] transition-all duration-300 hover:border-[#e50935]/45 ${
         fullWidth ? 'w-full' : 'w-[260px] shrink-0 snap-start md:w-[320px]'
       }`}
     >
@@ -110,7 +110,7 @@ export function ChannelCard({
           <img
             src={channel.backdrop}
             alt={channel.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="kino-channel-card__image h-full w-full object-cover transition-transform duration-500"
             loading="lazy"
           />
         ) : (
@@ -143,7 +143,7 @@ export function ChannelCard({
         </div>
 
         {/* Bottom play indicator */}
-        <div className="absolute right-3 bottom-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#e50935]/95 text-[#080809] opacity-90 shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:opacity-100">
+        <div className="kino-channel-card__play absolute right-3 bottom-3 flex h-9 w-9 items-center justify-center rounded-full bg-[#e50935]/95 text-[#080809] opacity-90 shadow-lg transition-all duration-300 group-hover:opacity-100">
           <Play className="ml-0.5 h-4 w-4 fill-current" />
         </div>
       </div>

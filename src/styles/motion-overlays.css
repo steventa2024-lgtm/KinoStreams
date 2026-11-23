@@ -1,0 +1,202 @@
+/* Short, interruptible overlay transitions; existing dimensions and colors stay intact. */
+.kino-details,
+.kino-platform-dialog,
+.kino-search,
+.kino-sources {
+  animation: kino-motion-overlay-in var(--kino-motion-base, 260ms) ease-out both;
+}
+
+.kino-details::backdrop,
+.kino-platform-dialog::backdrop {
+  animation: kino-motion-overlay-in var(--kino-motion-base, 260ms) ease-out both;
+}
+
+.kino-details__sheet,
+.kino-platform-dialog__sheet,
+.kino-sources__sheet {
+  transform-origin: 50% 18%;
+  animation: kino-motion-sheet-in var(--kino-motion-slow, 440ms) var(--kino-motion-ease, ease-out) both;
+}
+
+.kino-details.is-closing,
+.kino-details.is-closing::backdrop,
+.kino-platform-dialog.is-closing,
+.kino-platform-dialog.is-closing::backdrop,
+.kino-search.is-closing,
+.kino-sources[data-state="closed"] {
+  animation: kino-motion-overlay-out 180ms ease-in both;
+}
+
+.kino-details.is-closing .kino-details__sheet,
+.kino-platform-dialog.is-closing .kino-platform-dialog__sheet,
+.kino-sources[data-state="closed"] .kino-sources__sheet {
+  animation: kino-motion-sheet-out 180ms ease-in both;
+}
+
+/* An exiting search still covers the page so a second tap cannot click through. */
+.kino-search.is-closing { pointer-events: auto; }
+.kino-search-content {
+  animation: kino-motion-content-in var(--kino-motion-slow, 440ms) var(--kino-motion-ease, ease-out) both;
+}
+.kino-search.is-closing .kino-search-content {
+  animation: kino-motion-sheet-out 180ms ease-in both;
+}
+.kino-search-intro > h2 { animation: kino-motion-content-in 460ms var(--kino-motion-ease, ease-out) both; }
+.kino-search-field { animation: kino-motion-content-in 420ms 45ms var(--kino-motion-ease, ease-out) both; }
+.kino-search-filters { animation: kino-motion-content-in 420ms 85ms var(--kino-motion-ease, ease-out) both; }
+.kino-search-results { animation: kino-motion-content-in 360ms 90ms var(--kino-motion-ease, ease-out) both; }
+.kino-search-result,
+.kino-search-channel {
+  animation: kino-motion-card-in 360ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-search-result:nth-child(2), .kino-search-channel:nth-child(2) { animation-delay: 30ms; }
+.kino-search-result:nth-child(3), .kino-search-channel:nth-child(3) { animation-delay: 60ms; }
+.kino-search-result:nth-child(4), .kino-search-channel:nth-child(4) { animation-delay: 90ms; }
+.kino-search-result:nth-child(5), .kino-search-channel:nth-child(5) { animation-delay: 120ms; }
+.kino-search-result:nth-child(n+6), .kino-search-channel:nth-child(n+6) { animation-delay: 150ms; }
+
+.kino-details__hero-copy h2,
+.kino-platform-dialog__identity {
+  animation: kino-motion-content-in 440ms 50ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-details__actions {
+  animation: kino-motion-content-in 400ms 95ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-details__summary,
+.kino-platform-dialog__body {
+  animation: kino-motion-content-in 400ms 130ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-details__episodes > *,
+.kino-details__related > *,
+.kino-platform-dialog__track > * {
+  animation: kino-motion-card-in 380ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-details__episodes > :nth-child(2),
+.kino-details__related > :nth-child(2),
+.kino-platform-dialog__track > :nth-child(2) { animation-delay: 35ms; }
+.kino-details__episodes > :nth-child(3),
+.kino-details__related > :nth-child(3),
+.kino-platform-dialog__track > :nth-child(3) { animation-delay: 70ms; }
+.kino-details__episodes > :nth-child(n+4),
+.kino-details__related > :nth-child(n+4),
+.kino-platform-dialog__track > :nth-child(n+4) { animation-delay: 105ms; }
+
+/* Native dialog defaults are reset to the previous full viewport Sources layout. */
+.kino-sources {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
+  overflow: hidden;
+}
+.kino-sources::backdrop { background: transparent; }
+.kino-sources__sheet { overscroll-behavior: contain; }
+.kino-sources__form {
+  animation: kino-motion-content-in 280ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-sources__form input,
+.kino-sources__form select {
+  transition: border-color var(--kino-motion-fast, 150ms) ease, background-color var(--kino-motion-fast, 150ms) ease;
+}
+
+.kino-dropdown__menu {
+  transform-origin: 50% 0;
+  animation: kino-motion-menu-in 240ms var(--kino-motion-ease, ease-out) both;
+}
+.kino-dropdown__menu[data-state="closed"] {
+  animation: kino-motion-menu-out 150ms ease-in both;
+}
+.kino-dropdown__trigger {
+  transition: scale var(--kino-motion-base, 260ms) var(--kino-motion-spring, ease-out), border-color 160ms ease, background-color 160ms ease;
+}
+.kino-dropdown__menu [role="option"] {
+  transition: background-color 150ms ease, color 150ms ease, scale 180ms var(--kino-motion-ease, ease-out);
+}
+
+.kino-sources button,
+.kino-search-filters button,
+.kino-search-close,
+.kino-details__close,
+.kino-platform-dialog__close,
+.kino-platform-dialog__row-controls button {
+  transition-property: background-color, color, border-color, transform, scale;
+  transition-duration: var(--kino-motion-base, 260ms);
+  transition-timing-function: var(--kino-motion-ease, ease-out);
+}
+.kino-sources button:active:not(:disabled),
+.kino-search-filters button:active,
+.kino-search-close:active,
+.kino-details__close:active,
+.kino-platform-dialog__close:active,
+.kino-platform-dialog__row-controls button:active,
+.kino-dropdown__trigger:active,
+.kino-dropdown__menu [role="option"]:active { scale: .95; }
+
+@media (hover: hover) and (pointer: fine) {
+  .kino-search-result-artwork img,
+  .kino-details__recommendation img,
+  .kino-platform-dialog__poster-artwork img {
+    transition: transform 500ms var(--kino-motion-ease, ease-out);
+  }
+  .kino-search-result:hover .kino-search-result-artwork img,
+  .kino-details__recommendation:hover img,
+  .kino-platform-dialog__poster:hover .kino-platform-dialog__poster-artwork img { transform: scale(1.055); }
+  .kino-search-close:hover,
+  .kino-platform-dialog__close:hover { transform: rotate(90deg); }
+}
+
+@keyframes kino-motion-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kino-motion-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes kino-motion-sheet-in {
+  from { opacity: 0; transform: translateY(24px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kino-motion-sheet-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(10px) scale(.985); }
+}
+@keyframes kino-motion-content-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kino-motion-card-in {
+  from { opacity: 0; translate: 0 12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes kino-motion-menu-in {
+  from { opacity: 0; transform: translateY(-6px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes kino-motion-menu-out {
+  to { opacity: 0; transform: translateY(-4px) scale(.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kino-details,
+  .kino-details::backdrop,
+  .kino-details *,
+  .kino-platform-dialog,
+  .kino-platform-dialog::backdrop,
+  .kino-platform-dialog *,
+  .kino-search,
+  .kino-search *,
+  .kino-sources,
+  .kino-sources *,
+  .kino-dropdown * {
+    animation: none !important;
+    transition: none !important;
+    translate: none !important;
+    scale: none !important;
+  }
+  .kino-details__close,
+  .kino-platform-dialog__close,
+  .kino-search-close,
+  .kino-search-result-artwork,
+  .kino-search-result-artwork img,
+  .kino-details__recommendation,
+  .kino-details__recommendation img,
+  .kino-platform-dialog__poster-artwork img { transform: none !important; }
+}

@@ -1,0 +1,266 @@
+/* Finite, composited motion for the existing catalog. All content stays usable
+   immediately; animations never hold up navigation, loading, or playback. */
+
+.kino-hero__slide {
+  transition: opacity 640ms var(--kino-motion-ease);
+}
+
+.kino-hero__slide--active :is(.kino-hero__image, .kino-hero__match-image) {
+  animation: kino-artwork-settle 1400ms var(--kino-motion-ease) backwards;
+}
+
+.kino-hero__content {
+  animation: none;
+}
+
+.kino-hero__content > :is(h1, p, .kino-hero__live, .kino-hero__metadata, .kino-hero__actions) {
+  animation: kino-hero-copy-rise 540ms var(--kino-motion-ease) backwards;
+}
+
+.kino-hero__content > h1 { animation-delay: 35ms; }
+.kino-hero__content > .kino-hero__metadata { animation-delay: 85ms; }
+.kino-hero__content > p { animation-delay: 125ms; }
+.kino-hero__content > .kino-hero__actions { animation-delay: 175ms; }
+
+.kino-hero__slide--active .kino-competitor {
+  animation: kino-catalog-arrive 580ms var(--kino-motion-ease) backwards;
+}
+
+.kino-hero__slide--active .kino-competitor:last-child { animation-delay: 90ms; }
+
+.kino-hero__pagination button span {
+  transition: width var(--kino-motion-slow) var(--kino-motion-spring), background-color var(--kino-motion-base) ease;
+}
+
+.kino-row-track > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-continue),
+.kino-platform-track > .kino-platform-tile,
+.grid > :is(.kino-poster, .kino-channel-card, .kino-match-card),
+.kino-library-grid > .kino-library-card,
+.kino-home__editorial > .kino-feature {
+  animation: kino-catalog-arrive var(--kino-motion-slow) var(--kino-motion-ease) backwards;
+  animation-delay: var(--kino-card-delay, 0ms);
+}
+
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(2) { --kino-card-delay: 40ms; }
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(3) { --kino-card-delay: 80ms; }
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(4) { --kino-card-delay: 120ms; }
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(5) { --kino-card-delay: 160ms; }
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(6) { --kino-card-delay: 200ms; }
+:is(.kino-row-track, .kino-platform-track, .grid, .kino-library-grid, .kino-home__editorial) > :is(.kino-poster, .kino-channel-card, .kino-match-card, .kino-platform-tile, .kino-continue, .kino-library-card, .kino-feature):nth-child(n + 7) { --kino-card-delay: 240ms; }
+
+.kino-poster-artwork {
+  transition: transform var(--kino-motion-slow) var(--kino-motion-ease);
+}
+
+.kino-poster-open img {
+  transition: transform 620ms var(--kino-motion-ease);
+}
+
+.kino-poster-actions {
+  transform: translateY(10px);
+  transition: opacity var(--kino-motion-base) ease, transform var(--kino-motion-slow) var(--kino-motion-ease);
+}
+
+.kino-poster-play,
+.kino-poster-save {
+  transition: transform var(--kino-motion-base) var(--kino-motion-spring), background-color var(--kino-motion-fast) ease, border-color var(--kino-motion-fast) ease;
+}
+
+.kino-poster-save { transition-delay: 25ms, 0ms, 0ms; }
+
+.kino-save-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(.kino-poster-save, .kino-hero__save)[aria-pressed="true"] .kino-save-symbol {
+  animation: kino-saved-pop 360ms var(--kino-motion-ease) backwards;
+}
+
+.kino-channel-card,
+.kino-match-card {
+  transition: transform var(--kino-motion-slow) var(--kino-motion-ease), border-color var(--kino-motion-base) ease, background-color var(--kino-motion-base) ease;
+}
+
+.kino-channel-card__image { transition: transform 620ms var(--kino-motion-ease); }
+.kino-channel-card__play { transition: transform var(--kino-motion-slow) var(--kino-motion-spring), opacity var(--kino-motion-base) ease; }
+.kino-match-card__action { transition: transform var(--kino-motion-base) var(--kino-motion-ease); }
+
+.kino-platform-tile {
+  transition: transform var(--kino-motion-slow) var(--kino-motion-ease), border-color var(--kino-motion-base) ease;
+}
+
+.kino-platform-wordmark {
+  transition: scale var(--kino-motion-slow) var(--kino-motion-ease);
+}
+
+.kino-continue__image,
+.kino-library-card > a,
+.kino-feature__copy {
+  transition: transform var(--kino-motion-slow) var(--kino-motion-ease);
+}
+
+.kino-continue__image > img,
+.kino-library-card__image > img,
+.kino-feature > img {
+  transition: transform 620ms var(--kino-motion-ease);
+}
+
+.kino-continue__play {
+  transform: scale(.92);
+  transition: opacity var(--kino-motion-base) ease, transform var(--kino-motion-slow) var(--kino-motion-ease);
+}
+
+.kino-continue:focus-visible .kino-continue__play { transform: scale(1); }
+
+.kino-continue:active .kino-continue__image,
+.kino-library-card > a:active { transform: scale(.975); }
+
+.kino-row-view-all {
+  transition: color var(--kino-motion-fast) ease, transform var(--kino-motion-base) var(--kino-motion-ease);
+}
+
+.kino-rail-arrow {
+  transition: scale var(--kino-motion-base) var(--kino-motion-spring), opacity var(--kino-motion-base) ease, background-color var(--kino-motion-fast) ease;
+}
+
+.kino-rail-arrow:active:not(:disabled) { scale: .91; }
+
+.kino-poster-play:active,
+.kino-poster-save:active { transform: scale(.9); transition-duration: 80ms; }
+
+.kino-poster-open:active { scale: .98; }
+.kino-poster-open { transition: scale var(--kino-motion-base) var(--kino-motion-ease); }
+
+:is(.kino-channel-card, .kino-match-card, .kino-platform-tile):active {
+  transform: translateY(0) scale(.975);
+  transition-duration: 90ms;
+}
+
+/* Lift the artwork, not its text or surrounding layout. Coarse pointers retain
+   their always-visible controls and never get a lingering hover transform. */
+@media (hover: hover) and (pointer: fine) {
+  .kino-poster:hover .kino-poster-artwork {
+    transform: translateY(-3px) scale(1.02);
+  }
+
+  .kino-poster:hover .kino-poster-open img,
+  .kino-poster:focus-within .kino-poster-open img {
+    transform: scale(1.055);
+  }
+
+  .kino-poster-save:hover,
+  .kino-poster-play:hover { transform: scale(1.075); }
+  .kino-poster-save:active,
+  .kino-poster-play:active { transform: scale(.9); }
+
+  :is(.kino-channel-card, .kino-match-card):hover { transform: translateY(-4px); }
+  .kino-channel-card:hover .kino-channel-card__image { transform: scale(1.055); }
+  .kino-channel-card:hover .kino-channel-card__play { transform: scale(1.12); }
+  .kino-match-card:hover .kino-match-card__action { transform: translateX(3px); }
+
+  .kino-platform-tile:hover { transform: translateY(-3px); }
+  .kino-platform-tile:hover .kino-platform-wordmark { scale: 1.035; }
+  .kino-row-view-all:hover { transform: translateX(2px); }
+
+  .kino-continue:hover .kino-continue__image,
+  .kino-library-card:hover > a { transform: translateY(-3px); }
+  .kino-continue:hover .kino-continue__image > img,
+  .kino-library-card:hover img,
+  .kino-feature:hover > img { transform: scale(1.055); }
+  .kino-continue:hover .kino-continue__play { transform: scale(1); }
+  .kino-feature:hover .kino-feature__copy { transform: translateY(-3px); }
+
+  .kino-continue:active .kino-continue__image,
+  .kino-library-card > a:active { transform: scale(.975); }
+
+  :is(.kino-channel-card, .kino-match-card, .kino-platform-tile):active {
+    transform: translateY(0) scale(.975);
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  .kino-poster-actions { transform: none; }
+  .kino-channel-card:hover .kino-channel-card__image,
+  .kino-channel-card:hover .kino-channel-card__play,
+  .kino-match-card:hover .kino-match-card__action { transform: none; }
+  .kino-platform-tile:hover { transform: none; }
+  .kino-platform-tile:active { transform: scale(.975); }
+  .kino-continue:hover .kino-continue__image > img,
+  .kino-library-card:hover img,
+  .kino-feature:hover > img { transform: none; }
+  .kino-continue__play { opacity: 1; transform: none; }
+}
+
+@keyframes kino-artwork-settle {
+  from { transform: scale(1.055); }
+  to { transform: scale(1); }
+}
+
+@keyframes kino-hero-copy-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kino-catalog-arrive {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes kino-saved-pop {
+  0% { opacity: .4; transform: scale(.55) rotate(-18deg); }
+  65% { opacity: 1; transform: scale(1.18) rotate(5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kino-hero__slide,
+  .kino-hero__slide *,
+  .kino-hero__content *,
+  .kino-hero__pagination *,
+  .kino-poster,
+  .kino-poster *,
+  .kino-channel-card,
+  .kino-channel-card *,
+  .kino-match-card,
+  .kino-match-card *,
+  .kino-platform-track *,
+  .kino-continue,
+  .kino-continue *,
+  .kino-library-card,
+  .kino-library-card *,
+  .kino-feature,
+  .kino-feature *,
+  .kino-row-view-all,
+  .kino-rail-arrow {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .kino-poster:hover .kino-poster-artwork,
+  .kino-poster:hover .kino-poster-open img,
+  .kino-poster:focus-within .kino-poster-open img,
+  .kino-poster-play,
+  .kino-poster-save,
+  .kino-channel-card,
+  .kino-channel-card__image,
+  .kino-channel-card__play,
+  .kino-match-card,
+  .kino-match-card__action,
+  .kino-platform-tile,
+  .kino-continue__image,
+  .kino-continue__image > img,
+  .kino-continue__play,
+  .kino-library-card > a,
+  .kino-library-card__image > img,
+  .kino-feature > img,
+  .kino-feature__copy,
+  .kino-row-view-all {
+    transform: none !important;
+  }
+
+  .kino-poster-open,
+  .kino-platform-wordmark,
+  .kino-rail-arrow { scale: 1 !important; }
+}
