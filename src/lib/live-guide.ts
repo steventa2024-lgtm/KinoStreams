@@ -1,3 +1,4 @@
+import { findLiveEpgScheduleForChannel } from '@/lib/epg-matcher';
 import { networkArtwork } from '@/lib/sports-networks';
 import type {
   Channel,
@@ -9,6 +10,7 @@ import type {
 export type LiveFilterCategory =
   | 'recommended'
   | 'sports'
+  | 'events'
   | 'kids'
   | 'entertainment'
   | 'news'
@@ -28,6 +30,7 @@ export const LIVE_FILTER_PILLS: Array<{
 }> = [
   { id: 'recommended', label: 'Recommended' },
   { id: 'sports', label: 'Sports' },
+  { id: 'events', label: 'Events / Sport 1..N' },
   { id: 'kids', label: 'Kids & Family' },
   { id: 'entertainment', label: 'Entertainment' },
   { id: 'news', label: 'News' },
@@ -1077,10 +1080,100 @@ function isForeignNonEnglishFeed(ch: Channel, defId: string): boolean {
 const DEAD_OR_INVALID_STREAM_URL_RE =
   /\/\/(?:41\.205\.93\.154|23\.237\.104\.106|tvsen7\.aynascope\.net|tvsen5\.aynascope\.net|89\.187\.179\.148|212\.5\.144\.156|198\.58\.104\.90|barinaslive1\.boldmss\.com|bantel-cdn1\.iptvperu\.tv|lb\.iptvnetwork\.net|cache0\.wonvt\.st|200\.32\.231\.178|168\.228\.44\.241:9998|158\.172\.155\.130|190\.83\.2\.182|38\.211\.118\.56|103\.253\.74\.210|comedydynamics-plex-ingest\.cinedigm\.com)\b|\/slate\/|1a352414-3a30-4f42-b14b-c091d02a5e45|8d1f164d-34ef-4f70-b948-ae33826a0aaa|tvsen6\.aynaott\.com\/foxnews\/|\.mpd(?:\?|$)/i;
 
-function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number {
-  if (!ch.url || !ch.url.trim()) return 0;
-  if (DEAD_OR_INVALID_STREAM_URL_RE.test(ch.url)) return 0;
-  if (isForeignNonEnglishFeed(ch, def.id)) return 0;
+/**
+ * Signature currently-airing EPG programme keywords used when M3U providers
+ * disguise real networks behind generic slots like `Sport 1`, `Sports Pro 2`, or `Arena 7`.
+ */
+const NETWORK_EPG_PROGRAM_HINTS: Record<string, string[]> = {
+  'rec-espn': [
+    'sportscenter',
+    'monday night football',
+    'nba on espn',
+    'nba countdown',
+    'college gameday',
+    'first take',
+    'pardon the interruption',
+  ],
+  'rec-espn2': ['nfl live', 'around the horn', 'ufc live', 'espn2'],
+  'rec-tnt': ['inside the nba', 'nba on tnt', 'nhl on tnt'],
+  'rec-tbs': ['mlb on tbs', 'tbs'],
+  'rec-fs1': ['the herd', 'first things first', 'nascar race hub', 'fox sports 1', 'fs1'],
+  'rec-fs2': ['fox sports 2', 'fs2'],
+  'rec-nba-tv': ['nba gametime', 'nbatv', 'nba tv'],
+  'rec-nfl-network': ['good morning football', 'nfl total access', 'nfl gameday', 'nfl network'],
+  'rec-mlb-network': ['mlb tonight', 'quick pitch', 'intentional talk', 'mlb network'],
+  'rec-nhl-network': ['nhl tonight', 'on the fly', 'nhl network'],
+  'rec-cbssn': ['cbs sports network', 'cbssn'],
+  'rec-ufc-ppv': ['ufc ppv', 'ufc main card', 'ufc main event', 'ufc countdown'],
+  'rec-ufc-fight-night': ['ufc fight night', 'ufc prelims', 'ufc live'],
+  'rec-ufc-fight-pass': ['ufc fight pass', 'dana white', 'contender series'],
+  'rec-ufc-network': ['ufc network', 'ufc embedded'],
+  'rec-spectrum-sportsnet': [
+    'spectrum sportsnet',
+    'access sportsnet lakers',
+    'backstage lakers',
+    'lakers live',
+    'lakers pregame',
+  ],
+  'rec-spectrum-sportsnet-la': [
+    'sportsnet la',
+    'access sportsnet dodgers',
+    'backstage dodgers',
+    'dodgers live',
+    'dodger talk',
+  ],
+  'rec-disney': ['disney channel'],
+  'rec-cartoon-network': ['cartoon network', 'adult swim'],
+  'rec-pbs-kids': ['pbs kids'],
+  'rec-cnn': ['anderson cooper', 'erin burnett', 'the situation room', 'cnn newsroom'],
+};
+
+const EXPLICIT_BRANDED_SPORTS_RE =
+  /\b(?:fox\s+sports|cbs\s+sports|nbc\s+sports|bein\s+sports|sky\s+sports|tnt\s+sports|bt\s+sports|spectrum\s+sportsnet|espn\d*|tsn\s*\d|sportsnet\s+\w+)\b/i;
+
+/**
+ * Detects generic/numbered provider slots such as `Sport 1`, `Sports Pro 2`,
+ * `Arena 7 HD`, `Event 3`, `PPV 1`, or `VIP Sport 4` that require XMLTV EPG
+ * or event browsing rather than real network names in `#EXTINF`.
+ */
+export function isGenericSportsEventChannelName(
+  rawName: string,
+  group?: string
+): boolean {
+  const combined = `${rawName || ''} ${group || ''}`.trim();
+  if (!rawName || EXPLICIT_BRANDED_SPORTS_RE.test(rawName)) {
+    return false;
+  }
+  if (
+    /\b(?:sport|sports|sports\s*pro|sports\s*event|sports\s*plus|arena|event|events|ppv|live\s*event|vip\s*sport|match|feed|direct|extra)\s*(?:#?\d+|hd\s*\d+|pro\s*\d+|[ivx]+)\b/i.test(
+      rawName
+    )
+  ) {
+    return true;
+  }
+  if (/^\s*(?:sport|sports|arena|event|events|ppv)\s*\d*\s*(?:hd|uhd|4k|fhd)?\s*$/i.test(rawName)) {
+    return true;
+  }
+  if (
+    /\b(?:ppv|live\s*events?|sports\s*events?|vip\s*sports?)\b/i.test(combined) &&
+    /^(?:live\s*)?(?:ch|channel|stream|feed|event|ppv|sport)/i.test(rawName.trim())
+  ) {
+    return true;
+  }
+  return false;
+}
+
+const GENERIC_NUMBERED_CHANNEL_RE =
+  /^(?:ch(?:annel)?|live|stream|feed|tv|hd)\s*#?\d+$/i;
+
+function scoreChannelAgainstDef(
+  def: RecommendedChannelDef,
+  ch: Channel,
+  epgSchedules: Record<string, EpgChannelSchedule> = {}
+): { score: number; epgProgramTitle?: string } {
+  if (!ch.url || !ch.url.trim()) return { score: 0 };
+  if (DEAD_OR_INVALID_STREAM_URL_RE.test(ch.url)) return { score: 0 };
+  if (isForeignNonEnglishFeed(ch, def.id)) return { score: 0 };
 
   const rawName = (ch.name || '').trim();
   const rawTvg = (ch.tvgName || '').trim();
@@ -1090,45 +1183,88 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
   const normTvg = normalizeChannelTitle(rawTvg);
   const cleanTvg = stripIptvNoisePrefixSuffix(normTvg);
 
-  if (
-    def.requiredRawRegexes &&
-    !def.requiredRawRegexes.every((rx) => rx.test(rawCombined))
-  ) {
-    return 0;
-  }
+  let matched = false;
+  let exactMatch = false;
+  let epgMatchedTitle: string | undefined;
+
   if (def.excludeRawRegexes?.some((rx) => rx.test(rawCombined))) {
-    return 0;
+    return { score: 0 };
   }
   if (
     def.excludePhrases?.some(
       (ex) => hasPhrase(normName, ex) || hasPhrase(normTvg, ex)
     )
   ) {
-    return 0;
+    return { score: 0 };
   }
 
-  let matched = false;
-  let exactMatch = false;
+  const passesRequiredName =
+    !def.requiredRawRegexes ||
+    def.requiredRawRegexes.every((rx) => rx.test(rawCombined));
 
-  if (def.rawRegexes?.some((rx) => rx.test(rawName) || rx.test(rawTvg))) {
-    matched = true;
-    exactMatch = true;
-  }
-
-  for (const phrase of def.matchPhrases) {
-    if (cleanName === phrase || cleanTvg === phrase || normName === phrase) {
+  if (passesRequiredName) {
+    if (def.rawRegexes?.some((rx) => rx.test(rawName) || rx.test(rawTvg))) {
       matched = true;
       exactMatch = true;
-      break;
     }
-    if (hasPhrase(cleanName, phrase) || hasPhrase(cleanTvg, phrase) || hasPhrase(normName, phrase)) {
-      matched = true;
+
+    for (const phrase of def.matchPhrases) {
+      if (cleanName === phrase || cleanTvg === phrase || normName === phrase) {
+        matched = true;
+        exactMatch = true;
+        break;
+      }
+      if (hasPhrase(cleanName, phrase) || hasPhrase(cleanTvg, phrase) || hasPhrase(normName, phrase)) {
+        matched = true;
+      }
     }
   }
 
-  if (!matched) return 0;
+  // Fallback for generic/anonymous channels (e.g. "Sport 1", "Sports Pro 2", "Arena 7"):
+  // match the currently airing XMLTV program against the network name or signature shows.
+  if (
+    !matched &&
+    (isGenericSportsEventChannelName(rawName, ch.group) ||
+      GENERIC_NUMBERED_CHANNEL_RE.test(cleanName))
+  ) {
+    const sched = findLiveEpgScheduleForChannel(ch, epgSchedules);
+    const progTitle = sched?.now?.title?.trim() || '';
+    const progDesc = sched?.now?.description?.trim() || '';
+    if (progTitle) {
+      const epgRawCombined = `${progTitle} ${progDesc}`.trim();
+      const normEpgTitle = normalizeChannelTitle(progTitle);
+      const normEpgCombined = normalizeChannelTitle(epgRawCombined);
 
-  let score = exactMatch ? 100 : 60;
+      const epgExcluded =
+        def.excludeRawRegexes?.some((rx) => rx.test(progTitle)) ||
+        def.excludePhrases?.some((ex) => hasPhrase(normEpgTitle, ex));
+      const epgRequiredOk =
+        !def.requiredRawRegexes ||
+        def.requiredRawRegexes.every((rx) =>
+          rx.test(`${rawCombined} ${epgRawCombined}`)
+        );
+
+      if (!epgExcluded && epgRequiredOk) {
+        const hints = NETWORK_EPG_PROGRAM_HINTS[def.id] || [];
+        const rawEpgHit =
+          def.rawRegexes?.some((rx) => rx.test(progTitle)) ||
+          def.matchPhrases.some((p) => hasPhrase(normEpgTitle, p)) ||
+          hints.some(
+            (hint) =>
+              hasPhrase(normEpgTitle, hint) || hasPhrase(normEpgCombined, hint)
+          );
+        if (rawEpgHit) {
+          matched = true;
+          exactMatch = true;
+          epgMatchedTitle = progTitle;
+        }
+      }
+    }
+  }
+
+  if (!matched) return { score: 0 };
+
+  let score = epgMatchedTitle ? 130 : exactMatch ? 100 : 60;
   const tvgBase = (ch.tvgId || '').split('@')[0].trim().toLowerCase();
   const defTvgBase = (def.tvgId || '').split('@')[0].trim().toLowerCase();
   if (tvgBase && defTvgBase && tvgBase === defTvgBase) {
@@ -1183,20 +1319,18 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
     score += 45;
   }
   if (/\b(fhd|1080p|4k|uhd)\b/i.test(rawName)) score += 8;
-  return score;
+  return { score, epgProgramTitle: epgMatchedTitle };
 }
 
 export function lookupEpgSchedule(
   epgSchedules: Record<string, EpgChannelSchedule>,
-  channel: Pick<Channel, 'id' | 'tvgId'>
+  channel: Pick<Channel, 'id' | 'name' | 'tvgId' | 'tvgName'>
 ): EpgChannelSchedule | undefined {
+  const direct = findLiveEpgScheduleForChannel(channel, epgSchedules);
+  if (direct) return direct;
   const rawTvgId = (channel.tvgId || '').trim();
   const baseTvgId = rawTvgId.split('@')[0].trim();
-  return (
-    (rawTvgId ? epgSchedules[rawTvgId] : undefined) ||
-    (baseTvgId ? epgSchedules[baseTvgId] : undefined) ||
-    epgSchedules[channel.id]
-  );
+  return baseTvgId ? epgSchedules[baseTvgId] : undefined;
 }
 
 export interface RecommendedChannelItem {
@@ -1214,12 +1348,13 @@ export interface RecommendedGuideResult {
 
 /**
  * Builds the deduplicated flagship Recommended channel guide by binding matching
- * built-in and imported M3U streams into one card per flagship network (`Server I / II / III`),
- * never pulling cross-network fallbacks when a channel has zero matching streams.
+ * built-in and imported M3U streams (including generic `Sport 1` / `Sports Pro 2` slots
+ * resolved via currently-airing XMLTV EPG titles) into one card per flagship network.
  */
 export function buildRecommendedGuide(
   channels: Channel[],
-  customBindings: Record<string, CustomChannelBinding> = {}
+  customBindings: Record<string, CustomChannelBinding> = {},
+  epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): RecommendedGuideResult {
   const items: RecommendedChannelItem[] = [];
   const bySection: Record<RecommendedSectionId, RecommendedChannelItem[]> = {
@@ -1232,11 +1367,19 @@ export function buildRecommendedGuide(
   const matchedSourceChannelIds = new Set<string>();
 
   for (const def of RECOMMENDED_CHANNELS) {
-    const candidates: Array<{ ch: Channel; score: number }> = [];
+    const candidates: Array<{
+      ch: Channel;
+      score: number;
+      epgProgramTitle?: string;
+    }> = [];
     for (const ch of channels) {
-      const score = scoreChannelAgainstDef(def, ch);
-      if (score > 0) {
-        candidates.push({ ch, score });
+      const match = scoreChannelAgainstDef(def, ch, epgSchedules);
+      if (match.score > 0) {
+        candidates.push({
+          ch,
+          score: match.score,
+          epgProgramTitle: match.epgProgramTitle,
+        });
       }
     }
 
@@ -1263,13 +1406,17 @@ export function buildRecommendedGuide(
       });
     }
 
-    for (const { ch } of candidates) {
+    for (const { ch, epgProgramTitle } of candidates) {
       matchedSourceChannelIds.add(ch.id);
+      const baseLabel = ch.sourceName ? `${ch.name} (${ch.sourceName})` : ch.name;
+      const feedLabel = epgProgramTitle
+        ? `${baseLabel} · EPG: ${epgProgramTitle}`
+        : baseLabel;
       if (ch.url && !seenUrls.has(ch.url)) {
         seenUrls.add(ch.url);
         orderedUrls.push({
           url: ch.url,
-          label: ch.sourceName ? `${ch.name} (${ch.sourceName})` : ch.name,
+          label: feedLabel,
           referrer: ch.referrer,
           userAgent: ch.userAgent,
         });
@@ -1348,23 +1495,48 @@ export function buildRecommendedGuide(
 export function resolveRecommendedChannelById(
   channelId: string,
   channels: Channel[],
-  customBindings: Record<string, CustomChannelBinding> = {}
+  customBindings: Record<string, CustomChannelBinding> = {},
+  epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): Channel | undefined {
   if (!channelId.startsWith('rec-')) return undefined;
-  const guide = buildRecommendedGuide(channels, customBindings);
+  const guide = buildRecommendedGuide(channels, customBindings, epgSchedules);
   return guide.items.find((item) => item.channel.id === channelId)?.channel;
 }
 
 /**
- * Classifies any channel (curated or imported) into a Live TV category pill.
+ * Classifies any channel (curated, imported, or generic numbered event feed) into a Live TV category pill.
  */
 export function channelMatchesLiveFilter(
   ch: Channel,
-  filter: LiveFilterCategory
+  filter: LiveFilterCategory,
+  epgSchedules: Record<string, EpgChannelSchedule> = {}
 ): boolean {
   if (filter === 'all' || filter === 'recommended') return true;
 
   const text = `${ch.name} ${ch.group} ${ch.league || ''}`.toLowerCase();
+  const sched = findLiveEpgScheduleForChannel(ch, epgSchedules);
+  const epgText = `${sched?.now?.title || ''} ${sched?.now?.description || ''}`.toLowerCase();
+
+  if (filter === 'events') {
+    if (
+      /\b(?:spectrum\s+(?:bay\s+)?news(?:\s+\d+)?|spectrum\s+oc\s*16|bay\s+news\s+9|ny1)\b/i.test(
+        text
+      )
+    ) {
+      return false;
+    }
+    if (isGenericSportsEventChannelName(ch.name, ch.group)) {
+      return true;
+    }
+    if (
+      /\b(?:ppv|fight\s*night|live\s*event|main\s*card|prelims|sports\s*event|arena\s*\d+|sport(?:s)?\s*(?:pro\s*)?\d+)\b/i.test(
+        `${text} ${epgText}`
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
 
   if (filter === 'sports') {
     if (
@@ -1376,7 +1548,8 @@ export function channelMatchesLiveFilter(
     }
     return (
       ch.category === 'sports' ||
-      /\b(espn|tnt|tbs|fs1|fs2|nfl|nba|mlb|nhl|sports|sport|sportsnet|snla|specsn|spectrum sportsnet|bein|dazn|golf|tennis|ufc|mma|ppv|fight pass)\b/.test(
+      isGenericSportsEventChannelName(ch.name, ch.group) ||
+      /\b(espn|tnt|tbs|fs1|fs2|nfl|nba|mlb|nhl|sports|sport|sports\s*pro|arena|event|sportsnet|snla|specsn|spectrum sportsnet|bein|dazn|golf|tennis|ufc|mma|ppv|fight pass)\b/.test(
         text
       )
     );
@@ -1421,7 +1594,7 @@ export function searchAllLiveChannels(
   const q = query.trim().toLowerCase();
   if (!q) return channels;
 
-  const guide = buildRecommendedGuide(channels, customBindings);
+  const guide = buildRecommendedGuide(channels, customBindings, epgSchedules);
   const results: Channel[] = [];
   const seenIds = new Set<string>();
   const seenUrls = new Set<string>();
@@ -1430,7 +1603,9 @@ export function searchAllLiveChannels(
   for (const item of guide.items) {
     const ch = item.channel;
     const sched = lookupEpgSchedule(epgSchedules, ch);
-    const hay = `${ch.name} ${ch.group} ${ch.league || ''} ${sched?.now?.title || ''}`.toLowerCase();
+    const hay = `${ch.name} ${ch.group} ${ch.league || ''} ${sched?.now?.title || ''} ${
+      sched?.now?.description || ''
+    }`.toLowerCase();
     if (hay.includes(q)) {
       seenIds.add(ch.id);
       if (ch.url) seenUrls.add(ch.url);
@@ -1457,7 +1632,7 @@ export function searchAllLiveChannels(
     const aliasText = (effective.aliases || []).join(' ').toLowerCase();
     const hay = `${effective.name} ${effective.tvgName || ''} ${effective.group} ${aliasText} ${effective.league || ''} ${
       sched?.now?.title || ''
-    }`.toLowerCase();
+    } ${sched?.now?.description || ''}`.toLowerCase();
     if (hay.includes(q)) {
       seenIds.add(effective.id);
       if (effective.url) seenUrls.add(effective.url);

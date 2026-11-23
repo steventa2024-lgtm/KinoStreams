@@ -200,6 +200,10 @@ export function VideoPlayer({
   );
   const activeSource =
     sources.find((s) => s.id === selectedSourceId) || defaultSource;
+  const activeSourceId = activeSource?.id || '';
+  const activeSourceUrl = activeSource?.url || '';
+  const activeSourceFormat = activeSource?.format || '';
+  const activeSourceReferrer = activeSource?.referrer || '';
 
   const [useProxy, setUseProxy] = useState<boolean>(
     globalProxyMode === 'always' ||
@@ -225,6 +229,11 @@ export function VideoPlayer({
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
+  const isTearingDownRef = useRef(false);
+  const mediaRecoveryCountRef = useRef(0);
+  const lastLivePersistedKeyRef = useRef<string | null>(null);
+  const globalProxyModeRef = useRef(globalProxyMode);
+  globalProxyModeRef.current = globalProxyMode;
   const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(initialTime || 0);
   const [duration, setDuration] = useState(0);
@@ -541,6 +550,7 @@ export function VideoPlayer({
   }, [globalProxyMode, referrer, activeSource?.referrer, activeSource?.url]);
 
   const teardownPlayback = useCallback(() => {
+    isTearingDownRef.current = true;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -597,6 +607,9 @@ export function VideoPlayer({
     setFailoverToast(`Switched to backup server (${nextCandidate.name})`);
     return true;
   }, [activeSource, triedSourceIds, sources, isAnime, animeAudio, onFailoverAudioToSub]);
+
+  const failoverToNextSourceRef = useRef(failoverToNextSource);
+  failoverToNextSourceRef.current = failoverToNextSource;
 
   // Protect parent window from embed popup focus-stealing, window.open pop-ups & rogue target="_blank" ad hijacks while player is mounted
   useEffect(() => {
@@ -695,19 +708,19 @@ export function VideoPlayer({
 
   // Balanced health/readiness timeout so slow cold CDNs, proxied live feeds, or embeds never hop prematurely mid-load
   useEffect(() => {
-    if (!activeSource || sourceReady || errorMsg) return;
+    if (!activeSourceUrl || sourceReady || errorMsg) return;
     const timeoutMs =
       mediaType === 'sports' || isLive ? 15_000 : isAnime ? 11_000 : 12_000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
-        const switched = failoverToNextSource();
+        const switched = failoverToNextSourceRef.current();
         if (!switched) {
           setBuffering(false);
         }
       }
     }, timeoutMs);
     return () => clearTimeout(timer);
-  }, [activeSource, sourceReady, errorMsg, isAnime, mediaType, isLive, failoverToNextSource]);
+  }, [activeSourceId, activeSourceUrl, sourceReady, errorMsg, isAnime, mediaType, isLive]);
 
   // Remember the last clean primary Cinema server selection once loaded cleanly
   useEffect(() => {
@@ -760,16 +773,21 @@ export function VideoPlayer({
     }
   }, []);
 
-  // Initialize HLS / MP4 playback
+  const attemptAutoplayRef = useRef(attemptAutoplay);
+  attemptAutoplayRef.current = attemptAutoplay;
+
+  // Initialize HLS / MP4 playback using stable primitive URL keys so parent re-renders never destroy live streams
   useEffect(() => {
     const video = videoRef.current;
-    if (!activeSource || activeSource.format === 'embed' || !video) {
+    if (!activeSourceUrl || activeSourceFormat === 'embed' || !video) {
       setDetectedAudioTracks([]);
       setBuffering(false);
       return;
     }
 
     let cancelled = false;
+    isTearingDownRef.current = false;
+    mediaRecoveryCountRef.current = 0;
     abortControllerRef.current?.abort();
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -793,13 +811,13 @@ export function VideoPlayer({
       hlsRef.current = null;
     }
 
-    const effectiveReferrer = activeSource.referrer || referrer;
+    const effectiveReferrer = activeSourceReferrer || referrer;
     const playbackUrl = useProxy
-      ? buildStreamProxyUrl(activeSource.url, {
+      ? buildStreamProxyUrl(activeSourceUrl, {
           referrer: effectiveReferrer,
           userAgent,
         })
-      : activeSource.url;
+      : activeSourceUrl;
 
     const handleDirectFailureToProxy = (mode: ProxyMode) => {
       if (!useProxy && mode !== 'direct') {
@@ -844,13 +862,14 @@ export function VideoPlayer({
     video.audioTracks?.addEventListener?.('change', onNativeTrackChange);
 
     const isMp4 =
-      activeSource.format === 'mp4' || /\.mp4(\?|$)/i.test(activeSource.url);
+      activeSourceFormat === 'mp4' || /\.mp4(\?|$)/i.test(activeSourceUrl);
 
     if (isMp4) {
       video.src = playbackUrl;
-      void attemptAutoplay(video);
+      void attemptAutoplayRef.current(video);
       return () => {
         cancelled = true;
+        isTearingDownRef.current = true;
         controller.abort();
         video.removeEventListener('loadedmetadata', onNativeMetadata);
         video.audioTracks?.removeEventListener?.('change', onNativeTrackChange);
@@ -867,8 +886,12 @@ export function VideoPlayer({
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: isLive,
+        lowLatencyMode: false,
         backBufferLength: isLive ? 30 : 90,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 10,
         manifestLoadingTimeOut: 15_000,
         fragLoadingTimeOut: 20_000,
       });
@@ -914,7 +937,7 @@ export function VideoPlayer({
         syncHlsAudioTracks(true);
         setSourceReady(true);
         setBuffering(false);
-        void attemptAutoplay(video);
+        void attemptAutoplayRef.current(video);
       });
 
       hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
@@ -926,28 +949,40 @@ export function VideoPlayer({
       });
 
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (cancelled || !data.fatal) return;
+        if (cancelled || isTearingDownRef.current || !data.fatal) return;
+        const mode = globalProxyModeRef.current;
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-          if (handleDirectFailureToProxy(globalProxyMode)) return;
-          if (failoverToNextSource()) return;
+          if (handleDirectFailureToProxy(mode)) return;
+          if (failoverToNextSourceRef.current()) return;
           setErrorMsg(
             'Stream network error. Try toggling Proxy mode or switching source.'
           );
           setBuffering(false);
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          hls.recoverMediaError();
+          if (mediaRecoveryCountRef.current < 2) {
+            mediaRecoveryCountRef.current += 1;
+            if (mediaRecoveryCountRef.current === 2) {
+              hls.swapAudioCodec();
+            }
+            hls.recoverMediaError();
+            return;
+          }
+          if (handleDirectFailureToProxy(mode)) return;
+          if (failoverToNextSourceRef.current()) return;
+          setErrorMsg('Unable to decode stream with current source.');
+          setBuffering(false);
         } else {
-          if (handleDirectFailureToProxy(globalProxyMode)) return;
-          if (failoverToNextSource()) return;
+          if (handleDirectFailureToProxy(mode)) return;
+          if (failoverToNextSourceRef.current()) return;
           setErrorMsg('Unable to decode stream with current source.');
           setBuffering(false);
         }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = playbackUrl;
-      void attemptAutoplay(video);
+      void attemptAutoplayRef.current(video);
     } else {
-      if (!failoverToNextSource()) {
+      if (!failoverToNextSourceRef.current()) {
         setErrorMsg('HLS playback is not supported in this browser.');
         setBuffering(false);
       }
@@ -955,6 +990,7 @@ export function VideoPlayer({
 
     return () => {
       cancelled = true;
+      isTearingDownRef.current = true;
       controller.abort();
       video.removeEventListener('loadedmetadata', onNativeMetadata);
       video.audioTracks?.removeEventListener?.('change', onNativeTrackChange);
@@ -977,14 +1013,12 @@ export function VideoPlayer({
       }
     };
   }, [
-    activeSource,
+    activeSourceUrl,
+    activeSourceFormat,
+    activeSourceReferrer,
     useProxy,
     isLive,
-    referrer,
     userAgent,
-    globalProxyMode,
-    failoverToNextSource,
-    attemptAutoplay,
   ]);
 
   // Persist Continue Watching progress (reads ref timestamps so timeupdate never re-triggers saves)
@@ -1028,16 +1062,21 @@ export function VideoPlayer({
   ]);
 
   useEffect(() => {
-    if (playing || activeSource?.format === 'embed') {
-      persistProgress();
-    }
-    const interval = setInterval(() => {
-      if (playing || activeSource?.format === 'embed') {
+    if (!playing && activeSource?.format !== 'embed') return;
+    if (isLive) {
+      const liveKey = `${mediaId}:${activeSource?.url || ''}`;
+      if (lastLivePersistedKeyRef.current !== liveKey) {
+        lastLivePersistedKeyRef.current = liveKey;
         persistProgress();
       }
+      return;
+    }
+    persistProgress();
+    const interval = setInterval(() => {
+      persistProgress();
     }, 8000);
     return () => clearInterval(interval);
-  }, [playing, activeSource?.format, persistProgress]);
+  }, [playing, activeSource?.format, activeSource?.url, isLive, mediaId, persistProgress]);
 
   useEffect(() => {
     const doc = document as Document & { webkitFullscreenElement?: Element | null };
@@ -1533,10 +1572,14 @@ export function VideoPlayer({
                   void attemptAutoplay(e.currentTarget);
                 }
               }}
-              onError={() => {
-                if (!useProxy && globalProxyMode !== 'direct') {
+              onError={(e) => {
+                // Ignore synthetic media errors triggered by deliberate HLS teardown / src clearing
+                if (isTearingDownRef.current || !e.currentTarget.getAttribute('src')) {
+                  return;
+                }
+                if (!useProxy && globalProxyModeRef.current !== 'direct') {
                   setUseProxy(true);
-                } else if (!failoverToNextSource()) {
+                } else if (!failoverToNextSourceRef.current()) {
                   setBuffering(false);
                   setErrorMsg('Stream unavailable. Try switching proxy mode or source.');
                 }

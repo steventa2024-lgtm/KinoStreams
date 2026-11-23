@@ -166,10 +166,15 @@ function WatchViewContent() {
     }
   }, [mediaId, mediaType, seasonParam, episodeParam]);
 
-  // Resolve live/sports channel from context (curated Recommended channel merge, direct custom binding, or exact ID match)
+  // Resolve live/sports channel from context (curated Recommended channel merge, EPG-backed generic slots, direct custom binding, or exact ID match)
   const activeChannel = useMemo(() => {
     if (!isChannelType) return undefined;
-    const rec = resolveRecommendedChannelById(mediaId, channels, customBindings);
+    const rec = resolveRecommendedChannelById(
+      mediaId,
+      channels,
+      customBindings,
+      epgSchedules
+    );
     if (rec) return rec;
     const base =
       channels.find((c) => c.id === mediaId) ||
@@ -192,7 +197,7 @@ function WatchViewContent() {
       userAgent: binding.userAgent ?? base.userAgent,
       badge: base.badge === 'OFFLINE' ? 'LIVE HD' : base.badge,
     };
-  }, [isChannelType, channels, mediaId, customBindings]);
+  }, [isChannelType, channels, mediaId, customBindings, epgSchedules]);
 
   const channelSchedule = activeChannel
     ? lookupEpgSchedule(epgSchedules, activeChannel)

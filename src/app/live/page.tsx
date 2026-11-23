@@ -523,8 +523,8 @@ export default function LiveTvPage() {
   const [connectTargetChannel, setConnectTargetChannel] = useState<Channel | null>(null);
 
   const recommendedGuide = useMemo(
-    () => buildRecommendedGuide(channels, customBindings),
-    [channels, customBindings]
+    () => buildRecommendedGuide(channels, customBindings, epgSchedules),
+    [channels, customBindings, epgSchedules]
   );
 
   const hasImportedSources = useMemo(
@@ -559,14 +559,15 @@ export default function LiveTvPage() {
     const seenUrls = new Set(
       curatedForCategory.map((c) => c.channel.url).filter(Boolean)
     );
+    const includeMatchedInFilter = selectedFilter === 'events';
     const extras = channels
       .filter((ch) => {
         const effectiveUrl = customBindings[ch.id]?.url || ch.url;
         return (
           Boolean(effectiveUrl && effectiveUrl.trim()) &&
-          !recommendedGuide.matchedSourceChannelIds.has(ch.id) &&
+          (includeMatchedInFilter || !recommendedGuide.matchedSourceChannelIds.has(ch.id)) &&
           !seenUrls.has(effectiveUrl) &&
-          channelMatchesLiveFilter(ch, selectedFilter)
+          channelMatchesLiveFilter(ch, selectedFilter, epgSchedules)
         );
       })
       .map((ch) => {
@@ -587,7 +588,7 @@ export default function LiveTvPage() {
       });
 
     return [...curatedForCategory, ...extras];
-  }, [selectedFilter, recommendedGuide, channels, customBindings, hideUnconnected]);
+  }, [selectedFilter, recommendedGuide, channels, customBindings, hideUnconnected, epgSchedules]);
 
   const effectiveAllChannels = useMemo(
     () =>
@@ -611,6 +612,7 @@ export default function LiveTvPage() {
         ? recommendedGuide.items.filter((i) => i.connected).length
         : recommendedGuide.items.length,
       sports: 0,
+      events: 0,
       kids: 0,
       entertainment: 0,
       news: 0,
@@ -618,24 +620,25 @@ export default function LiveTvPage() {
       all: channels.length,
     };
 
-    for (const cat of ['sports', 'kids', 'entertainment', 'news', 'broadcast'] as const) {
+    for (const cat of ['sports', 'events', 'kids', 'entertainment', 'news', 'broadcast'] as const) {
       const curated = recommendedGuide.items.filter(
         (item) =>
           item.def.filterCategory === cat && (!hideUnconnected || item.connected)
       );
       const seenUrls = new Set(curated.map((c) => c.channel.url).filter(Boolean));
+      const includeMatchedInCat = cat === 'events';
       const extras = channels.filter(
         (ch) =>
           Boolean(ch.url && ch.url.trim()) &&
-          !recommendedGuide.matchedSourceChannelIds.has(ch.id) &&
+          (includeMatchedInCat || !recommendedGuide.matchedSourceChannelIds.has(ch.id)) &&
           !seenUrls.has(ch.url) &&
-          channelMatchesLiveFilter(ch, cat)
+          channelMatchesLiveFilter(ch, cat, epgSchedules)
       );
       counts[cat] = curated.length + extras.length;
     }
 
     return counts;
-  }, [recommendedGuide, channels, hideUnconnected]);
+  }, [recommendedGuide, channels, hideUnconnected, epgSchedules]);
 
   const handleViewAllChannels = () => {
     setSelectedFilter('all');

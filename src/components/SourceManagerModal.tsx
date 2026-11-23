@@ -12,7 +12,11 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/AuthGate';
 import { useKino } from '@/components/KinoProvider';
-import { BUILTIN_PUBLIC_PLAYLISTS } from '@/config/public-playlists';
+import {
+  BUILTIN_PUBLIC_PLAYLISTS,
+  RECOMMENDED_M3U_PRESETS,
+  type RecommendedM3uPreset,
+} from '@/config/public-playlists';
 import {
   addCustomSource,
   getBuiltinSourceStates,
@@ -162,6 +166,23 @@ export function SourceManagerModal() {
     setProxyMode(mode);
   };
 
+  const handleAddRecommendedPreset = (preset: RecommendedM3uPreset) => {
+    setFormError(null);
+    const alreadyAdded = sources.some(
+      (src) => src.url.trim().toLowerCase() === preset.url.trim().toLowerCase()
+    );
+    if (alreadyAdded) return;
+    addCustomSource({
+      name: preset.name,
+      type: 'm3u',
+      url: preset.url,
+      epgUrl: preset.epgUrl,
+      enabled: true,
+    });
+    setSources(getCustomSources());
+    void refreshChannels();
+  };
+
   return (
     <dialog
       ref={dialogRef}
@@ -308,8 +329,63 @@ export function SourceManagerModal() {
               <p className="text-[11px] text-[#71717A]">
                 Auto-loads <code className="text-[#A1A1AA]">url-tvg</code> /{' '}
                 <code className="text-[#A1A1AA]">x-tvg-url</code> from{' '}
-                <code className="text-[#A1A1AA]">#EXTM3U</code> headers if omitted.
+                <code className="text-[#A1A1AA]">#EXTM3U</code> headers if omitted — enabling Live TV &amp; Sports to match generic channels like{' '}
+                <span className="text-[#e4e4e7]">Sport 1</span> or{' '}
+                <span className="text-[#e4e4e7]">Sports Pro 2</span> via currently airing EPG titles.
               </p>
+
+              {/* Recommended One-Click M3U Presets */}
+              <div className="rounded-xl border border-[#f59e0b]/20 bg-[#09090b] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#f59e0b]">
+                    Recommended M3U Links
+                  </span>
+                  <span className="text-[10px] text-[#71717A]">
+                    1-Click Add &amp; Sync
+                  </span>
+                </div>
+                <div className="mt-2.5 grid grid-cols-1 gap-2">
+                  {RECOMMENDED_M3U_PRESETS.map((preset) => {
+                    const isAdded = sources.some(
+                      (src) =>
+                        src.url.trim().toLowerCase() === preset.url.trim().toLowerCase()
+                    );
+                    return (
+                      <div
+                        key={preset.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-[#151517]/70 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate text-xs font-medium text-[#FAFAFA]">
+                              {preset.name}
+                            </span>
+                            <span className="shrink-0 rounded border border-[#f59e0b]/30 bg-[#f59e0b]/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-[#f59e0b]">
+                              {preset.badge}
+                            </span>
+                          </div>
+                          <p className="truncate text-[11px] text-[#71717A]">
+                            {preset.description}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isAdded}
+                          onClick={() => handleAddRecommendedPreset(preset)}
+                          className={cn(
+                            'shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition',
+                            isAdded
+                              ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'bg-[#f59e0b] text-[#080809] hover:bg-[#fbbf24]'
+                          )}
+                        >
+                          {isAdded ? 'Added' : '+ Add'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </>
           )}
 

@@ -96,3 +96,41 @@ export const BUILTIN_PUBLIC_PLAYLISTS: BuiltinPublicPlaylist[] = [
     maxChannels: 650,
   },
 ];
+
+export interface RecommendedM3uPreset {
+  id: string;
+  name: string;
+  url: string;
+  epgUrl?: string;
+  badge: string;
+  description: string;
+}
+
+/**
+ * Optional one-click community M3U playlists curated for broad English coverage,
+ * generic event/sports channels, and embedded XMLTV EPG matching.
+ */
+export const RECOMMENDED_M3U_PRESETS: RecommendedM3uPreset[] = [
+  {
+    id: 'preset-iptv-org-eng',
+    name: 'IPTV-Org English (Global)',
+    url: 'https://iptv-org.github.io/iptv/languages/eng.m3u',
+    badge: '3,000+ CH',
+    description:
+      'Massive verified index of public English-language news, entertainment & sports channels.',
+  },
+  {
+    id: 'preset-iptv-org-entertainment',
+    name: 'IPTV-Org Entertainment',
+    url: 'https://iptv-org.github.io/iptv/categories/entertainment.m3u',
+    badge: '900+ CH',
+    description: 'Global public cable-style drama, movie, and variety networks.',
+  },
+  {
+    id: 'preset-iptv-org-ca',
+    name: 'IPTV-Org Canada',
+    url: 'https://iptv-org.github.io/iptv/countries/ca.m3u',
+    badge: '260+ CH',
+    description: 'Canadian public sports, news & regional broadcast streams.',
+  },
+];

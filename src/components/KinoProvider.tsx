@@ -280,6 +280,11 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     setMiniPlayer(null);
   }, []);
 
+  const openSearch = useCallback(() => setIsSearchOpen(true), []);
+  const closeSearch = useCallback(() => setIsSearchOpen(false), []);
+  const openSources = useCallback(() => setIsSourcesOpen(true), []);
+  const closeSources = useCallback(() => setIsSourcesOpen(false), []);
+
   const sportsChannels = useMemo(
     () => channels.filter((ch) => ch.category === 'sports'),
     [channels]
@@ -289,34 +294,61 @@ export function KinoProvider({ children }: { children: React.ReactNode }) {
     [channels]
   );
 
+  const contextValue = useMemo<KinoContextValue>(
+    () => ({
+      channels,
+      sportsChannels,
+      liveChannels,
+      epgSchedules,
+      channelsLoading,
+      sourceErrors,
+      watchlist,
+      watchHistory,
+      customBindings,
+      proxyMode,
+      isSearchOpen,
+      isSourcesOpen,
+      miniPlayer,
+      openSearch,
+      closeSearch,
+      openSources,
+      closeSources,
+      minimizeToPlayer,
+      updateMiniPlayer,
+      closeMiniPlayer,
+      refreshChannels,
+      isSaved,
+      toggleSaved,
+    }),
+    [
+      channels,
+      sportsChannels,
+      liveChannels,
+      epgSchedules,
+      channelsLoading,
+      sourceErrors,
+      watchlist,
+      watchHistory,
+      customBindings,
+      proxyMode,
+      isSearchOpen,
+      isSourcesOpen,
+      miniPlayer,
+      openSearch,
+      closeSearch,
+      openSources,
+      closeSources,
+      minimizeToPlayer,
+      updateMiniPlayer,
+      closeMiniPlayer,
+      refreshChannels,
+      isSaved,
+      toggleSaved,
+    ]
+  );
+
   return (
-    <KinoContext.Provider
-      value={{
-        channels,
-        sportsChannels,
-        liveChannels,
-        epgSchedules,
-        channelsLoading,
-        sourceErrors,
-        watchlist,
-        watchHistory,
-        customBindings,
-        proxyMode,
-        isSearchOpen,
-        isSourcesOpen,
-        miniPlayer,
-        openSearch: () => setIsSearchOpen(true),
-        closeSearch: () => setIsSearchOpen(false),
-        openSources: () => setIsSourcesOpen(true),
-        closeSources: () => setIsSourcesOpen(false),
-        minimizeToPlayer,
-        updateMiniPlayer,
-        closeMiniPlayer,
-        refreshChannels,
-        isSaved,
-        toggleSaved,
-      }}
-    >
+    <KinoContext.Provider value={contextValue}>
       {children}
     </KinoContext.Provider>
   );

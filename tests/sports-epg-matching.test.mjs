@@ -1312,3 +1312,140 @@ test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & An
   assert.equal(shouldProxyStreamUrl('http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8'), true);
   assert.equal(shouldProxyStreamUrl('https://tvsen6.aynaott.com/nbatv/index.m3u8'), false);
 });
+
+test('Case (n): Generic numbered channels (Sport 1, Sports Pro 2, Arena 7) resolve via EPG and RECOMMENDED_M3U_PRESETS', () => {
+  const {
+    buildRecommendedGuide,
+    resolveRecommendedChannelById,
+    channelMatchesLiveFilter,
+    isGenericSportsEventChannelName,
+    searchAllLiveChannels,
+  } = loadTsModule(path.join(SRC_DIR, 'lib', 'live-guide.ts'));
+  const { RECOMMENDED_M3U_PRESETS, BUILTIN_PUBLIC_PLAYLISTS } = loadTsModule(
+    path.join(SRC_DIR, 'config', 'public-playlists.ts')
+  );
+
+  assert.equal(BUILTIN_PUBLIC_PLAYLISTS.length, 8);
+  assert.ok(Array.isArray(RECOMMENDED_M3U_PRESETS) && RECOMMENDED_M3U_PRESETS.length >= 3);
+  for (const preset of RECOMMENDED_M3U_PRESETS) {
+    assert.ok(preset.url.startsWith('https://'));
+  }
+
+  assert.equal(isGenericSportsEventChannelName('Sport 1'), true);
+  assert.equal(isGenericSportsEventChannelName('Sports Pro 2'), true);
+  assert.equal(isGenericSportsEventChannelName('Arena 7 HD'), true);
+  assert.equal(isGenericSportsEventChannelName('Fox Sports 1'), false);
+  assert.equal(isGenericSportsEventChannelName('ESPN'), false);
+
+  const genericChannels = [
+    {
+      id: 'm3u-sport-1',
+      name: 'Sport 1',
+      group: 'VIP Sports',
+      category: 'sports',
+      url: 'https://cdn.example.com/live/sport1.m3u8',
+      tvgId: 'sport1.slot',
+      sourceId: 'custom-m3u',
+      sourceName: 'Provider M3U',
+      isLive: true,
+    },
+    {
+      id: 'm3u-sports-pro-2',
+      name: 'Sports Pro 2',
+      group: 'Live Events',
+      category: 'sports',
+      url: 'https://cdn.example.com/live/sportspro2.m3u8',
+      tvgId: 'sportspro2.slot',
+      sourceId: 'custom-m3u',
+      sourceName: 'Provider M3U',
+      isLive: true,
+    },
+    {
+      id: 'm3u-arena-7',
+      name: 'Arena 7',
+      group: 'PPV Events',
+      category: 'sports',
+      url: 'https://cdn.example.com/live/arena7.m3u8',
+      tvgId: 'arena7.slot',
+      sourceId: 'custom-m3u',
+      sourceName: 'Provider M3U',
+      isLive: true,
+    },
+    {
+      id: 'm3u-espnews-slot',
+      name: 'Sport 9',
+      group: 'Sports',
+      category: 'sports',
+      url: 'https://cdn.example.com/live/sport9.m3u8',
+      tvgId: 'sport9.slot',
+      sourceId: 'custom-m3u',
+      sourceName: 'Provider M3U',
+      isLive: true,
+    },
+  ];
+
+  const epgSchedules = {
+    'sport1.slot': {
+      channelId: 'sport1.slot',
+      now: {
+        channelId: 'sport1.slot',
+        title: 'SportsCenter',
+        description: 'Live NBA and NFL highlights on ESPN.',
+        start: new Date(Date.now() - 600_000).toISOString(),
+        end: new Date(Date.now() + 600_000).toISOString(),
+      },
+      upcoming: [],
+    },
+    'sportspro2.slot': {
+      channelId: 'sportspro2.slot',
+      now: {
+        channelId: 'sportspro2.slot',
+        title: 'Inside the NBA on TNT',
+        start: new Date(Date.now() - 600_000).toISOString(),
+        end: new Date(Date.now() + 600_000).toISOString(),
+      },
+      upcoming: [],
+    },
+    'arena7.slot': {
+      channelId: 'arena7.slot',
+      now: {
+        channelId: 'arena7.slot',
+        title: 'UFC PPV Main Card: Pereira vs Ankalaev',
+        start: new Date(Date.now() - 600_000).toISOString(),
+        end: new Date(Date.now() + 600_000).toISOString(),
+      },
+      upcoming: [],
+    },
+    'sport9.slot': {
+      channelId: 'sport9.slot',
+      now: {
+        channelId: 'sport9.slot',
+        title: 'ESPNews Live Desk',
+        start: new Date(Date.now() - 600_000).toISOString(),
+        end: new Date(Date.now() + 600_000).toISOString(),
+      },
+      upcoming: [],
+    },
+  };
+
+  const guide = buildRecommendedGuide(genericChannels, {}, epgSchedules);
+  const espnItem = guide.items.find((i) => i.def.id === 'rec-espn');
+  const tntItem = guide.items.find((i) => i.def.id === 'rec-tnt');
+  const ufcPpvItem = guide.items.find((i) => i.def.id === 'rec-ufc-ppv');
+
+  assert.equal(espnItem?.channel.url, 'https://cdn.example.com/live/sport1.m3u8');
+  assert.equal(tntItem?.channel.url, 'https://cdn.example.com/live/sportspro2.m3u8');
+  assert.equal(ufcPpvItem?.channel.url, 'https://cdn.example.com/live/arena7.m3u8');
+
+  // resolveRecommendedChannelById attaches the EPG-matched Sport 1 feed when passed epgSchedules
+  const resolvedEspn = resolveRecommendedChannelById('rec-espn', genericChannels, {}, epgSchedules);
+  assert.equal(resolvedEspn?.url, 'https://cdn.example.com/live/sport1.m3u8');
+
+  // Generic numbered sports slots stay discoverable under Events and Sports pills
+  assert.equal(channelMatchesLiveFilter(genericChannels[0], 'events', epgSchedules), true);
+  assert.equal(channelMatchesLiveFilter(genericChannels[1], 'sports', epgSchedules), true);
+
+  // Search by EPG show name or network resolves Sport 1 / Sports Pro 2
+  const hits = searchAllLiveChannels(genericChannels, 'Inside the NBA', epgSchedules);
+  assert.ok(hits.some((ch) => ch.id === 'rec-tnt' || ch.id === 'm3u-sports-pro-2'));
+});
