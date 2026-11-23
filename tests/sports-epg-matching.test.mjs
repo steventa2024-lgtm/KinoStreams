@@ -995,7 +995,7 @@ test('Case (h): User M3U sources & FAST toggles persist across reload/redeploy s
   }
 });
 
-test('Case (i): resolveAllChannelSources loads 300+ live channels across 8 public FAST playlists & lights up cable/kids/UFC', async () => {
+test('Case (i): resolveAllChannelSources loads 300+ live channels across 8 public playlists & rejects dead/slate relays', async () => {
   assert.equal(BUILTIN_PUBLIC_PLAYLISTS.length, 8);
   const { channels, errors } = await resolveAllChannelSources({
     includeBuiltins: true,
@@ -1012,32 +1012,40 @@ test('Case (i): resolveAllChannelSources loads 300+ live channels across 8 publi
     ],
   });
 
-  // Partial SSRF/timeout failure on one source must NEVER wipe out healthy FAST playlists
+  // Partial SSRF/timeout failure on one source must NEVER wipe out healthy playlists
   assert.ok(errors.some((e) => e.sourceId === 'src-unreachable'));
   assert.ok(
     channels.length >= 300,
-    `Expected >= 300 live channels from public FAST playlists, got ${channels.length}`
+    `Expected >= 300 live channels from public playlists, got ${channels.length}`
   );
 
   const guide = buildRecommendedGuide(channels);
   for (const expectedConnectedId of [
+    'rec-espn',
+    'rec-espn2',
+    'rec-tbs',
+    'rec-nba-tv',
     'rec-ufc-network',
     'rec-disney-channel',
-    'rec-disney-xd',
-    'rec-disney-junior',
     'rec-cartoon-network',
-    'rec-boomerang',
     'rec-pbs-kids',
-    'rec-teennick',
-    'rec-fx',
     'rec-amc',
+    'rec-cnn',
+    'rec-msnbc',
     'rec-e-entertainment',
   ]) {
     const item = guide.items.find((i) => i.channel.id === expectedConnectedId);
     assert.ok(item, `Missing recommended definition ${expectedConnectedId}`);
     assert.ok(
       item.connected && item.channel.url,
-      `Expected ${expectedConnectedId} to resolve a live stream across public FAST playlists`
+      `Expected ${expectedConnectedId} to resolve a live stream`
+    );
+    assert.equal(
+      /23\.237\.104\.106|tvsen7\.aynascope\.net|tvsen5\.aynascope\.net|89\.187\.179\.148|barinaslive1\.boldmss\.com|bantel-cdn1\.iptvperu\.tv|\/slate\//i.test(
+        item.channel.url
+      ),
+      false,
+      `${expectedConnectedId} must never serve a dead relay or static /slate/ URL`
     );
   }
 
@@ -1056,6 +1064,12 @@ test('Case (i): resolveAllChannelSources loads 300+ live channels across 8 publi
       assert.equal(item.channel.url.includes('ESPN'), false);
     }
   }
+
+  // Wrong cross-channel impersonation must stay cleared (FS2 != FS1, USA != NBC Sports)
+  const fs2 = guide.items.find((i) => i.channel.id === 'rec-fs2');
+  assert.equal((fs2?.channel.url || '').includes('FOX-SPORTS-1'), false);
+  const usa = guide.items.find((i) => i.channel.id === 'rec-usa-network');
+  assert.equal((usa?.channel.url || '').includes('99993008'), false);
 
   // AMC must stay US-aligned (tvgId AMC.us) and never serve Hungarian AMC
   const amcItem = guide.items.find((i) => i.channel.id === 'rec-amc');
@@ -1238,7 +1252,7 @@ test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & An
   assert.equal(defaultCinema?.id, 'vidzee-wtf');
   assert.equal(defaultCinema?.sandbox, true);
 
-  // Resolved Anime streams: Server I is VidNest (AniList ID), Server II is sandboxed VidZee (deduped), no dead vidlink.pro/anime
+  // Resolved Anime streams: Server I is sandbox-shielded VidZee (0 popups), Server II is AniList VidNest (deduped)
   const animeRes = await resolveAnimePlaybackSources({
     tmdbId: 1429,
     type: 'series',
@@ -1253,6 +1267,9 @@ test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & An
     animeRes.streams.some((s) => s.url.includes('vidlink.pro/anime')),
     false
   );
+  assert.equal(animeRes.streams[0]?.id, 'vidzee-anime-shielded');
+  assert.equal(animeRes.streams[0]?.sandbox, true);
+  assert.equal(animeRes.streams[0]?.isDefault, true);
 
   const subMerged = resolveVodSources({
     id: '1429',
@@ -1265,8 +1282,12 @@ test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & An
     animeAudio: 'sub',
   });
   const defaultSub = subMerged.find((s) => s.isDefault);
-  assert.equal(defaultSub?.id, 'vidnest-anime-sub');
-  assert.equal(defaultSub?.url, 'https://vidnest.fun/anime/16498/1/sub');
+  assert.equal(defaultSub?.id, 'vidzee-anime-shielded');
+  assert.equal(defaultSub?.sandbox, true);
+
+  // Backup VidNest AniList SUB & DUB remain attached cleanly with proper episode URLs
+  const vidnestSub = subMerged.find((s) => s.id === 'vidnest-anime-sub');
+  assert.equal(vidnestSub?.url, 'https://vidnest.fun/anime/16498/1/sub');
 
   const dubMerged = resolveVodSources({
     id: '1429',
@@ -1278,12 +1299,16 @@ test('Case (m): Cinema & Anime stream resolvers prioritize sandboxed VidZee & An
     isAnime: true,
     animeAudio: 'dub',
   });
-  const defaultDub = dubMerged.find((s) => s.isDefault);
-  assert.equal(defaultDub?.id, 'vidnest-anime-dub');
-  assert.equal(defaultDub?.url, 'https://vidnest.fun/anime/16498/1/dub');
+  const vidnestDub = dubMerged.find((s) => s.id === 'vidnest-anime-dub');
+  assert.equal(vidnestDub?.url, 'https://vidnest.fun/anime/16498/1/dub');
 
-  // Ensure VidZee URL is not duplicated between resolved anime backups and static VOD_RESOLVERS
+  // Ensure VidZee URL is not duplicated between resolved anime default and static VOD_RESOLVERS
   const vidzeeUrls = dubMerged.filter((s) => s.url.includes('player.vidzee.wtf'));
   assert.equal(vidzeeUrls.length, 1);
   assert.equal(vidzeeUrls[0]?.sandbox, true);
+
+  // External HTTP streams must proxy even on initial SSR render; direct-CORS HTTPS streams bypass proxy
+  const { shouldProxyStreamUrl } = loadTsModule(path.join(SRC_DIR, 'lib', 'utils.ts'));
+  assert.equal(shouldProxyStreamUrl('http://85.237.89.160:9590/usa-s/ESPN-HD/index.m3u8'), true);
+  assert.equal(shouldProxyStreamUrl('https://tvsen6.aynaott.com/nbatv/index.m3u8'), false);
 });

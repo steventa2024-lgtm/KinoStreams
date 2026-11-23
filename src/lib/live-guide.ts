@@ -101,8 +101,31 @@ export const RECOMMENDED_CHANNELS: RecommendedChannelDef[] = [
     description: 'SportsCenter, NBA marquee matchups, Monday Night Football, and UFC Fight Night.',
     tvgId: 'ESPN.us',
     matchPhrases: ['espn', 'espn hd', 'espn us', 'espn usa'],
-    excludePhrases: ['espn2', 'espn 2', 'espnews', 'espn news', 'espnu', 'espn u', 'espn plus', 'espn deportes'],
-    excludeRawRegexes: [/\bespn\+/i],
+    excludePhrases: [
+      'espn2',
+      'espn 2',
+      'espn 3',
+      'espn3',
+      'espn 4',
+      'espn4',
+      'espn 5',
+      'espn5',
+      'espn 6',
+      'espn6',
+      'espn 7',
+      'espn7',
+      'espn extra',
+      'espn premium',
+      'espn8',
+      'the ocho',
+      'espnews',
+      'espn news',
+      'espnu',
+      'espn u',
+      'espn plus',
+      'espn deportes',
+    ],
+    excludeRawRegexes: [/\bespn\+/i, /\bespn\s*[3-8]\b/i],
     accent: '#EF4444',
   },
   {
@@ -1051,8 +1074,12 @@ function isForeignNonEnglishFeed(ch: Channel, defId: string): boolean {
   return false;
 }
 
+const DEAD_OR_INVALID_STREAM_URL_RE =
+  /\/\/(?:41\.205\.93\.154|23\.237\.104\.106|tvsen7\.aynascope\.net|tvsen5\.aynascope\.net|89\.187\.179\.148|212\.5\.144\.156|198\.58\.104\.90|barinaslive1\.boldmss\.com|bantel-cdn1\.iptvperu\.tv|lb\.iptvnetwork\.net|cache0\.wonvt\.st|200\.32\.231\.178|168\.228\.44\.241:9998|158\.172\.155\.130|190\.83\.2\.182|38\.211\.118\.56|103\.253\.74\.210|comedydynamics-plex-ingest\.cinedigm\.com)\b|\/slate\/|1a352414-3a30-4f42-b14b-c091d02a5e45|8d1f164d-34ef-4f70-b948-ae33826a0aaa|tvsen6\.aynaott\.com\/foxnews\/|\.mpd(?:\?|$)/i;
+
 function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number {
   if (!ch.url || !ch.url.trim()) return 0;
+  if (DEAD_OR_INVALID_STREAM_URL_RE.test(ch.url)) return 0;
   if (isForeignNonEnglishFeed(ch, def.id)) return 0;
 
   const rawName = (ch.name || '').trim();
@@ -1124,14 +1151,20 @@ function scoreChannelAgainstDef(def: RecommendedChannelDef, ch: Channel): number
     score -= 35;
   }
 
-  // Prioritize reliable HTTPS CDN / FAST hosts over raw IP HTTP relays or dead hosts
+  // Prioritize verified HTTPS live CDNs ahead of rate-limited or raw HTTP relays
   const streamUrlLower = ch.url.toLowerCase();
   if (
-    /\/\/(?:41\.205\.93\.154|tvsen7\.aynascope\.net|cache0\.wonvt\.st)\b/.test(streamUrlLower)
+    /(?:tvsen6\.aynaott\.com|content\.uplynk\.com|live\.field59\.com)/.test(
+      streamUrlLower
+    )
   ) {
-    score -= 150;
+    score += 75;
+  } else if (/epg\.provider\.plex\.tv/.test(streamUrlLower)) {
+    score -= 25;
+  } else if (/(?:amg01942-amg01942c6|kirobreaking-ono|fox4dallaskdfw)/.test(streamUrlLower)) {
+    score -= 45;
   } else if (
-    /(?:amagi\.tv|wurl\.tv|akamaized\.net|warnermediacdn\.com|pluto\.tv|jmp2\.uk|plex\.tv|cloudfront\.net|tubi\.video|uplynk\.com)/.test(
+    /(?:amagi\.tv|wurl\.tv|akamaized\.net|warnermediacdn\.com|pluto\.tv|jmp2\.uk|cloudfront\.net|tubi\.video|uplynk\.com)/.test(
       streamUrlLower
     )
   ) {

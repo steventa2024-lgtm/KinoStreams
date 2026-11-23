@@ -21,7 +21,12 @@ const CORS_RESTRICTED_HLS_HOSTS = [
   'jmp2.uk',
   'pluto.tv',
   'nhl-firetv.amagi.tv',
-  'tvsen6.aynaott.com',
+  'epg.provider.plex.tv',
+  'd4whmvwm0rdvi.cloudfront.net',
+  'd368vp0qqzvkid.cloudfront.net',
+  'lds-timeline-rakuten.amagi.tv',
+  'fast.nbcuni.com',
+  'mediatailor.us-east-1.amazonaws.com',
 ];
 
 /**
@@ -35,11 +40,9 @@ export function shouldProxyStreamUrl(
   if (explicitProxy) return true;
   if (!rawUrl) return false;
 
-  if (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    rawUrl.startsWith('http://')
-  ) {
+  // Always proxy external plain-HTTP streams from initial render (including SSR)
+  // so HTTPS browsers never trigger Mixed Content failures before hydration.
+  if (/^http:\/\/(?!127\.0\.0\.1\b|localhost\b|\[::1\])/i.test(rawUrl)) {
     return true;
   }
 

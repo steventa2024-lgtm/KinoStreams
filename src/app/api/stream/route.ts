@@ -79,6 +79,8 @@ const DIRECT_CORS_SEGMENT_HOSTS = [
   'tubi.video',
   'mux.dev',
   'playouts.now.amagi.tv',
+  'tvsen6.aynaott.com',
+  'live.field59.com',
 ];
 
 const DIRECT_SEGMENT_EXTS = ['.ts', '.m4s', '.m4a', '.aac', '.mp4', '.vtt'];
@@ -261,7 +263,7 @@ export async function GET(request: NextRequest) {
       validatedUrl.toString(),
       {
         headers: upstreamHeaders,
-        timeoutMs: 12_000,
+        timeoutMs: 15_000,
       }
     );
 

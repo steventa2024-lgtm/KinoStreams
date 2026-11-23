@@ -693,11 +693,11 @@ export function VideoPlayer({
     return () => clearTimeout(t);
   }, [failoverToast]);
 
-  // Balanced health/readiness timeout so slow cold CDNs or embeds never hop prematurely mid-load
+  // Balanced health/readiness timeout so slow cold CDNs, proxied live feeds, or embeds never hop prematurely mid-load
   useEffect(() => {
     if (!activeSource || sourceReady || errorMsg) return;
     const timeoutMs =
-      mediaType === 'sports' || isLive ? 10_000 : isAnime ? 11_000 : 12_000;
+      mediaType === 'sports' || isLive ? 15_000 : isAnime ? 11_000 : 12_000;
     const timer = setTimeout(() => {
       if (!sourceReady) {
         const switched = failoverToNextSource();
@@ -869,6 +869,8 @@ export function VideoPlayer({
         enableWorker: true,
         lowLatencyMode: isLive,
         backBufferLength: isLive ? 30 : 90,
+        manifestLoadingTimeOut: 15_000,
+        fragLoadingTimeOut: 20_000,
       });
       hlsRef.current = hls;
       hls.loadSource(playbackUrl);
