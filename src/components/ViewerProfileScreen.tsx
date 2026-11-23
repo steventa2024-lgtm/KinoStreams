@@ -52,13 +52,16 @@ function ViewerProfileScreen() {
   const [screen, setScreen] = useState<Screen>('choose');
   const [managing, setManaging] = useState(false);
   const [draft, setDraft] = useState<Draft>({ id: null, name: '', avatarId: DEFAULT_PROFILE_AVATAR_ID });
+  const [avatarCollection, setAvatarCollection] = useState<string>('all');
   const [error, setError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const collectionListRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const nameId = useId();
   const errorId = useId();
+  const avatarResultsId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -81,6 +84,18 @@ function ViewerProfileScreen() {
     dialogRef.current?.scrollTo({ top: 0 });
   }, [screen, managing]);
 
+  useEffect(() => {
+    if (screen !== 'avatars') return;
+    const list = collectionListRef.current;
+    const selected = list?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!list || !selected) return;
+    // Keep the active collection visible in the compact mobile chip rail.
+    if (selected.offsetLeft < list.scrollLeft) list.scrollLeft = selected.offsetLeft;
+    else if (selected.offsetLeft + selected.offsetWidth > list.scrollLeft + list.clientWidth) {
+      list.scrollLeft = selected.offsetLeft + selected.offsetWidth - list.clientWidth;
+    }
+  }, [screen, avatarCollection]);
+
   const goBack = () => {
     setError(null);
     if (screen === 'avatars' || screen === 'delete') setScreen('edit');
@@ -93,6 +108,12 @@ function ViewerProfileScreen() {
     setDraft(profile ? { ...profile } : { id: null, name: '', avatarId: DEFAULT_PROFILE_AVATAR_ID });
     setError(null);
     setScreen('edit');
+  };
+
+  const openAvatarPicker = () => {
+    setAvatarCollection(getProfileAvatar(draft.avatarId).collection);
+    setError(null);
+    setScreen('avatars');
   };
 
   const saveProfile = (event: FormEvent<HTMLFormElement>) => {
@@ -125,6 +146,8 @@ function ViewerProfileScreen() {
     : managing ? 'Manage profiles.' : 'Who’s watching?';
 
   const collections = [...new Set(PROFILE_AVATARS.map((avatar) => avatar.collection))];
+  const visibleCollections = collections.filter((collection) => avatarCollection === 'all' || collection === avatarCollection);
+  const visibleAvatarCount = PROFILE_AVATARS.filter((avatar) => avatarCollection === 'all' || avatar.collection === avatarCollection).length;
 
   return (
     <dialog
@@ -168,7 +191,7 @@ function ViewerProfileScreen() {
           <p className="kino-profiles__subtitle">
             {screen === 'choose' ? managing ? 'Select a profile to change its name or avatar.' : 'Choose a profile. Find your next favorite.'
               : screen === 'edit' ? 'Give your profile a name and a familiar face.'
-              : screen === 'avatars' ? 'A familiar face for your next great watch.'
+              : screen === 'avatars' ? `${PROFILE_AVATARS.length} characters. Find a familiar face for your next great watch.`
               : `“${draft.name}” will be removed from this device.`}
           </p>
         </div>
@@ -188,7 +211,7 @@ function ViewerProfileScreen() {
                   <span className="kino-profile-tile__image">
                     <ProfileAvatar avatarId={profile.avatarId} />
                     {managing ? (
-                      <span className="kino-profile-tile__edit"><Pencil size={24} aria-hidden="true" /></span>
+                      <span className="kino-profile-tile__edit"><Pencil size={16} aria-hidden="true" /></span>
                     ) : activeProfile?.id === profile.id ? (
                       <span className="kino-profile-tile__current" aria-label="Current profile"><Check size={13} aria-hidden="true" /></span>
                     ) : null}
@@ -213,7 +236,7 @@ function ViewerProfileScreen() {
         {screen === 'edit' && (
           <form className="kino-profile-editor" onSubmit={saveProfile} noValidate>
             <div className="kino-profile-editor__fields">
-              <button type="button" className="kino-profile-editor__avatar" onClick={() => { setScreen('avatars'); setError(null); }} aria-label="Choose an avatar">
+              <button type="button" className="kino-profile-editor__avatar" onClick={openAvatarPicker} aria-label="Choose an avatar">
                 <ProfileAvatar avatarId={draft.avatarId} alt={getProfileAvatar(draft.avatarId).name} />
                 <span className="kino-profile-editor__pencil"><Pencil size={15} aria-hidden="true" /></span>
               </button>
@@ -232,7 +255,7 @@ function ViewerProfileScreen() {
                   aria-invalid={Boolean(error)}
                   aria-describedby={error ? errorId : undefined}
                 />
-                <button type="button" className="kino-profile-editor__change" onClick={() => { setScreen('avatars'); setError(null); }}>
+                <button type="button" className="kino-profile-editor__change" onClick={openAvatarPicker}>
                   Choose a different avatar<ChevronRight size={13} aria-hidden="true" />
                 </button>
               </div>
@@ -251,19 +274,49 @@ function ViewerProfileScreen() {
 
         {screen === 'avatars' && (
           <div className="kino-avatar-catalog">
-            {collections.map((collection) => (
-              <section className="kino-avatar-catalog__section" key={collection} aria-label={collection}>
-                <h2>{collection}</h2>
-                <div className="kino-avatar-catalog__grid">
-                  {PROFILE_AVATARS.filter((avatar) => avatar.collection === collection).map((avatar) => (
-                    <button type="button" className={`kino-avatar-option${draft.avatarId === avatar.id ? ' is-selected' : ''}`} key={avatar.id} aria-label={`Choose ${avatar.name} avatar`} aria-pressed={draft.avatarId === avatar.id} onClick={() => { setDraft({ ...draft, avatarId: avatar.id }); setScreen('edit'); }}>
-                      <span className="kino-avatar-option__art"><ProfileAvatar avatarId={avatar.id} />{draft.avatarId === avatar.id && <span className="kino-avatar-option__check"><Check size={14} aria-hidden="true" /></span>}</span>
-                      <span className="kino-avatar-option__name">{avatar.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
+            <div className="kino-avatar-catalog__toolbar">
+              <div ref={collectionListRef} className="kino-avatar-collections" role="group" aria-label="Avatar collections">
+                <button
+                  type="button"
+                  className={`kino-avatar-collection${avatarCollection === 'all' ? ' is-active' : ''}`}
+                  aria-label={`All collections, ${PROFILE_AVATARS.length} characters`}
+                  aria-pressed={avatarCollection === 'all'}
+                  aria-controls={avatarResultsId}
+                  onClick={() => setAvatarCollection('all')}
+                >
+                  All<span aria-hidden="true">{PROFILE_AVATARS.length}</span>
+                </button>
+                {collections.map((collection) => (
+                  <button
+                    type="button"
+                    key={collection}
+                    className={`kino-avatar-collection${avatarCollection === collection ? ' is-active' : ''}`}
+                    aria-label={`${collection}, ${PROFILE_AVATARS.filter((avatar) => avatar.collection === collection).length} characters`}
+                    aria-pressed={avatarCollection === collection}
+                    aria-controls={avatarResultsId}
+                    onClick={() => setAvatarCollection(collection)}
+                  >
+                    {collection}<span aria-hidden="true">{PROFILE_AVATARS.filter((avatar) => avatar.collection === collection).length}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="kino-avatar-catalog__count" role="status">Showing {visibleAvatarCount} characters</p>
+            </div>
+            <div id={avatarResultsId} className="kino-avatar-catalog__results">
+              {visibleCollections.map((collection) => (
+                <section className="kino-avatar-catalog__section" key={collection} aria-label={collection}>
+                  <h2>{collection}</h2>
+                  <div className="kino-avatar-catalog__grid">
+                    {PROFILE_AVATARS.filter((avatar) => avatar.collection === collection).map((avatar) => (
+                      <button type="button" className={`kino-avatar-option${draft.avatarId === avatar.id ? ' is-selected' : ''}`} key={avatar.id} aria-label={`Choose ${avatar.name} avatar`} aria-pressed={draft.avatarId === avatar.id} onClick={() => { setDraft({ ...draft, avatarId: avatar.id }); setScreen('edit'); }}>
+                        <span className="kino-avatar-option__art"><ProfileAvatar avatarId={avatar.id} loading="lazy" />{draft.avatarId === avatar.id && <span className="kino-avatar-option__check"><Check size={14} aria-hidden="true" /></span>}</span>
+                        <span className="kino-avatar-option__name">{avatar.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
         )}
 

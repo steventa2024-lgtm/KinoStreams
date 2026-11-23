@@ -5,10 +5,11 @@ import { Film } from 'lucide-react';
 import { getProfileAvatar } from '@/lib/profile-avatars';
 import { cn } from '@/lib/utils';
 
-export function ProfileAvatar({ avatarId, alt = '', className }: {
+export function ProfileAvatar({ avatarId, alt = '', className, loading = 'eager' }: {
   avatarId: string;
   alt?: string;
   className?: string;
+  loading?: 'eager' | 'lazy';
 }) {
   const avatar = getProfileAvatar(avatarId);
   const [failedId, setFailedId] = useState<string | null>(null);
@@ -26,6 +27,7 @@ export function ProfileAvatar({ avatarId, alt = '', className }: {
           width={200}
           height={200}
           draggable={false}
+          loading={loading}
           decoding="async"
           style={{ objectPosition: avatar.position || 'center' }}
           onError={() => setFailedId(avatar.id)}
