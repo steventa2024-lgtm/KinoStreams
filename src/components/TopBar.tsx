@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft, Search, Settings } from 'lucide-react';
 import { useKino } from '@/components/KinoProvider';
+import { ProfileSwitcher } from '@/components/ProfileSwitcher';
 import { siteConfig } from '@/config/site';
 import { stopGlobalPlayback } from '@/lib/playback-cleanup';
 import { cn } from '@/lib/utils';
@@ -110,6 +111,7 @@ export function TopBar({
           <button type="button" onClick={openSources} className="kino-settings" aria-label="Sources & Settings" title="Manage Playlists & Sources">
             <Settings size={16} aria-hidden="true" />
           </button>
+          <ProfileSwitcher />
         </div>
       </div>
     </header>

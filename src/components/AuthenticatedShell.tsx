@@ -9,6 +9,8 @@ import { KinoProvider } from '@/components/KinoProvider';
 import { MediaDetailsProvider } from '@/components/MediaDetails';
 import { SearchOverlay } from '@/components/SearchOverlay';
 import { SourceManagerModal } from '@/components/SourceManagerModal';
+import { ViewerProfilesProvider } from '@/components/ViewerProfilesProvider';
+import { ViewerProfileGate } from '@/components/ViewerProfileScreen';
 import { setActiveUserScope } from '@/lib/storage';
 
 export function AuthenticatedShell({ children }: { children: React.ReactNode }) {
@@ -28,6 +30,8 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
+    <ViewerProfilesProvider key={user?.email || 'anon'}>
+    <ViewerProfileGate>
     <KinoProvider key={user?.email || 'anon'}>
       <MediaDetailsProvider>
       <div className="kino-shell flex min-h-screen flex-col pb-20 md:pb-4">
@@ -40,5 +44,7 @@ export function AuthenticatedShell({ children }: { children: React.ReactNode }) 
       <SourceManagerModal />
       </MediaDetailsProvider>
     </KinoProvider>
+    </ViewerProfileGate>
+    </ViewerProfilesProvider>
   );
 }
